@@ -1,0 +1,8 @@
+# Dependências do projeto — Plataforma de Agentes v0.1
+#
+# Instalar com: pip install -r requirements.txt
+#
+# Esta versão usa apenas bibliotecas mínimas.
+# Todas as fontes de dados são públicas e gratuitas (sem chave de API necessária).
+
+requests==2.32.3
