@@ -1,4 +1,4 @@
-# Plataforma de Agentes — v0.3
+# Plataforma de Agentes — v0.4
 
 Agente de prospecção que encontra empresas com oportunidade de melhoria digital
 em São José do Rio Preto, usando dados públicos e gratuitos do OpenStreetMap.
@@ -12,7 +12,8 @@ em São José do Rio Preto, usando dados públicos e gratuitos do OpenStreetMap.
 3. Calcula dois scores: presença digital e prontidão para abordagem comercial
 4. Classifica cada empresa comercialmente
 5. Avalia se há canal prático de contato disponível
-6. Salva os resultados em 4 arquivos JSON organizados por utilidade
+6. Gera pacote de abordagem pronto por empresa: mensagens, orientações e tom recomendado
+7. Salva os resultados em 5 arquivos JSON organizados por utilidade
 
 **Custo:** zero. Usa apenas APIs públicas e gratuitas (OpenStreetMap, Nominatim, Overpass).
 
@@ -34,7 +35,7 @@ python main.py
 
 ## Arquivos de saída
 
-Cada execução gera 4 arquivos em `dados/` com timestamp. A lógica de cada um é:
+Cada execução gera 5 arquivos em `dados/` com timestamp. A lógica de cada um é:
 
 | Arquivo | O que contém | Para que serve |
 |---|---|---|
@@ -42,12 +43,14 @@ Cada execução gera 4 arquivos em `dados/` com timestamp. A lógica de cada um 
 | `candidatas_brutas.json` | Todas exceto `pouco_util` (têm nome identificado) | Revisão manual sem filtro de abordagem |
 | `candidatas_priorizadas.json` | `semi_digital` + `analogica`, ordenadas por prioridade | Lista de trabalho principal |
 | `candidatas_abordaveis.json` | Não `pouco_util` + têm canal direto de contato | Ação imediata — quem pode ser contatado agora |
+| `candidatas_com_abordagem.json` | Abordáveis + pacote de mensagens e orientações prontas | **Arquivo de uso direto** — abrir, ler e ligar/enviar |
 
 ### O que cada arquivo exclui
 
 - `candidatas_brutas` exclui: `pouco_util` (sem nome = sem como abordar)
 - `candidatas_priorizadas` exclui: `pouco_util` + `digital_basica` (pouco oportunidade)
 - `candidatas_abordaveis` exclui: `pouco_util` + empresas sem telefone ou e-mail identificado
+- `candidatas_com_abordagem` é o mesmo conjunto de `candidatas_abordaveis`, com campos de abordagem adicionados
 
 ---
 
@@ -132,6 +135,27 @@ Verificada em duas fontes já disponíveis, sem scraping e sem API paga:
 
 ---
 
+## Pacote de abordagem (`candidatas_com_abordagem.json`)
+
+Cada empresa no arquivo final recebe campos prontos para uso direto:
+
+| Campo | Descrição |
+|---|---|
+| `resumo_empresa` | Resumo objetivo com nome, categoria e sinais identificados |
+| `oportunidade_principal` | Oportunidade comercial específica da categoria |
+| `motivo_abordagem` | Por que esta empresa é um bom alvo agora |
+| `canal_abordagem_recomendado` | Canal sugerido: `telefone` ou `email` |
+| `mensagem_inicial_curta` | Telefone: abertura de conversa (20-35 palavras) / E-mail: assunto |
+| `mensagem_inicial_media` | Telefone: script completo / E-mail: corpo do e-mail |
+| `followup_curto` | Mensagem de follow-up caso não haja resposta |
+| `observacoes_abordagem` | Dicas práticas para quem vai fazer o contato |
+| `risco_abordagem` | Riscos identificados com os dados disponíveis |
+| `tom_recomendado` | Tom sugerido adaptado ao canal e perfil da empresa |
+
+**Regras de tom:** profissional, direto, sem buzzwords. Nada de "IA revolucionária" ou "transformação digital". Foco no problema concreto do negócio (ex: "clientes esquecem horário", "orçamento demora a sair").
+
+---
+
 ## Configuração
 
 Edite `config.py` para ajustar:
@@ -154,6 +178,7 @@ python tests/test_priorizador.py
 python tests/test_abordabilidade.py
 python tests/test_persistencia.py
 python tests/test_buscador.py
+python tests/test_abordagem.py
 ```
 
 ---
@@ -167,6 +192,7 @@ agents/prospeccao/
   priorizador.py        score_prontidao_ia, classificacao_comercial
   abordabilidade.py     abordavel_agora, canal_abordagem_sugerido
   diagnosticador.py     Texto de diagnóstico por empresa
+  abordagem.py          Pacote de abordagem: mensagens e orientações por empresa
 
 conectores/
   overpass.py           Conector OpenStreetMap (substituível)
@@ -178,7 +204,7 @@ core/
 docs/
   heuristicas.md        Documentação das regras de análise
 
-tests/                  Testes automatizados (35 casos)
+tests/                  Testes automatizados (45 casos)
 config.py               Configuração centralizada
 main.py                 Ponto de entrada
 ```
