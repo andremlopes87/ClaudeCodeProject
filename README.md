@@ -1,4 +1,4 @@
-# Plataforma de Agentes — v0.7
+# Plataforma de Agentes — v0.8
 
 Agente de prospecção que encontra empresas com oportunidade de melhoria digital
 em São José do Rio Preto, usando dados públicos e gratuitos do OpenStreetMap.
@@ -16,7 +16,8 @@ em São José do Rio Preto, usando dados públicos e gratuitos do OpenStreetMap.
 7. Mantém histórico acumulado entre execuções, detecta mudanças e atualiza fila de revisão
 8. **Analisa a presença digital real** das empresas com website: verifica se o site responde, identifica telefone, WhatsApp, Instagram, Facebook, CTA e HTTPS no HTML público
 9. **Enriquece canais digitais** de todas as empresas: consolida website, Instagram, Facebook, WhatsApp, e-mail e telefone com origem e confiança explícitas por canal
-10. Salva os resultados em 6 arquivos por execução + 5 arquivos persistentes
+10. **Consolida presença digital** em visão comercial: classifica a oportunidade, identifica o gargalo principal e gera solução recomendada por categoria
+11. Salva os resultados em 7 arquivos por execução + 5 arquivos persistentes
 
 **Custo:** zero. Usa apenas APIs públicas e gratuitas (OpenStreetMap, Nominatim, Overpass, HTTP direto).
 
@@ -48,6 +49,7 @@ Cada execução gera 6 arquivos em `dados/` com timestamp. A lógica de cada um 
 | `candidatas_abordaveis.json` | Não `pouco_util` + têm canal direto de contato | Ação imediata — quem pode ser contatado agora |
 | `candidatas_com_abordagem.json` | Abordáveis + pacote de mensagens e orientações prontas | **Arquivo de uso direto** — abrir, ler e ligar/enviar |
 | `candidatas_com_diagnostico_web.json` | Empresas com website + análise completa de presença digital | Auditoria de sites e diagnóstico web |
+| `candidatas_com_presenca_consolidada.json` | Todas as empresas com presença digital consolidada (score, classificação, solução) | Histórico por execução da linha de presença |
 
 ### Arquivos persistentes (nome fixo — sobrescritos a cada execução)
 
@@ -67,6 +69,7 @@ Cada execução gera 6 arquivos em `dados/` com timestamp. A lógica de cada um 
 | `prospeccao_resumo_execucao.json` | Estatísticas e mudanças detectadas nesta execução | Auditoria e acompanhamento de evolução |
 | `fila_oportunidades_presenca.json` | Empresas com site acessível + presença digital fraca/básica | Oportunidades de melhoria de marketing digital |
 | `candidatas_com_canais_digitais.json` | Empresas com ao menos um canal digital identificado, com origem e confiança | Base de dados de canais — fonte para abordagem e proposta |
+| `fila_oportunidades_marketing.json` | Oportunidades alta/media de presença digital, ordenadas por prioridade | **Fila de ação comercial da linha de presença** |
 
 ---
 
@@ -290,6 +293,7 @@ python tests/core/test_persistencia.py
 python tests/presenca_digital/test_analisador_web.py
 python tests/presenca_digital/test_diagnosticador_presenca.py
 python tests/presenca_digital/test_enriquecedor_canais.py
+python tests/presenca_digital/test_consolidador_presenca.py
 ```
 
 ---
@@ -311,6 +315,7 @@ modulos/
     analisador_web.py       Verificação HTTP, extração de sinais e valores do HTML (HEAD → GET)
     diagnosticador_presenca.py  score_presenca_web, classificacao_presenca_web, diagnóstico e oportunidade
     enriquecedor_canais.py  Consolidação de canais digitais: valor + origem + confiança por canal
+    consolidador_presenca.py  Visão comercial unificada: score, classificação, gargalo, solução
 
 conectores/
   overpass.py               Conector OpenStreetMap (substituível)
@@ -327,12 +332,37 @@ docs/
 
 tests/
   prospeccao_operacional/   Testes da linha de prospecção (60 casos)
-  presenca_digital/         Testes do módulo de presença digital (65 casos)
+  presenca_digital/         Testes do módulo de presença digital (94 casos)
   core/                     Testes do núcleo (5 casos)
 
 config.py                   Configuração centralizada
 main.py                     Ponto de entrada
 ```
+
+---
+
+## Consolidação comercial de presença (`consolidador_presenca.py`)
+
+Fecha a linha de presença digital com uma visão comercial única por empresa.
+
+### Classificação comercial de presença
+
+| Classificação | Quando | Prioridade |
+|---|---|---|
+| `oportunidade_alta_presenca` | Tem contato direto + presença fraca/básica + score ≥ 25 | Alta |
+| `oportunidade_media_presenca` | Tem canais mas perfil incompleto | Média |
+| `oportunidade_baixa_presenca` | Canais identificados mas lacuna pequena | Baixa |
+| `pouca_utilidade_presenca` | Sem identificação ou sem canais | Nula |
+
+### Campos gerados
+
+`score_presenca_consolidado`, `classificacao_presenca_comercial`, `pronta_para_oferta_presenca`, `principal_gargalo_presenca`, `oportunidade_presenca_principal`, `solucao_recomendada_presenca`, `prioridade_oferta_presenca`, `motivo_prioridade_presenca`
+
+### `fila_oportunidades_marketing.json`
+
+Empresas `oportunidade_alta` e `oportunidade_media`, ordenadas por prioridade → score → prontidão comercial. Arquivo fixo (sobrescrito a cada execução).
+
+Para detalhes completos: [docs/presenca_digital/heuristicas.md](docs/presenca_digital/heuristicas.md)
 
 ---
 

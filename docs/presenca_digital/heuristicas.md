@@ -213,3 +213,92 @@ Tentativa controlada de buscar canais adicionais em subpáginas simples.
 - **Subpáginas não garantidas:** o caminho `/contato` pode não existir ou ter conteúdo diferente do esperado.
 - **Sem validação de canal:** um telefone `alta` do OSM pode estar desatualizado — o sistema não verifica se o número está ativo.
 - **WhatsApp sem número isolado:** a URL `wa.me/NUMERO` é capturada, mas o número não é normalizado.
+
+---
+
+## Módulo de consolidação comercial (`consolidador_presenca.py`)
+
+Unifica todos os sinais de presença digital em uma visão comercial única por empresa. Transforma dados brutos em oportunidade classificada, com solução específica e prioridade de oferta.
+
+### O que é presença consolidada
+
+É a fusão de:
+- dados OSM (telefone, email, website, instagram)
+- análise do website (score_presenca_web, site acessível, CTA)
+- canais enriquecidos (confianca_*, *_confirmado)
+
+...em campos comercialmente úteis: score, classificação, gargalo, oportunidade, solução.
+
+### Score de presença consolidado (`score_presenca_consolidado`, 0-100)
+
+Mede a qualidade do perfil digital como base para proposta comercial — quanto sabemos sobre a empresa e como isso sustenta uma oferta.
+
+| Componente | Peso máximo |
+|---|---|
+| Empresa identificável (não `pouco_util`) | 15 |
+| Website confirmado (alta=15, media=10, baixa=4) | 15 |
+| Telefone confirmado (alta=12, media=8, baixa=4) | 12 |
+| WhatsApp confirmado (media=8, baixa=4) | 12 |
+| E-mail confirmado (alta=10, media=7, baixa=3) | 10 |
+| Instagram confirmado (alta=8, media=6, baixa=2) | 8 |
+| Facebook confirmado (media=4, baixa=2) | 5 |
+| Site acessível | 8 |
+| Qualidade da presença web (score_presenca_web / 100 × 15) | 15 |
+| **Total** | **100** |
+
+### Classificação comercial de presença
+
+| Classificação | Quando se aplica | Prioridade |
+|---|---|---|
+| `oportunidade_alta_presenca` | Empresa identificável + canal de contato confirmado + presença fraca/básica ou sem website + score ≥ 25 | Alta |
+| `oportunidade_media_presenca` | Empresa com canais parcialmente identificados mas perfil incompleto + score ≥ 20 | Média |
+| `oportunidade_baixa_presenca` | Empresa com canais mas presença boa ou lacuna pequena | Baixa |
+| `pouca_utilidade_presenca` | Empresa não identificável (`pouco_util`) ou sem canais digitais + score < 15 | Nula |
+
+**Regra principal:** para ser `oportunidade_alta`, a empresa precisa ter um canal de contato direto confirmado (telefone ou e-mail com confiança `alta` ou `media`) — sem isso, não é possível sustentar uma proposta comercial ativa.
+
+### Gap principal e solução
+
+O gap é detectado em ordem de prioridade:
+
+| Gap | Gargalo | Solução base |
+|---|---|---|
+| `dados_insuficientes` | Empresa sem identificação | Pesquisa e mapeamento |
+| `sem_canais` | Sem canais digitais identificados | Criação de perfil básico |
+| `sem_website` | Sem website próprio | Landing page por categoria |
+| `site_inacessivel` | Site não responde | Recuperação e monitoramento |
+| `sem_whatsapp` | Sem WhatsApp no site | Botão WhatsApp integrado |
+| `sem_cta` | Site sem chamada para ação | Botões de conversão |
+| `sem_email` | Sem e-mail público | E-mail profissional + formulário |
+| `sem_https` | Site sem HTTPS | Migração SSL |
+| `sem_instagram` | Sem Instagram | Criação e gestão de perfil |
+| `sem_facebook` | Sem Facebook | Página integrada ao site |
+| `presenca_estruturada` | Tudo razoavelmente presente | SEO local |
+
+A solução recomendada (`solucao_recomendada_presenca`) é adaptada à categoria da empresa (barbearia, oficina, padaria, etc.).
+
+### Campos gerados por empresa
+
+| Campo | Tipo | Descrição |
+|---|---|---|
+| `score_presenca_consolidado` | int | Score 0-100 |
+| `classificacao_presenca_comercial` | str | Nível de oportunidade |
+| `pronta_para_oferta_presenca` | bool | Tem canal e classificação favorável para proposta |
+| `principal_gargalo_presenca` | str | Texto do gargalo principal |
+| `oportunidade_presenca_principal` | str | O que pode ser melhorado/vendido |
+| `solucao_recomendada_presenca` | str | Solução específica por categoria |
+| `prioridade_oferta_presenca` | str | alta / media / baixa / nula |
+| `motivo_prioridade_presenca` | str | Por que esta prioridade |
+
+### `fila_oportunidades_marketing.json`
+
+Arquivo fixo (sobrescrito a cada execução) com empresas `oportunidade_alta_presenca` e `oportunidade_media_presenca`.
+
+Ordenação:
+1. `prioridade_oferta_presenca` (alta → media)
+2. `score_presenca_consolidado` decrescente
+3. `score_prontidao_ia` decrescente
+
+### `candidatas_com_presenca_consolidada.json`
+
+Arquivo timestamped (por execução) com todas as empresas após consolidação — incluindo todos os campos de todas as etapas. Serve como base de histórico da linha de presença digital.
