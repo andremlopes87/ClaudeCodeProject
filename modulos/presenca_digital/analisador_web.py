@@ -88,26 +88,43 @@ class _SiteParser(HTMLParser):
         self.tem_cta = False
         self._in_link_or_button = False
         self._accumulated_text: list = []
+        # Valores reais extraídos (primeiro encontrado de cada tipo)
+        self.valor_tel = None
+        self.valor_email = None
+        self.valor_whatsapp = None
+        self.valor_instagram = None
+        self.valor_facebook = None
 
     def handle_starttag(self, tag: str, attrs: list) -> None:
         attrs_dict = dict(attrs)
-        href = (attrs_dict.get("href") or "").lower().strip()
+        href_original = (attrs_dict.get("href") or "").strip()
+        href = href_original.lower()
 
         if tag == "a":
             self._in_link_or_button = True
-            # Sinais em href
+            # Sinais em href + captura de valores reais
             if href.startswith("tel:"):
                 self.tem_telefone = True
+                if not self.valor_tel:
+                    self.valor_tel = href_original[4:].strip()
             if href.startswith("mailto:"):
                 self.tem_email = True
+                if not self.valor_email:
+                    self.valor_email = href_original[7:].split("?")[0].strip()
             if "wa.me" in href or "api.whatsapp.com" in href or (
                 "whatsapp.com" in href and "send" in href
             ):
                 self.tem_whatsapp = True
+                if not self.valor_whatsapp:
+                    self.valor_whatsapp = href_original
             if "instagram.com" in href:
                 self.tem_instagram = True
+                if not self.valor_instagram:
+                    self.valor_instagram = href_original
             if "facebook.com" in href:
                 self.tem_facebook = True
+                if not self.valor_facebook:
+                    self.valor_facebook = href_original
             # CTA via href
             if any(kw in href for kw in _CTA_HREF_CHAVES):
                 self.tem_cta = True
@@ -228,6 +245,12 @@ def _extrair_sinais_html(html: str) -> dict:
         "tem_instagram_no_site": parser.tem_instagram,
         "tem_facebook_no_site": parser.tem_facebook,
         "tem_cta_clara": parser.tem_cta,
+        # Valores reais extraídos — usados pelo enriquecedor_canais
+        "_val_tel_site": parser.valor_tel,
+        "_val_email_site": parser.valor_email,
+        "_val_whatsapp_site": parser.valor_whatsapp,
+        "_val_instagram_site": parser.valor_instagram,
+        "_val_facebook_site": parser.valor_facebook,
     }
 
 

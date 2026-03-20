@@ -136,6 +136,7 @@ Parser: `html.parser` (biblioteca padrão do Python).
 |---|---|
 | `candidatas_com_diagnostico_web.json` | Todas as empresas com website registrado, com análise completa de presença web |
 | `fila_oportunidades_presenca.json` | Empresas com site acessível + presença fraca/básica/razoável + utilidade comercial, ordenadas por oportunidade |
+| `candidatas_com_canais_digitais.json` | Todas as empresas com ao menos um canal digital identificado (qualquer confiança) |
 
 ### Critérios da fila de oportunidades de presença
 
@@ -145,3 +146,70 @@ Ordenação:
 1. `classificacao_presenca_web` (fraca → básica → razoável)
 2. `score_presenca_web` crescente (menos estruturado primeiro)
 3. `score_prontidao_ia` decrescente (mais prioritária comercialmente)
+
+---
+
+## Módulo de enriquecimento de canais (`enriquecedor_canais.py`)
+
+Consolida os principais canais digitais de cada empresa a partir de múltiplas fontes, produzindo para cada canal: valor confirmado, origem do dado e nível de confiança.
+
+### O que é canal confirmado
+
+Um canal é confirmado quando foi identificado em pelo menos uma fonte confiável. O valor pode ser concreto (URL, número, e-mail) ou `null` quando há sinal de presença mas sem valor extraível (ex: link para Instagram detectado no HTML sem URL capturada).
+
+### O que é origem do dado
+
+| Origem | Significado |
+|---|---|
+| `osm` | Campo direto do OpenStreetMap (website, telefone, email, instagram tag) |
+| `osm_verificado` | Campo OSM + site confirmado como acessível via HTTP |
+| `website_osm` | Campo website OSM que aponta para a rede social (ex: instagram.com) |
+| `html_website` | Valor extraído do HTML da homepage do site |
+| `html_contato` | Valor extraído do HTML da subpágina /contato ou /contact |
+| `html_sinal` | Link detectado no HTML mas sem URL/valor capturável |
+| `nao_identificado` | Nenhuma fonte encontrou este canal |
+
+### O que é confiança do dado
+
+| Confiança | Quando se aplica |
+|---|---|
+| `alta` | Campo OSM explícito (registrado publicamente) ou website OSM + site acessível |
+| `media` | Valor real extraído do HTML (URL, número, e-mail via href) |
+| `baixa` | Sinal booleano detectado (link presente) sem valor extraível |
+| `nao_identificado` | Canal não encontrado em nenhuma fonte |
+
+### Canais tratados
+
+website, instagram, facebook, whatsapp, email, telefone
+
+### Fontes por canal (em ordem de prioridade)
+
+**website:** OSM campo + acessível (alta) → OSM campo sem verificação (media)
+
+**instagram:** tag OSM (alta) → website OSM é instagram.com (alta) → URL no HTML (media) → URL na subpágina /contato (media) → sinal booleano (baixa)
+
+**facebook:** URL no HTML (media) → URL na subpágina /contato (media) → sinal booleano (baixa)
+
+**whatsapp:** URL wa.me no HTML (media) → URL na subpágina /contato (media) → sinal booleano (baixa)
+
+**email:** campo OSM (alta) → valor href mailto: no HTML (media) → valor na subpágina /contato (media) → sinal booleano (baixa)
+
+**telefone:** campo OSM (alta) → valor href tel: no HTML (media) → valor na subpágina /contato (media) → sinal booleano (baixa)
+
+### Subpágina /contato
+
+Tentativa controlada de buscar canais adicionais em subpáginas simples.
+
+**Condição:** site já confirmado como acessível pelo analisador_web.
+
+**Tentativas:** `/contato` e `/contact` (primeira que retornar HTTP 2xx é usada).
+
+**Extração:** mesmas heurísticas da homepage — sem JavaScript, apenas HTML estático.
+
+### Limitações do enriquecimento
+
+- **OSM como base:** a maioria dos canais vem do OSM, que tem cobertura esparsa nas cidades brasileiras.
+- **HTML estático:** valores em JavaScript (chatbots, formulários dinâmicos) não são capturados.
+- **Subpáginas não garantidas:** o caminho `/contato` pode não existir ou ter conteúdo diferente do esperado.
+- **Sem validação de canal:** um telefone `alta` do OSM pode estar desatualizado — o sistema não verifica se o número está ativo.
+- **WhatsApp sem número isolado:** a URL `wa.me/NUMERO` é capturada, mas o número não é normalizado.

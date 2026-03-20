@@ -1,4 +1,4 @@
-# Plataforma de Agentes — v0.6
+# Plataforma de Agentes — v0.7
 
 Agente de prospecção que encontra empresas com oportunidade de melhoria digital
 em São José do Rio Preto, usando dados públicos e gratuitos do OpenStreetMap.
@@ -15,7 +15,8 @@ em São José do Rio Preto, usando dados públicos e gratuitos do OpenStreetMap.
 6. Gera pacote de abordagem pronto por empresa: mensagens, orientações e tom recomendado
 7. Mantém histórico acumulado entre execuções, detecta mudanças e atualiza fila de revisão
 8. **Analisa a presença digital real** das empresas com website: verifica se o site responde, identifica telefone, WhatsApp, Instagram, Facebook, CTA e HTTPS no HTML público
-9. Salva os resultados em 6 arquivos por execução + 4 arquivos persistentes
+9. **Enriquece canais digitais** de todas as empresas: consolida website, Instagram, Facebook, WhatsApp, e-mail e telefone com origem e confiança explícitas por canal
+10. Salva os resultados em 6 arquivos por execução + 5 arquivos persistentes
 
 **Custo:** zero. Usa apenas APIs públicas e gratuitas (OpenStreetMap, Nominatim, Overpass, HTTP direto).
 
@@ -48,6 +49,8 @@ Cada execução gera 6 arquivos em `dados/` com timestamp. A lógica de cada um 
 | `candidatas_com_abordagem.json` | Abordáveis + pacote de mensagens e orientações prontas | **Arquivo de uso direto** — abrir, ler e ligar/enviar |
 | `candidatas_com_diagnostico_web.json` | Empresas com website + análise completa de presença digital | Auditoria de sites e diagnóstico web |
 
+### Arquivos persistentes (nome fixo — sobrescritos a cada execução)
+
 ### O que cada arquivo exclui
 
 - `candidatas_brutas` exclui: `pouco_util` (sem nome = sem como abordar)
@@ -63,6 +66,7 @@ Cada execução gera 6 arquivos em `dados/` com timestamp. A lógica de cada um 
 | `fila_revisao.json` | Leads prioritários filtrados e ordenados por relevância | **Arquivo principal de trabalho** — abrir aqui primeiro |
 | `prospeccao_resumo_execucao.json` | Estatísticas e mudanças detectadas nesta execução | Auditoria e acompanhamento de evolução |
 | `fila_oportunidades_presenca.json` | Empresas com site acessível + presença digital fraca/básica | Oportunidades de melhoria de marketing digital |
+| `candidatas_com_canais_digitais.json` | Empresas com ao menos um canal digital identificado, com origem e confiança | Base de dados de canais — fonte para abordagem e proposta |
 
 ---
 
@@ -285,6 +289,7 @@ python tests/prospeccao_operacional/test_historico.py
 python tests/core/test_persistencia.py
 python tests/presenca_digital/test_analisador_web.py
 python tests/presenca_digital/test_diagnosticador_presenca.py
+python tests/presenca_digital/test_enriquecedor_canais.py
 ```
 
 ---
@@ -303,8 +308,9 @@ modulos/
     historico.py            Memória persistente: histórico, mudanças, status interno, fila de revisão
 
   presenca_digital/         Linha de solução: análise de presença digital via website
-    analisador_web.py       Verificação HTTP, extração de sinais do HTML (HEAD → GET)
+    analisador_web.py       Verificação HTTP, extração de sinais e valores do HTML (HEAD → GET)
     diagnosticador_presenca.py  score_presenca_web, classificacao_presenca_web, diagnóstico e oportunidade
+    enriquecedor_canais.py  Consolidação de canais digitais: valor + origem + confiança por canal
 
 conectores/
   overpass.py               Conector OpenStreetMap (substituível)
@@ -321,12 +327,45 @@ docs/
 
 tests/
   prospeccao_operacional/   Testes da linha de prospecção (60 casos)
-  presenca_digital/         Testes do módulo de presença digital (37 casos)
+  presenca_digital/         Testes do módulo de presença digital (65 casos)
   core/                     Testes do núcleo (5 casos)
 
 config.py                   Configuração centralizada
 main.py                     Ponto de entrada
 ```
+
+---
+
+## Enriquecimento de canais digitais (`enriquecedor_canais.py`)
+
+Para cada empresa, tenta identificar e confirmar os principais canais digitais. Cada canal recebe três campos: valor confirmado, origem e confiança.
+
+### Canais tratados
+
+website, instagram, facebook, whatsapp, e-mail, telefone
+
+### Níveis de confiança
+
+| Confiança | Quando |
+|---|---|
+| `alta` | Campo OSM explícito ou website OSM + site acessível verificado |
+| `media` | Valor real extraído do HTML (URL, número, e-mail via href) |
+| `baixa` | Sinal detectado no HTML sem valor capturável |
+| `nao_identificado` | Canal não encontrado em nenhuma fonte |
+
+### Fontes usadas
+
+1. Campos OSM diretos (website, telefone, email, instagram tag)
+2. Valores extraídos do HTML da homepage via `href` (tel:, mailto:, wa.me, instagram.com, facebook.com)
+3. Subpágina `/contato` ou `/contact` — tentativa controlada, apenas se site acessível
+
+### Limitações do enriquecimento
+
+- Maioria dos dados ainda vem do OSM (cobertura esparsa no Brasil)
+- Valores em JavaScript não são capturados
+- Sem validação de canal ativo (telefone pode estar desatualizado)
+
+Para detalhes completos: [docs/presenca_digital/heuristicas.md](docs/presenca_digital/heuristicas.md)
 
 ---
 
