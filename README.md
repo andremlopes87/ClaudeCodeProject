@@ -1,46 +1,28 @@
-# Plataforma de Agentes — v0.1
+# Plataforma de Agentes — v0.3
 
-Agente de prospecção que encontra empresas com indícios de baixa presença digital
+Agente de prospecção que encontra empresas com oportunidade de melhoria digital
 em São José do Rio Preto, usando dados públicos e gratuitos do OpenStreetMap.
 
 ---
 
 ## O que este sistema faz
 
-1. Busca automaticamente estabelecimentos comerciais por categoria (barbearia, oficina, padaria etc.)
-2. Analisa sinais básicos de presença digital nos dados públicos (site, telefone, horário, e-mail)
-3. Gera um score e um diagnóstico textual com linguagem cuidadosa
-4. Salva os resultados em arquivos JSON na pasta `dados/`
-5. Registra logs de execução na pasta `logs/`
+1. Busca estabelecimentos comerciais por categoria (barbearia, oficina, padaria etc.)
+2. Analisa sinais de presença digital nos dados públicos (site, telefone, horário, e-mail, Instagram)
+3. Calcula dois scores: presença digital e prontidão para abordagem comercial
+4. Classifica cada empresa comercialmente
+5. Avalia se há canal prático de contato disponível
+6. Salva os resultados em 4 arquivos JSON organizados por utilidade
 
-**Custo:** zero. Usa apenas APIs públicas e gratuitas.
-
----
-
-## Pré-requisitos
-
-- Python 3.9 ou superior
-- Conexão com a internet
+**Custo:** zero. Usa apenas APIs públicas e gratuitas (OpenStreetMap, Nominatim, Overpass).
 
 ---
 
 ## Instalação
 
 ```bash
-# 1. Clone o repositório
-git clone https://github.com/andremlopes87/ClaudeCodeProject.git
-cd ClaudeCodeProject
-
-# 2. (Opcional, recomendado) Crie um ambiente virtual
-python -m venv venv
-venv\Scripts\activate   # Windows
-# source venv/bin/activate  # Mac/Linux
-
-# 3. Instale as dependências
 pip install -r requirements.txt
 ```
-
----
 
 ## Como rodar
 
@@ -48,43 +30,119 @@ pip install -r requirements.txt
 python main.py
 ```
 
-O sistema vai rodar automaticamente e exibir o progresso no terminal.
-Ao final, um resumo como este aparece:
+---
 
-```
-==================================================
-PROSPECÇÃO CONCLUÍDA
-==================================================
-Empresas encontradas : 47
-Candidatas           : 31
-Resultados salvos em : dados/
-Duração              : 58s
-==================================================
-```
+## Arquivos de saída
+
+Cada execução gera 4 arquivos em `dados/` com timestamp. A lógica de cada um é:
+
+| Arquivo | O que contém | Para que serve |
+|---|---|---|
+| `todas.json` | Todas as empresas encontradas, sem filtro | Referência completa e auditoria |
+| `candidatas_brutas.json` | Todas exceto `pouco_util` (têm nome identificado) | Revisão manual sem filtro de abordagem |
+| `candidatas_priorizadas.json` | `semi_digital` + `analogica`, ordenadas por prioridade | Lista de trabalho principal |
+| `candidatas_abordaveis.json` | Não `pouco_util` + têm canal direto de contato | Ação imediata — quem pode ser contatado agora |
+
+### O que cada arquivo exclui
+
+- `candidatas_brutas` exclui: `pouco_util` (sem nome = sem como abordar)
+- `candidatas_priorizadas` exclui: `pouco_util` + `digital_basica` (pouco oportunidade)
+- `candidatas_abordaveis` exclui: `pouco_util` + empresas sem telefone ou e-mail identificado
 
 ---
 
-## Onde ficam os resultados
+## Classificação comercial
 
-| Arquivo | Conteúdo |
+Cada empresa recebe uma das 4 classificações:
+
+| Classificação | Prioridade | Significado |
+|---|---|---|
+| `semi_digital_prioritaria` | Alta | Nome + pelo menos 1 sinal digital + lacunas claras. Melhor alvo. |
+| `analogica` | Média | Nome identificado mas poucos dados. Abordável, mais difícil. |
+| `digital_basica` | Baixa | Já relativamente organizada digitalmente. Menor oportunidade agora. |
+| `pouco_util` | Nula | Sem nome ou dados insuficientes para abordagem prática. |
+
+**Critérios do `score_presenca_digital` (0-100):**
+
+| Sinal | Pontos |
 |---|---|
-| `dados/resultado_YYYY-MM-DD_HH-MM_todas.json` | Todas as empresas encontradas |
-| `dados/resultado_YYYY-MM-DD_HH-MM_candidatas.json` | Apenas as candidatas (score baixo) |
-| `logs/execucao_YYYY-MM-DD_HH-MM.log` | Log detalhado da execução |
+| Site próprio | +40 |
+| Telefone público | +30 |
+| Horário de funcionamento | +20 |
+| E-mail de contato | +10 |
+
+**Nota:** Se o campo `website` for uma URL do Instagram, ele não conta como site próprio — é registrado em `tem_instagram` separadamente.
 
 ---
 
-## Como configurar
+## Score de prontidão para IA (`score_prontidao_ia`)
+
+Mede a oportunidade comercial de abordar a empresa (0-100):
+
+| Condição | Pontos |
+|---|---|
+| Nome identificado | +25 (base obrigatória) |
+| Tem telefone | +20 |
+| Tem site próprio | +15 |
+| Tem horário | +10 |
+| Tem e-mail | +5 |
+| Tem Instagram | +5 (bônus) |
+| Score de presença >= 65 | -20 (já organizada) |
+
+Sem nome: score = 0.
+
+---
+
+## Camada de abordabilidade
+
+Determina se há canal prático de contato disponível **nos dados públicos**:
+
+| Campo | Significado |
+|---|---|
+| `abordavel_agora` | True se tem telefone OU e-mail identificado |
+| `canal_abordagem_sugerido` | telefone / email / website_contato_indireto / sem_canal_identificado |
+| `contato_principal` | Dado concreto de contato (número, e-mail ou URL) |
+| `tipo_contato_principal` | telefone / email / website / null |
+| `motivo_nao_abordavel` | Explicação quando não é abordável |
+| `tem_telefone_util` | Telefone disponível nos dados públicos |
+| `tem_email_util` | E-mail disponível nos dados públicos |
+| `tem_site_util` | Site próprio disponível (não conta URL do Instagram) |
+
+**Regra:** Website sem telefone ou e-mail = canal indireto. A empresa **não** entra em `candidatas_abordaveis` apenas com website.
+
+---
+
+## Detecção de Instagram
+
+Verificada em duas fontes já disponíveis, sem scraping e sem API paga:
+
+1. Tags OSM diretas: `contact:instagram`, `instagram`, `social:instagram`
+2. Campo `website` quando a URL aponta para `instagram.com`
+
+**Importante:** Ausência de Instagram no resultado não significa que a empresa não tem perfil — apenas que não foi encontrado nos dados públicos.
+
+---
+
+## Ordenação de `candidatas_priorizadas` e `candidatas_abordaveis`
+
+1. `prioridade_abordagem` (alta > media > baixa > nula)
+2. `abordavel_agora` (True primeiro — empresa contatável sobe sobre não-contatável)
+3. `score_prontidao_ia` (maior primeiro)
+4. `campos_osm_preenchidos` (maior primeiro)
+
+---
+
+## Configuração
 
 Edite `config.py` para ajustar:
 
-| Configuração | O que faz |
+| Parâmetro | Descrição |
 |---|---|
 | `CIDADE` | Cidade de busca |
-| `PAIS` | País (em inglês, para geocodificação) |
-| `LIMITE_SCORE_CANDIDATA` | Score abaixo do qual a empresa é candidata (padrão: 40) |
-| `CATEGORIAS` | Categorias de negócio a buscar (tags OSM) |
-| `PAUSA_ENTRE_REQUISICOES` | Intervalo entre chamadas à API (segundos) |
+| `CATEGORIAS` | Categorias OSM a buscar |
+| `LIMITE_SCORE_CANDIDATA` | Threshold antigo (mantido por compatibilidade) |
+| `PAUSA_ENTRE_REQUISICOES` | Intervalo entre chamadas (segundos) |
+| `PAUSA_RATE_LIMIT` | Espera após HTTP 429 |
 
 ---
 
@@ -92,6 +150,8 @@ Edite `config.py` para ajustar:
 
 ```bash
 python tests/test_analisador.py
+python tests/test_priorizador.py
+python tests/test_abordabilidade.py
 python tests/test_persistencia.py
 python tests/test_buscador.py
 ```
@@ -101,43 +161,35 @@ python tests/test_buscador.py
 ## Estrutura do projeto
 
 ```
-ClaudeCodeProject/
-├── agents/prospeccao/       # Agentes do fluxo de prospecção
-│   ├── buscador.py          # Orquestra a busca por categoria
-│   ├── analisador.py        # Calcula score de presença digital
-│   └── diagnosticador.py    # Gera texto de diagnóstico
-├── conectores/
-│   └── overpass.py          # Conector com OpenStreetMap (substituível)
-├── core/
-│   ├── executor.py          # Orquestra o fluxo completo
-│   └── persistencia.py      # Único ponto de leitura/escrita de dados
-├── dados/                   # Resultados em JSON (gerado na execução)
-├── docs/
-│   └── heuristicas.md       # Documenta as regras de análise
-├── logs/                    # Logs de execução
-├── tests/                   # Testes automatizados
-├── config.py                # Configuração centralizada
-├── main.py                  # Ponto de entrada
-└── requirements.txt
+agents/prospeccao/
+  buscador.py           Busca por categoria, remove duplicatas
+  analisador.py         score_presenca_digital, detecção de Instagram
+  priorizador.py        score_prontidao_ia, classificacao_comercial
+  abordabilidade.py     abordavel_agora, canal_abordagem_sugerido
+  diagnosticador.py     Texto de diagnóstico por empresa
+
+conectores/
+  overpass.py           Conector OpenStreetMap (substituível)
+
+core/
+  executor.py           Orquestra o fluxo completo
+  persistencia.py       Único ponto de leitura/escrita de dados
+
+docs/
+  heuristicas.md        Documentação das regras de análise
+
+tests/                  Testes automatizados (35 casos)
+config.py               Configuração centralizada
+main.py                 Ponto de entrada
 ```
 
 ---
 
-## Limitações desta versão
+## Limitações
 
-- Depende da qualidade dos dados do OpenStreetMap na cidade buscada
-- Diagnóstico baseado apenas em dados públicos (sem verificação de redes sociais)
-- Sem integração com Google Maps, Instagram ou WhatsApp Business
-- Sem envio automático de mensagens
-- Sem interface visual
+- Dados dependem da qualidade do OpenStreetMap na cidade
+- Instagram detectado apenas se cadastrado no OSM ou se website é instagram.com
+- Sem integração com Google Maps, redes sociais ou aplicativos de entrega
+- Abordabilidade baseada em dados públicos — empresa pode ter contato não registrado
 
-Para detalhes completos sobre as heurísticas, veja [docs/heuristicas.md](docs/heuristicas.md).
-
----
-
-## Próximos passos previstos
-
-- Verificar presença em redes sociais
-- Incluir mais cidades e regiões
-- Gerar mensagem de abordagem personalizada
-- Integrar com CRM simples para acompanhamento
+Para detalhes das heurísticas: [docs/heuristicas.md](docs/heuristicas.md)

@@ -42,17 +42,22 @@ def priorizar_empresas(empresas: list) -> list:
 
 def ordenar_por_prioridade(empresas: list) -> list:
     """
-    Ordena empresas para o arquivo candidatas_priorizadas.json.
+    Ordena empresas para candidatas_priorizadas.json e candidatas_abordaveis.json.
 
     Critérios (em ordem):
     1. prioridade_abordagem (alta > media > baixa > nula)
-    2. score_prontidao_ia (maior primeiro)
-    3. campos_osm_preenchidos (maior primeiro — mais dados = mais confiança)
+    2. abordavel_agora (True primeiro — empresa abordável sobe sobre não-abordável)
+    3. score_prontidao_ia (maior primeiro)
+    4. campos_osm_preenchidos (maior primeiro — mais dados = mais confiança)
+
+    O critério 2 garante que uma empresa semi_digital abordável venha
+    antes de uma semi_digital sem canal de contato identificado.
     """
     return sorted(
         empresas,
         key=lambda e: (
             _ORDEM_PRIORIDADE.get(e.get("prioridade_abordagem", "nula"), 3),
+            0 if e.get("abordavel_agora") else 1,
             -e.get("score_prontidao_ia", 0),
             -e.get("campos_osm_preenchidos", 0),
         ),
