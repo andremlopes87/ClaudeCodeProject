@@ -10,9 +10,9 @@ Roda com: python tests/test_buscador.py
 import sys
 import os
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from agents.prospeccao.buscador import _padronizar
+from modulos.prospeccao_operacional.buscador import _padronizar
 
 
 def _empresa_bruta(osm_id=123, nome="Empresa Teste", website=None, telefone=None):

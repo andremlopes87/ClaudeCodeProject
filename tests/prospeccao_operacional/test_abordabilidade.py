@@ -7,9 +7,9 @@ Roda com: python tests/test_abordabilidade.py
 import sys
 import os
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from agents.prospeccao.abordabilidade import calcular_abordabilidade
+from modulos.prospeccao_operacional.abordabilidade import calcular_abordabilidade
 
 
 def _empresa(telefone=None, email=None, website=None):

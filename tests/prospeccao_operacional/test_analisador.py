@@ -7,9 +7,9 @@ Roda com: python tests/test_analisador.py
 import sys
 import os
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from agents.prospeccao.analisador import analisar_empresas, PESOS, SCORE_MAXIMO
+from modulos.prospeccao_operacional.analisador import analisar_empresas, PESOS, SCORE_MAXIMO
 
 
 def _empresa(website=None, telefone=None, horario=None, email=None, instagram=None):

@@ -7,9 +7,9 @@ Roda com: python tests/test_priorizador.py
 import sys
 import os
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from agents.prospeccao.priorizador import priorizar_empresas, ordenar_por_prioridade
+from modulos.prospeccao_operacional.priorizador import priorizar_empresas, ordenar_por_prioridade
 
 
 def _empresa_analisada(

@@ -7,9 +7,9 @@ Roda com: python tests/test_historico.py
 import sys
 import os
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from agents.prospeccao.historico import (
+from modulos.prospeccao_operacional.historico import (
     gerar_empresa_id,
     atualizar_historico,
     gerar_fila_revisao,

@@ -12,7 +12,7 @@ Regra sobre Instagram:
 - Se website for uma URL do Instagram, conta como Instagram e NÃO como website próprio
 - Ausência de Instagram no resultado NÃO significa que a empresa não tem perfil
 
-Documentação completa das heurísticas: docs/heuristicas.md
+Documentação completa das heurísticas: docs/prospeccao_operacional/heuristicas.md
 """
 
 import logging

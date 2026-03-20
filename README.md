@@ -228,13 +228,13 @@ Edite `config.py` para ajustar:
 ## Como rodar os testes
 
 ```bash
-python tests/test_analisador.py
-python tests/test_priorizador.py
-python tests/test_abordabilidade.py
-python tests/test_persistencia.py
-python tests/test_buscador.py
-python tests/test_abordagem.py
-python tests/test_historico.py
+python tests/prospeccao_operacional/test_analisador.py
+python tests/prospeccao_operacional/test_priorizador.py
+python tests/prospeccao_operacional/test_abordabilidade.py
+python tests/prospeccao_operacional/test_buscador.py
+python tests/prospeccao_operacional/test_abordagem.py
+python tests/prospeccao_operacional/test_historico.py
+python tests/core/test_persistencia.py
 ```
 
 ---
@@ -242,28 +242,38 @@ python tests/test_historico.py
 ## Estrutura do projeto
 
 ```
-agents/prospeccao/
-  buscador.py           Busca por categoria, remove duplicatas
-  analisador.py         score_presenca_digital, detecção de Instagram
-  priorizador.py        score_prontidao_ia, classificacao_comercial
-  abordabilidade.py     abordavel_agora, canal_abordagem_sugerido
-  diagnosticador.py     Texto de diagnóstico por empresa
-  abordagem.py          Pacote de abordagem: mensagens e orientações por empresa
-  historico.py          Memória persistente: histórico, mudanças, status interno, fila de revisão
+modulos/
+  prospeccao_operacional/   Linha de solução: prospecção operacional
+    buscador.py             Busca por categoria, remove duplicatas
+    analisador.py           score_presenca_digital, detecção de Instagram
+    priorizador.py          score_prontidao_ia, classificacao_comercial
+    abordabilidade.py       abordavel_agora, canal_abordagem_sugerido
+    diagnosticador.py       Texto de diagnóstico por empresa
+    abordagem.py            Pacote de abordagem: mensagens e orientações por empresa
+    historico.py            Memória persistente: histórico, mudanças, status interno, fila de revisão
+
+  presenca_digital/         Linha de solução: presença digital (próxima etapa)
+    __init__.py             Em construção
 
 conectores/
-  overpass.py           Conector OpenStreetMap (substituível)
+  overpass.py               Conector OpenStreetMap (substituível)
 
 core/
-  executor.py           Orquestra o fluxo completo
-  persistencia.py       Único ponto de leitura/escrita de dados
+  executor.py               Orquestra o fluxo completo de prospecção
+  persistencia.py           Único ponto de leitura/escrita de dados
 
 docs/
-  heuristicas.md        Documentação das regras de análise
+  prospeccao_operacional/
+    heuristicas.md          Documentação das regras de análise da prospecção
+  presenca_digital/
+    heuristicas.md          Sinais e regras planejados para a próxima etapa
 
-tests/                  Testes automatizados (65 casos)
-config.py               Configuração centralizada
-main.py                 Ponto de entrada
+tests/
+  prospeccao_operacional/   Testes da linha de prospecção (60 casos)
+  core/                     Testes do núcleo (5 casos)
+
+config.py                   Configuração centralizada
+main.py                     Ponto de entrada
 ```
 
 ---
@@ -275,4 +285,4 @@ main.py                 Ponto de entrada
 - Sem integração com Google Maps, redes sociais ou aplicativos de entrega
 - Abordabilidade baseada em dados públicos — empresa pode ter contato não registrado
 
-Para detalhes das heurísticas: [docs/heuristicas.md](docs/heuristicas.md)
+Para detalhes das heurísticas: [docs/prospeccao_operacional/heuristicas.md](docs/prospeccao_operacional/heuristicas.md)

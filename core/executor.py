@@ -31,13 +31,13 @@ import logging
 from datetime import datetime
 
 import config
-from agents.prospeccao.buscador import buscar_empresas
-from agents.prospeccao.analisador import analisar_empresas
-from agents.prospeccao.priorizador import priorizar_empresas, ordenar_por_prioridade
-from agents.prospeccao.abordabilidade import calcular_abordabilidade
-from agents.prospeccao.diagnosticador import diagnosticar_empresas
-from agents.prospeccao.abordagem import preparar_abordagens
-from agents.prospeccao.historico import (
+from modulos.prospeccao_operacional.buscador import buscar_empresas
+from modulos.prospeccao_operacional.analisador import analisar_empresas
+from modulos.prospeccao_operacional.priorizador import priorizar_empresas, ordenar_por_prioridade
+from modulos.prospeccao_operacional.abordabilidade import calcular_abordabilidade
+from modulos.prospeccao_operacional.diagnosticador import diagnosticar_empresas
+from modulos.prospeccao_operacional.abordagem import preparar_abordagens
+from modulos.prospeccao_operacional.historico import (
     atualizar_historico,
     gerar_fila_revisao,
     gerar_resumo_execucao,

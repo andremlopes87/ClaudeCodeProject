@@ -7,9 +7,9 @@ Roda com: python tests/test_abordagem.py
 import sys
 import os
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from agents.prospeccao.abordagem import preparar_abordagens
+from modulos.prospeccao_operacional.abordagem import preparar_abordagens
 
 
 def _empresa(
