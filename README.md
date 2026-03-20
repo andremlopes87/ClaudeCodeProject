@@ -1,4 +1,4 @@
-# Plataforma de Agentes — v0.4
+# Plataforma de Agentes — v0.5
 
 Agente de prospecção que encontra empresas com oportunidade de melhoria digital
 em São José do Rio Preto, usando dados públicos e gratuitos do OpenStreetMap.
@@ -13,7 +13,8 @@ em São José do Rio Preto, usando dados públicos e gratuitos do OpenStreetMap.
 4. Classifica cada empresa comercialmente
 5. Avalia se há canal prático de contato disponível
 6. Gera pacote de abordagem pronto por empresa: mensagens, orientações e tom recomendado
-7. Salva os resultados em 5 arquivos JSON organizados por utilidade
+7. Mantém histórico acumulado entre execuções, detecta mudanças e atualiza fila de revisão
+8. Salva os resultados em 5 arquivos por execução + 3 arquivos persistentes
 
 **Custo:** zero. Usa apenas APIs públicas e gratuitas (OpenStreetMap, Nominatim, Overpass).
 
@@ -51,6 +52,14 @@ Cada execução gera 5 arquivos em `dados/` com timestamp. A lógica de cada um 
 - `candidatas_priorizadas` exclui: `pouco_util` + `digital_basica` (pouco oportunidade)
 - `candidatas_abordaveis` exclui: `pouco_util` + empresas sem telefone ou e-mail identificado
 - `candidatas_com_abordagem` é o mesmo conjunto de `candidatas_abordaveis`, com campos de abordagem adicionados
+
+### Arquivos persistentes (nome fixo — sobrescritos a cada execução)
+
+| Arquivo | O que contém | Para que serve |
+|---|---|---|
+| `prospeccao_historico.json` | Todas as empresas já encontradas, com histórico e status interno | Memória acumulada da prospecção |
+| `fila_revisao.json` | Leads prioritários filtrados e ordenados por relevância | **Arquivo principal de trabalho** — abrir aqui primeiro |
+| `prospeccao_resumo_execucao.json` | Estatísticas e mudanças detectadas nesta execução | Auditoria e acompanhamento de evolução |
 
 ---
 
@@ -135,6 +144,52 @@ Verificada em duas fontes já disponíveis, sem scraping e sem API paga:
 
 ---
 
+## Histórico e memória de prospecção
+
+O sistema mantém um registro acumulado de todas as empresas já encontradas em `prospeccao_historico.json`. A cada execução, este arquivo é atualizado com os dados mais recentes.
+
+### O que é rastreado por empresa
+
+Cada entrada no histórico contém:
+- Identificador estável (`empresa_id`) baseado no OSM ID — não muda entre execuções
+- Data da primeira e da última aparição, e quantas vezes foi encontrada
+- Classificação comercial e prioridade atuais
+- Abordabilidade e canal de contato identificado
+- **Status interno**: estado atual na jornada de prospecção
+- **Mudanças detectadas**: o que mudou nesta execução em relação à anterior
+
+### Status interno
+
+| Status | Significado |
+|---|---|
+| `novo` | Apareceu pela primeira vez nesta execução. Ainda não consolidada. |
+| `pronto_para_abordagem` | Tem canal de contato direto e perfil comercial adequado. Não é novo. |
+| `revisar` | Mudança relevante detectada (ganhou/perdeu contato, classificação mudou) ou empresa sumiu entre execuções. |
+| `baixa_prioridade` | Pouco urgente: digital_basica, sem contato, ou sem mudanças relevantes. |
+| `descartar` | Dados insuficientes para abordagem comercial (`pouco_util`). |
+
+### Detecção de mudanças entre execuções
+
+O sistema detecta automaticamente quando uma empresa:
+- Apareceu pela primeira vez (`nova_empresa`)
+- Não foi encontrada nesta execução (`empresa_sumiu`)
+- Mudou de classificação comercial (`classificacao_mudou`)
+- Mudou de prioridade (`prioridade_mudou`)
+- Ganhou canal de contato direto (`ganhou_contato`)
+- Perdeu canal de contato direto (`perdeu_contato`)
+- Mudou de canal (`canal_mudou`)
+
+### Fila de revisão (`fila_revisao.json`)
+
+Arquivo gerado a cada execução com os leads mais relevantes, na seguinte ordem:
+1. **Novos** com boa classificação (semi_digital ou analogica)
+2. **Prontos para abordagem** (abordáveis e priorizados, não novos)
+3. **Revisar** (mudanças detectadas ou empresa sumiu)
+
+Baixa prioridade e descartar ficam fora da fila.
+
+---
+
 ## Pacote de abordagem (`candidatas_com_abordagem.json`)
 
 Cada empresa no arquivo final recebe campos prontos para uso direto:
@@ -179,6 +234,7 @@ python tests/test_abordabilidade.py
 python tests/test_persistencia.py
 python tests/test_buscador.py
 python tests/test_abordagem.py
+python tests/test_historico.py
 ```
 
 ---
@@ -193,6 +249,7 @@ agents/prospeccao/
   abordabilidade.py     abordavel_agora, canal_abordagem_sugerido
   diagnosticador.py     Texto de diagnóstico por empresa
   abordagem.py          Pacote de abordagem: mensagens e orientações por empresa
+  historico.py          Memória persistente: histórico, mudanças, status interno, fila de revisão
 
 conectores/
   overpass.py           Conector OpenStreetMap (substituível)
@@ -204,7 +261,7 @@ core/
 docs/
   heuristicas.md        Documentação das regras de análise
 
-tests/                  Testes automatizados (45 casos)
+tests/                  Testes automatizados (65 casos)
 config.py               Configuração centralizada
 main.py                 Ponto de entrada
 ```
