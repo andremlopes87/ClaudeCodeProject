@@ -1,36 +1,37 @@
 """
 agents/prospeccao/diagnosticador.py — Gera diagnóstico textual para cada empresa.
 
-Responsabilidades:
-- Transformar score e sinais em texto de diagnóstico legível
-- Usar linguagem cuidadosa que não afirma além do que os dados permitem
-- Marcar se a empresa é candidata (score abaixo do limite configurado)
-- Adicionar metadados de confiança e origem dos dados
+Atualizado para usar classificacao_comercial do priorizador.
+O diagnóstico é gerado APÓS a priorização para poder refletir a classificação.
 
-IMPORTANTE: O diagnóstico nunca deve afirmar que uma empresa "não tem site" ou
-"não usa tecnologia" — apenas que esses itens não foram identificados nos dados
-públicos do OpenStreetMap, o que é diferente.
+IMPORTANTE: O texto nunca afirma além do que os dados permitem.
+A ausência de um campo não significa que a empresa não tem aquilo —
+significa que não foi identificado nos dados públicos disponíveis.
 """
 
 import logging
 from datetime import datetime
-from typing import Optional
-
-import config
 
 logger = logging.getLogger(__name__)
 
-OBSERVACAO_PADRAO = (
+_OBSERVACAO_BASE = (
     "Diagnóstico inicial baseado exclusivamente em dados públicos do OpenStreetMap. "
     "Verificação manual recomendada antes de qualquer abordagem."
+)
+
+_OBSERVACAO_INSTAGRAM = (
+    " Ausência de Instagram neste registro não significa que a empresa não tem perfil — "
+    "apenas que não foi identificado em tags OSM ou campo website nos dados disponíveis."
 )
 
 
 def diagnosticar_empresas(empresas: list) -> list:
     """
-    Gera diagnóstico para cada empresa da lista.
+    Gera diagnóstico textual para cada empresa.
 
-    Entrada: lista com score e sinais (saída do analisador)
+    Deve ser chamado APÓS o priorizador, pois usa classificacao_comercial.
+
+    Entrada: lista com sinais, scores e classificação (saída do priorizador)
     Saída: mesma lista com 'diagnostico', 'e_candidata',
            'observacao_limite_dados' e 'gerado_em' adicionados
     """
@@ -38,101 +39,85 @@ def diagnosticar_empresas(empresas: list) -> list:
 
 
 def _diagnosticar(empresa: dict) -> dict:
-    """Gera diagnóstico completo para uma única empresa."""
-    score = empresa.get("score_digitalizacao", 0)
+    """Gera diagnóstico completo para uma empresa."""
+    classificacao = empresa.get("classificacao_comercial", "pouco_util")
     sinais = empresa.get("sinais", {})
-    confianca = empresa.get("confianca_diagnostico", "baixa")
-    campos_preenchidos = empresa.get("campos_osm_preenchidos", 0)
+    score_presenca = empresa.get("score_presenca_digital", 0)
+    tem_instagram = empresa.get("tem_instagram", False)
 
-    ausentes = _listar_ausentes(sinais)
-    presentes = _listar_presentes(sinais)
-
-    diagnostico = _gerar_texto(score, ausentes, presentes, confianca, campos_preenchidos)
-    e_candidata = score < config.LIMITE_SCORE_CANDIDATA
-
-    empresa["diagnostico"] = diagnostico
-    empresa["e_candidata"] = e_candidata
-    empresa["fonte_dados"] = empresa.get("fonte_dados", "OpenStreetMap/Overpass")
-    empresa["observacao_limite_dados"] = OBSERVACAO_PADRAO
+    empresa["diagnostico"] = _gerar_texto(classificacao, sinais, score_presenca, tem_instagram)
+    empresa["e_candidata"] = classificacao in ("semi_digital_prioritaria", "analogica")
+    empresa["observacao_limite_dados"] = _gerar_observacao(tem_instagram)
     empresa["gerado_em"] = datetime.now().isoformat()
 
     return empresa
 
 
-def _listar_ausentes(sinais: dict) -> list:
-    """Retorna lista legível dos campos de presença digital NÃO encontrados."""
-    mapa = {
-        "tem_website": "site",
-        "tem_telefone": "telefone público",
-        "tem_horario": "horário de funcionamento",
-        "tem_email": "e-mail de contato",
-    }
-    return [mapa[k] for k, v in sinais.items() if not v]
+def _gerar_texto(classificacao: str, sinais: dict, score_presenca: int, tem_instagram: bool) -> str:
+    """Gera texto de diagnóstico adequado à classificação comercial."""
+    presentes = _listar(sinais, tem_instagram, encontrados=True)
+    ausentes = _listar(sinais, tem_instagram, encontrados=False)
 
-
-def _listar_presentes(sinais: dict) -> list:
-    """Retorna lista legível dos campos de presença digital encontrados."""
-    mapa = {
-        "tem_website": "site",
-        "tem_telefone": "telefone público",
-        "tem_horario": "horário de funcionamento",
-        "tem_email": "e-mail de contato",
-    }
-    return [mapa[k] for k, v in sinais.items() if v]
-
-
-def _gerar_texto(
-    score: int,
-    ausentes: list,
-    presentes: list,
-    confianca: str,
-    campos_preenchidos: int,
-) -> str:
-    """
-    Gera texto de diagnóstico com linguagem cuidadosa.
-    Não afirma certezas além do que os dados públicos permitem.
-    """
-    partes = []
-
-    # Caso sem dados: quase nada no OSM
-    if campos_preenchidos == 0:
-        partes.append(
-            "Dados públicos insuficientes para análise de presença digital. "
-            "Nenhuma informação de contato ou presença online foi identificada "
-            "nos registros públicos do OpenStreetMap para este estabelecimento"
+    if classificacao == "pouco_util":
+        return (
+            "Dados públicos insuficientes para análise útil. "
+            "Registro sem identificação ou informações mínimas nos dados do OpenStreetMap."
         )
+
+    if classificacao == "digital_basica":
+        partes = [f"Indícios de presença digital relativamente organizada nos dados públicos."]
+        if presentes:
+            partes.append(f"Identificado: {', '.join(presentes)}.")
+        partes.append(
+            "Oportunidade de melhoria pode existir, mas não é evidente com os dados disponíveis."
+        )
+        return " ".join(partes)
+
+    if classificacao == "semi_digital_prioritaria":
+        partes = ["Indícios de presença digital parcial nos dados públicos."]
+        if presentes:
+            partes.append(f"Identificado: {', '.join(presentes)}.")
         if ausentes:
-            partes.append(
-                f"Itens não encontrados nos dados públicos: {', '.join(ausentes)}"
-            )
-        return ". ".join(partes) + "."
+            partes.append(f"Não identificado nos dados públicos: {', '.join(ausentes)}.")
+        if tem_instagram:
+            partes.append("Presença no Instagram identificada nos dados públicos.")
+        partes.append(
+            "Perfil compatível com oportunidade de melhoria em presença digital ou automação."
+        )
+        return " ".join(partes)
 
-    # Caso com algum dado
+    # analogica
+    partes = ["Baixa presença digital identificada nos dados públicos."]
     if ausentes:
-        partes.append(
-            f"Indícios de baixa presença digital nos dados públicos disponíveis: "
-            f"{', '.join(ausentes)} não identificados nos registros do OpenStreetMap"
-        )
+        partes.append(f"Não identificado: {', '.join(ausentes)}.")
+    partes.append(
+        "Empresa pode ter presença digital não registrada nos dados públicos. "
+        "Verificação manual necessária."
+    )
+    return " ".join(partes)
 
-    if presentes:
-        partes.append(
-            f"Identificado nos dados públicos: {', '.join(presentes)}"
-        )
 
-    # Comentário baseado no score
-    if score < 20:
-        partes.append(
-            "Perfil sugere operação com baixo uso de canais digitais rastreáveis publicamente. "
-            "Pode ser candidato a soluções de presença online, agendamento ou atendimento automatizado"
-        )
-    elif score < config.LIMITE_SCORE_CANDIDATA:
-        partes.append(
-            "Presença digital parcial nos dados públicos. "
-            "Pode haver oportunidade de melhoria em canais digitais ainda não rastreados"
-        )
-    else:
-        partes.append(
-            "Presença digital razoável identificada nos dados públicos disponíveis"
-        )
+def _gerar_observacao(tem_instagram: bool) -> str:
+    """Observação sobre limites dos dados, incluindo nota sobre Instagram se necessário."""
+    obs = _OBSERVACAO_BASE
+    if not tem_instagram:
+        obs += _OBSERVACAO_INSTAGRAM
+    return obs
 
-    return ". ".join(partes) + "."
+
+def _listar(sinais: dict, tem_instagram: bool, encontrados: bool) -> list:
+    """Retorna lista legível de sinais presentes ou ausentes."""
+    mapa = {
+        "tem_website": "site próprio",
+        "tem_telefone": "telefone",
+        "tem_horario": "horário de funcionamento",
+        "tem_email": "e-mail",
+    }
+    resultado = [label for chave, label in mapa.items() if bool(sinais.get(chave)) == encontrados]
+
+    if encontrados and tem_instagram:
+        resultado.append("Instagram")
+    elif not encontrados and not tem_instagram:
+        resultado.append("Instagram")
+
+    return resultado

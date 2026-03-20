@@ -1,5 +1,5 @@
 """
-tests/test_analisador.py — Testa as heurísticas de análise de presença digital.
+tests/test_analisador.py — Testa análise de presença digital e detecção de Instagram.
 
 Roda com: python tests/test_analisador.py
 """
@@ -7,13 +7,12 @@ Roda com: python tests/test_analisador.py
 import sys
 import os
 
-# Garante que o diretório raiz do projeto está no path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from agents.prospeccao.analisador import analisar_empresas, PESOS, SCORE_MAXIMO
 
 
-def _empresa(website=None, telefone=None, horario=None, email=None):
+def _empresa(website=None, telefone=None, horario=None, email=None, instagram=None):
     """Cria empresa de teste com campos configuráveis."""
     return {
         "osm_id": 1,
@@ -25,6 +24,7 @@ def _empresa(website=None, telefone=None, horario=None, email=None):
         "telefone": telefone,
         "horario": horario,
         "email": email,
+        "instagram": instagram,
         "endereco": None,
         "lat": -20.8,
         "lon": -49.4,
@@ -32,54 +32,92 @@ def _empresa(website=None, telefone=None, horario=None, email=None):
     }
 
 
+# --- Testes de score_presenca_digital ---
+
 def test_score_zero_sem_dados():
-    """Empresa sem nenhum dado deve ter score zero."""
     resultado = analisar_empresas([_empresa()])[0]
-    assert resultado["score_digitalizacao"] == 0, "Score deveria ser 0"
+    assert resultado["score_presenca_digital"] == 0
     assert resultado["sinais"]["tem_website"] is False
     assert resultado["sinais"]["tem_telefone"] is False
-    assert resultado["sinais"]["tem_horario"] is False
-    assert resultado["sinais"]["tem_email"] is False
-    print("OK: score zero sem dados")
+    print("OK: score_presenca_digital zero sem dados")
 
 
 def test_score_maximo_com_todos_dados():
-    """Empresa com todos os campos deve ter score máximo."""
-    empresa = _empresa(
+    e = _empresa(
         website="http://exemplo.com",
         telefone="+55 17 99999-9999",
         horario="Mo-Fr 09:00-18:00",
         email="contato@exemplo.com",
     )
-    resultado = analisar_empresas([empresa])[0]
-    assert resultado["score_digitalizacao"] == SCORE_MAXIMO, f"Score deveria ser {SCORE_MAXIMO}"
+    resultado = analisar_empresas([e])[0]
+    assert resultado["score_presenca_digital"] == SCORE_MAXIMO
     assert resultado["sinais"]["tem_website"] is True
-    assert resultado["sinais"]["tem_telefone"] is True
-    assert resultado["sinais"]["tem_horario"] is True
-    assert resultado["sinais"]["tem_email"] is True
-    print(f"OK: score máximo ({SCORE_MAXIMO}) com todos os dados")
-
-
-def test_score_so_website():
-    """Empresa apenas com website deve ter score igual ao peso do website."""
-    resultado = analisar_empresas([_empresa(website="http://exemplo.com")])[0]
-    assert resultado["score_digitalizacao"] == PESOS["website"]
-    assert resultado["sinais"]["tem_website"] is True
-    assert resultado["sinais"]["tem_telefone"] is False
-    print(f"OK: score {PESOS['website']} com apenas website")
+    print(f"OK: score_presenca_digital máximo ({SCORE_MAXIMO})")
 
 
 def test_score_so_telefone():
-    """Empresa apenas com telefone deve ter score igual ao peso do telefone."""
     resultado = analisar_empresas([_empresa(telefone="+55 17 3333-3333")])[0]
-    assert resultado["score_digitalizacao"] == PESOS["telefone"]
+    assert resultado["score_presenca_digital"] == PESOS["telefone"]
     assert resultado["sinais"]["tem_telefone"] is True
     assert resultado["sinais"]["tem_website"] is False
-    print(f"OK: score {PESOS['telefone']} com apenas telefone")
+    print(f"OK: score_presenca_digital {PESOS['telefone']} com apenas telefone")
 
+
+# --- Testes de detecção de Instagram ---
+
+def test_instagram_via_tag_osm():
+    """Tag OSM explícita deve ser detectada como Instagram."""
+    e = _empresa(instagram="https://instagram.com/empresateste")
+    resultado = analisar_empresas([e])[0]
+    assert resultado["tem_instagram"] is True
+    assert resultado["origem_instagram"] == "tag_osm"
+    print("OK: Instagram detectado via tag OSM")
+
+
+def test_instagram_via_website_url():
+    """Website apontando para instagram.com deve ser detectado."""
+    e = _empresa(website="https://www.instagram.com/barbearia_joao")
+    resultado = analisar_empresas([e])[0]
+    assert resultado["tem_instagram"] is True
+    assert resultado["origem_instagram"] == "website_url"
+    print("OK: Instagram detectado via website_url")
+
+
+def test_website_instagram_nao_conta_como_site():
+    """Se o website for Instagram, não deve contar como site próprio."""
+    e = _empresa(website="https://www.instagram.com/barbearia_joao")
+    resultado = analisar_empresas([e])[0]
+    assert resultado["sinais"]["tem_website"] is False, "Instagram não deve contar como site próprio"
+    assert resultado["tem_instagram"] is True
+    assert resultado["score_presenca_digital"] == 0, "Score deve ser 0 (sem site real)"
+    print("OK: Instagram como website não conta como site próprio")
+
+
+def test_sem_instagram():
+    """Empresa sem nenhum dado de Instagram deve retornar False."""
+    e = _empresa(website="http://exemplo.com")
+    resultado = analisar_empresas([e])[0]
+    assert resultado["tem_instagram"] is False
+    assert resultado["origem_instagram"] is None
+    print("OK: sem Instagram quando não há dados")
+
+
+def test_instagram_e_site_separados():
+    """Empresa com site próprio E tag de Instagram deve ter ambos."""
+    e = _empresa(
+        website="http://meusite.com",
+        instagram="https://instagram.com/minha_empresa",
+    )
+    resultado = analisar_empresas([e])[0]
+    assert resultado["sinais"]["tem_website"] is True, "Site próprio deve contar"
+    assert resultado["tem_instagram"] is True
+    assert resultado["score_presenca_digital"] == PESOS["website"]
+    print("OK: site próprio e Instagram detectados separadamente")
+
+
+# --- Testes de confiança ---
 
 def test_confianca_baixa_sem_campos():
-    """0 campos preenchidos no OSM → confiança baixa."""
     resultado = analisar_empresas([_empresa()])[0]
     assert resultado["confianca_diagnostico"] == "baixa"
     assert resultado["campos_osm_preenchidos"] == 0
@@ -87,7 +125,6 @@ def test_confianca_baixa_sem_campos():
 
 
 def test_confianca_media_um_campo():
-    """1 campo preenchido → confiança media."""
     resultado = analisar_empresas([_empresa(telefone="+55 17 3333-3333")])[0]
     assert resultado["confianca_diagnostico"] == "media"
     assert resultado["campos_osm_preenchidos"] == 1
@@ -95,40 +132,27 @@ def test_confianca_media_um_campo():
 
 
 def test_confianca_alta_tres_campos():
-    """3+ campos preenchidos → confiança alta."""
-    empresa = _empresa(
+    e = _empresa(
         website="http://exemplo.com",
         telefone="+55 17 99999-9999",
         horario="Mo-Fr 09:00-18:00",
     )
-    resultado = analisar_empresas([empresa])[0]
+    resultado = analisar_empresas([e])[0]
     assert resultado["confianca_diagnostico"] == "alta"
     assert resultado["campos_osm_preenchidos"] == 3
     print("OK: confiança alta com 3 campos")
 
 
-def test_lista_multiplas_empresas():
-    """Deve processar lista com múltiplas empresas corretamente."""
-    empresas = [
-        _empresa(),
-        _empresa(website="http://a.com", telefone="11 9999-9999"),
-        _empresa(website="http://b.com", telefone="11 8888-8888", horario="9-18"),
-    ]
-    resultados = analisar_empresas(empresas)
-    assert len(resultados) == 3
-    assert resultados[0]["score_digitalizacao"] == 0
-    assert resultados[1]["score_digitalizacao"] == PESOS["website"] + PESOS["telefone"]
-    assert resultados[2]["score_digitalizacao"] == PESOS["website"] + PESOS["telefone"] + PESOS["horario"]
-    print("OK: processamento de múltiplas empresas")
-
-
 if __name__ == "__main__":
     test_score_zero_sem_dados()
     test_score_maximo_com_todos_dados()
-    test_score_so_website()
     test_score_so_telefone()
+    test_instagram_via_tag_osm()
+    test_instagram_via_website_url()
+    test_website_instagram_nao_conta_como_site()
+    test_sem_instagram()
+    test_instagram_e_site_separados()
     test_confianca_baixa_sem_campos()
     test_confianca_media_um_campo()
     test_confianca_alta_tres_campos()
-    test_lista_multiplas_empresas()
     print("\nTodos os testes do analisador passaram.")

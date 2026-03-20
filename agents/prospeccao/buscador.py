@@ -69,6 +69,7 @@ def _padronizar(empresa: dict, categoria_id: str, nome_categoria: str) -> dict:
         "telefone": empresa.get("telefone"),
         "horario": empresa.get("horario"),
         "email": empresa.get("email"),
+        "instagram": empresa.get("instagram"),
         "endereco": empresa.get("endereco"),
         "lat": empresa.get("lat"),
         "lon": empresa.get("lon"),

@@ -1,14 +1,13 @@
 """
 core/executor.py — Orquestra o fluxo completo de prospecção.
 
-Responsabilidades:
-- Configurar logs (console + arquivo)
-- Chamar cada etapa do fluxo na ordem correta
-- Registrar o resultado de cada etapa
-- Salvar os resultados via persistencia.py
-- Exibir resumo final no terminal
+Fluxo v0.2:
+  busca → análise → priorização → diagnóstico → salvamento (3 arquivos) → resumo
 
-Fluxo: busca → análise → diagnóstico → filtro → salvamento → resumo
+Arquivos gerados:
+  todas.json              → todas as empresas encontradas
+  candidatas_brutas.json  → empresas com nome identificado (excluindo pouco_util)
+  candidatas_priorizadas.json → semi_digital + analogica, ordenadas por prioridade
 """
 
 import logging
@@ -17,6 +16,7 @@ from datetime import datetime
 import config
 from agents.prospeccao.buscador import buscar_empresas
 from agents.prospeccao.analisador import analisar_empresas
+from agents.prospeccao.priorizador import priorizar_empresas, ordenar_por_prioridade
 from agents.prospeccao.diagnosticador import diagnosticar_empresas
 from core.persistencia import salvar_resultados
 
@@ -24,10 +24,7 @@ logger = logging.getLogger(__name__)
 
 
 def configurar_logs() -> str:
-    """
-    Configura logging para saída no terminal e em arquivo.
-    Retorna o caminho do arquivo de log criado.
-    """
+    """Configura logging para terminal e arquivo. Retorna caminho do log."""
     config.PASTA_LOGS.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
     arquivo_log = config.PASTA_LOGS / f"execucao_{timestamp}.log"
@@ -44,71 +41,98 @@ def configurar_logs() -> str:
 
 
 def executar() -> None:
-    """
-    Executa o fluxo completo de prospecção.
-    Cada etapa registra seu progresso nos logs.
-    Em caso de falha em uma etapa, o processo para com mensagem clara.
-    """
+    """Executa o fluxo completo. Cada etapa é logada individualmente."""
     arquivo_log = configurar_logs()
     inicio = datetime.now()
 
     logger.info("=" * 60)
-    logger.info("INICIANDO FLUXO DE PROSPECÇÃO")
+    logger.info("INICIANDO FLUXO DE PROSPECÇÃO v0.2")
     logger.info(f"Cidade: {config.CIDADE}")
     logger.info(f"Categorias: {', '.join(config.NOMES_CATEGORIAS.values())}")
-    logger.info(f"Limite de score para candidata: {config.LIMITE_SCORE_CANDIDATA}")
+    logger.info(f"Limite score presença para digital_basica: 65")
+    logger.info(f"Limite score prontidão para semi_digital: 40")
     logger.info("=" * 60)
 
     # ETAPA 1: Busca
-    logger.info("ETAPA 1/4 — Buscando empresas...")
+    logger.info("ETAPA 1/5 — Buscando empresas...")
     empresas = buscar_empresas()
 
     if not empresas:
-        logger.warning(
-            "Nenhuma empresa encontrada. Possíveis causas: "
-            "sem conexão com internet, cidade não encontrada no OSM, "
-            "ou categorias sem dados na região. Encerrando."
-        )
+        logger.warning("Nenhuma empresa encontrada. Encerrando.")
         print("\nNenhuma empresa encontrada. Verifique os logs para detalhes.")
         return
 
     logger.info(f"ETAPA 1 concluída: {len(empresas)} empresas encontradas.")
 
-    # ETAPA 2: Análise
-    logger.info("ETAPA 2/4 — Analisando presença digital...")
+    # ETAPA 2: Análise (score_presenca_digital + detecção de Instagram)
+    logger.info("ETAPA 2/5 — Analisando presença digital...")
     empresas = analisar_empresas(empresas)
     logger.info("ETAPA 2 concluída.")
 
-    # ETAPA 3: Diagnóstico
-    logger.info("ETAPA 3/4 — Gerando diagnósticos...")
-    empresas = diagnosticar_empresas(empresas)
+    # ETAPA 3: Priorização (score_prontidao_ia + classificacao_comercial)
+    logger.info("ETAPA 3/5 — Calculando prioridade comercial...")
+    empresas = priorizar_empresas(empresas)
     logger.info("ETAPA 3 concluída.")
 
-    # ETAPA 4: Filtro e salvamento
-    logger.info("ETAPA 4/4 — Salvando resultados...")
-    candidatas = [e for e in empresas if e.get("e_candidata")]
+    # ETAPA 4: Diagnóstico (texto — usa classificacao do priorizador)
+    logger.info("ETAPA 4/5 — Gerando diagnósticos...")
+    empresas = diagnosticar_empresas(empresas)
+    logger.info("ETAPA 4 concluída.")
+
+    # ETAPA 5: Salvamento (3 arquivos)
+    logger.info("ETAPA 5/5 — Salvando resultados...")
+
+    # Separar por classificação
+    candidatas_brutas = [
+        e for e in empresas
+        if e.get("classificacao_comercial") != "pouco_util"
+    ]
+    candidatas_priorizadas = ordenar_por_prioridade([
+        e for e in empresas
+        if e.get("classificacao_comercial") in ("semi_digital_prioritaria", "analogica")
+    ])
 
     caminho_todas = salvar_resultados(empresas, sufixo="todas")
-    caminho_candidatas = salvar_resultados(candidatas, sufixo="candidatas")
+    caminho_brutas = salvar_resultados(candidatas_brutas, sufixo="candidatas_brutas")
+    caminho_priorizadas = salvar_resultados(candidatas_priorizadas, sufixo="candidatas_priorizadas")
 
-    # Resumo final
+    # Contagem por classificação para o resumo
+    contagens = _contar_por_classificacao(empresas)
+
+    # Resumo nos logs
     duracao = int((datetime.now() - inicio).total_seconds())
     logger.info("=" * 60)
     logger.info("CONCLUÍDO")
-    logger.info(f"  Empresas encontradas : {len(empresas)}")
-    logger.info(f"  Candidatas           : {len(candidatas)} (score < {config.LIMITE_SCORE_CANDIDATA})")
-    logger.info(f"  Arquivo completo     : {caminho_todas}")
-    logger.info(f"  Arquivo candidatas   : {caminho_candidatas}")
-    logger.info(f"  Log da execução      : {arquivo_log}")
-    logger.info(f"  Duração total        : {duracao}s")
+    logger.info(f"  Total encontradas          : {len(empresas)}")
+    logger.info(f"  semi_digital_prioritaria   : {contagens.get('semi_digital_prioritaria', 0)}")
+    logger.info(f"  analogica                  : {contagens.get('analogica', 0)}")
+    logger.info(f"  digital_basica             : {contagens.get('digital_basica', 0)}")
+    logger.info(f"  pouco_util                 : {contagens.get('pouco_util', 0)}")
+    logger.info(f"  Arquivo todas              : {caminho_todas}")
+    logger.info(f"  Arquivo candidatas_brutas  : {caminho_brutas}")
+    logger.info(f"  Arquivo candidatas_prior.  : {caminho_priorizadas}")
+    logger.info(f"  Log da execução            : {arquivo_log}")
+    logger.info(f"  Duração total              : {duracao}s")
     logger.info("=" * 60)
 
     # Resumo limpo no terminal
-    print("\n" + "=" * 50)
+    print("\n" + "=" * 55)
     print("PROSPECÇÃO CONCLUÍDA")
-    print("=" * 50)
-    print(f"Empresas encontradas : {len(empresas)}")
-    print(f"Candidatas           : {len(candidatas)}")
-    print(f"Resultados salvos em : dados/")
-    print(f"Duração              : {duracao}s")
-    print("=" * 50)
+    print("=" * 55)
+    print(f"Total encontradas          : {len(empresas)}")
+    print(f"semi_digital_prioritaria   : {contagens.get('semi_digital_prioritaria', 0)}")
+    print(f"analogica                  : {contagens.get('analogica', 0)}")
+    print(f"digital_basica             : {contagens.get('digital_basica', 0)}")
+    print(f"pouco_util                 : {contagens.get('pouco_util', 0)}")
+    print(f"Resultados salvos em       : dados/")
+    print(f"Duração                    : {duracao}s")
+    print("=" * 55)
+
+
+def _contar_por_classificacao(empresas: list) -> dict:
+    """Conta quantas empresas caíram em cada classificação."""
+    contagens: dict = {}
+    for e in empresas:
+        cls = e.get("classificacao_comercial", "pouco_util")
+        contagens[cls] = contagens.get(cls, 0) + 1
+    return contagens

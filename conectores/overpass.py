@@ -137,6 +137,12 @@ def _extrair_campos(elemento: dict) -> dict:
         "telefone": tags.get("phone") or tags.get("contact:phone"),
         "horario": tags.get("opening_hours"),
         "email": tags.get("email") or tags.get("contact:email"),
+        # Tags diretas de Instagram que colaboradores do OSM às vezes preenchem
+        "instagram": (
+            tags.get("contact:instagram")
+            or tags.get("instagram")
+            or tags.get("social:instagram")
+        ),
         "endereco": _extrair_endereco(tags),
         "lat": lat,
         "lon": lon,
