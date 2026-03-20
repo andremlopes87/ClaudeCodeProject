@@ -1,4 +1,4 @@
-# Plataforma de Agentes — v0.5
+# Plataforma de Agentes — v0.6
 
 Agente de prospecção que encontra empresas com oportunidade de melhoria digital
 em São José do Rio Preto, usando dados públicos e gratuitos do OpenStreetMap.
@@ -14,9 +14,10 @@ em São José do Rio Preto, usando dados públicos e gratuitos do OpenStreetMap.
 5. Avalia se há canal prático de contato disponível
 6. Gera pacote de abordagem pronto por empresa: mensagens, orientações e tom recomendado
 7. Mantém histórico acumulado entre execuções, detecta mudanças e atualiza fila de revisão
-8. Salva os resultados em 5 arquivos por execução + 3 arquivos persistentes
+8. **Analisa a presença digital real** das empresas com website: verifica se o site responde, identifica telefone, WhatsApp, Instagram, Facebook, CTA e HTTPS no HTML público
+9. Salva os resultados em 6 arquivos por execução + 4 arquivos persistentes
 
-**Custo:** zero. Usa apenas APIs públicas e gratuitas (OpenStreetMap, Nominatim, Overpass).
+**Custo:** zero. Usa apenas APIs públicas e gratuitas (OpenStreetMap, Nominatim, Overpass, HTTP direto).
 
 ---
 
@@ -36,7 +37,7 @@ python main.py
 
 ## Arquivos de saída
 
-Cada execução gera 5 arquivos em `dados/` com timestamp. A lógica de cada um é:
+Cada execução gera 6 arquivos em `dados/` com timestamp. A lógica de cada um é:
 
 | Arquivo | O que contém | Para que serve |
 |---|---|---|
@@ -45,6 +46,7 @@ Cada execução gera 5 arquivos em `dados/` com timestamp. A lógica de cada um 
 | `candidatas_priorizadas.json` | `semi_digital` + `analogica`, ordenadas por prioridade | Lista de trabalho principal |
 | `candidatas_abordaveis.json` | Não `pouco_util` + têm canal direto de contato | Ação imediata — quem pode ser contatado agora |
 | `candidatas_com_abordagem.json` | Abordáveis + pacote de mensagens e orientações prontas | **Arquivo de uso direto** — abrir, ler e ligar/enviar |
+| `candidatas_com_diagnostico_web.json` | Empresas com website + análise completa de presença digital | Auditoria de sites e diagnóstico web |
 
 ### O que cada arquivo exclui
 
@@ -60,6 +62,7 @@ Cada execução gera 5 arquivos em `dados/` com timestamp. A lógica de cada um 
 | `prospeccao_historico.json` | Todas as empresas já encontradas, com histórico e status interno | Memória acumulada da prospecção |
 | `fila_revisao.json` | Leads prioritários filtrados e ordenados por relevância | **Arquivo principal de trabalho** — abrir aqui primeiro |
 | `prospeccao_resumo_execucao.json` | Estatísticas e mudanças detectadas nesta execução | Auditoria e acompanhamento de evolução |
+| `fila_oportunidades_presenca.json` | Empresas com site acessível + presença digital fraca/básica | Oportunidades de melhoria de marketing digital |
 
 ---
 
@@ -225,6 +228,51 @@ Edite `config.py` para ajustar:
 
 ---
 
+## Módulo de presença digital
+
+Analisa o website público das empresas com site registrado nos dados do OpenStreetMap.
+
+### O que este módulo mede
+
+| Sinal | Método |
+|---|---|
+| Site responde (HTTP 2xx) | HEAD → GET com timeout curto |
+| Usa HTTPS | Prefixo da URL |
+| Telefone no site | `href="tel:"` + regex no texto |
+| E-mail no site | `href="mailto:"` + regex no texto |
+| Link para WhatsApp | `href` com `wa.me` ou `api.whatsapp.com` |
+| Link para Instagram | `href` com `instagram.com` |
+| Link para Facebook | `href` com `facebook.com` |
+| Chamada clara para ação | Texto de botões/links + palavras-chave no `href` |
+
+### O que este módulo NÃO mede
+
+- Conteúdo carregado via JavaScript (React, Vue, Angular etc.)
+- Anúncios pagos (Google Ads, Meta Ads)
+- SEO, métricas de tráfego ou conversão
+- Subpáginas — apenas a homepage é analisada
+- Redes sociais além dos links encontrados no site
+
+### Classificação de presença web
+
+| Classificação | Score | Significado |
+|---|---|---|
+| `presenca_boa` | 76–100 | Site completo e organizado |
+| `presenca_razoavel` | 56–75 | Bem estruturado, falta pouco |
+| `presenca_basica` | 36–55 | Tem 1–2 elementos de contato |
+| `presenca_fraca` | 20–35 | Site acessível, sem contato ou CTA |
+| `dados_insuficientes` | 0 | Site inacessível ou sem website |
+
+### Limitações
+
+- Apenas empresas com website registrado no OSM são analisadas
+- Ausência de sinal não garante que o elemento não existe no site (pode estar em JavaScript)
+- Disponibilidade do site pode variar entre execuções
+
+Para detalhes das heurísticas: [docs/presenca_digital/heuristicas.md](docs/presenca_digital/heuristicas.md)
+
+---
+
 ## Como rodar os testes
 
 ```bash
@@ -235,6 +283,8 @@ python tests/prospeccao_operacional/test_buscador.py
 python tests/prospeccao_operacional/test_abordagem.py
 python tests/prospeccao_operacional/test_historico.py
 python tests/core/test_persistencia.py
+python tests/presenca_digital/test_analisador_web.py
+python tests/presenca_digital/test_diagnosticador_presenca.py
 ```
 
 ---
@@ -252,8 +302,9 @@ modulos/
     abordagem.py            Pacote de abordagem: mensagens e orientações por empresa
     historico.py            Memória persistente: histórico, mudanças, status interno, fila de revisão
 
-  presenca_digital/         Linha de solução: presença digital (próxima etapa)
-    __init__.py             Em construção
+  presenca_digital/         Linha de solução: análise de presença digital via website
+    analisador_web.py       Verificação HTTP, extração de sinais do HTML (HEAD → GET)
+    diagnosticador_presenca.py  score_presenca_web, classificacao_presenca_web, diagnóstico e oportunidade
 
 conectores/
   overpass.py               Conector OpenStreetMap (substituível)
@@ -270,6 +321,7 @@ docs/
 
 tests/
   prospeccao_operacional/   Testes da linha de prospecção (60 casos)
+  presenca_digital/         Testes do módulo de presença digital (37 casos)
   core/                     Testes do núcleo (5 casos)
 
 config.py                   Configuração centralizada
@@ -285,4 +337,6 @@ main.py                     Ponto de entrada
 - Sem integração com Google Maps, redes sociais ou aplicativos de entrega
 - Abordabilidade baseada em dados públicos — empresa pode ter contato não registrado
 
-Para detalhes das heurísticas: [docs/prospeccao_operacional/heuristicas.md](docs/prospeccao_operacional/heuristicas.md)
+Para detalhes das heurísticas de prospecção: [docs/prospeccao_operacional/heuristicas.md](docs/prospeccao_operacional/heuristicas.md)
+
+Para detalhes das heurísticas de presença digital: [docs/presenca_digital/heuristicas.md](docs/presenca_digital/heuristicas.md)
