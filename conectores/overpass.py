@@ -165,14 +165,19 @@ def buscar_por_tag(cidade: str, tag_chave: str, tag_valor: str) -> list:
     area_id = _obter_area_id(cidade, config.PAIS)
     query = _construir_query(area_id, cidade, tag_chave, tag_valor)
 
+    # Alterna entre instâncias da Overpass API para distribuir carga
+    urls = config.OVERPASS_URLS
+    tentativas_429 = 0
+
     for tentativa in range(1, config.MAX_TENTATIVAS + 1):
+        url = urls[(tentativa - 1) % len(urls)]
         try:
             logger.info(
-                f"Overpass: {tag_chave}={tag_valor} em '{cidade}' "
+                f"Overpass [{url.split('/')[2]}]: {tag_chave}={tag_valor} em '{cidade}' "
                 f"(tentativa {tentativa}/{config.MAX_TENTATIVAS})"
             )
             response = requests.post(
-                config.OVERPASS_URL,
+                url,
                 data={"data": query},
                 timeout=config.TIMEOUT_REQUISICAO,
             )
@@ -189,7 +194,19 @@ def buscar_por_tag(cidade: str, tag_chave: str, tag_valor: str) -> list:
         except requests.exceptions.ConnectionError:
             logger.warning(f"Erro de conexão na tentativa {tentativa}")
         except requests.exceptions.HTTPError as e:
-            logger.warning(f"Erro HTTP {e.response.status_code} na tentativa {tentativa}")
+            status = e.response.status_code
+            if status == 429:
+                # Rate limit: espera muito mais que o normal antes de tentar outra instância
+                tentativas_429 += 1
+                pausa = config.PAUSA_RATE_LIMIT * tentativas_429
+                logger.warning(
+                    f"Rate limit (429) na tentativa {tentativa}. "
+                    f"Aguardando {pausa}s antes de tentar outra instância..."
+                )
+                time.sleep(pausa)
+                continue
+            else:
+                logger.warning(f"Erro HTTP {status} na tentativa {tentativa}")
         except ValueError as e:
             logger.error(f"Resposta inválida da API: {e}")
             break
@@ -198,7 +215,7 @@ def buscar_por_tag(cidade: str, tag_chave: str, tag_valor: str) -> list:
             break
 
         if tentativa < config.MAX_TENTATIVAS:
-            pausa = config.PAUSA_ENTRE_REQUISICOES * tentativa
+            pausa = config.PAUSA_ENTRE_REQUISICOES
             logger.info(f"Aguardando {pausa}s antes da próxima tentativa...")
             time.sleep(pausa)
 

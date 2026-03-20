@@ -51,14 +51,22 @@ NOMES_CATEGORIAS = {
 
 # --- Configuração de rede ---
 
-# URL da Overpass API (pública, gratuita, sem chave de API)
-OVERPASS_URL = "https://overpass-api.de/api/interpreter"
+# Instâncias públicas da Overpass API — gratuitas, sem chave de API.
+# O sistema tenta a primeira; se receber 429 repetido, tenta a próxima.
+OVERPASS_URLS = [
+    "https://overpass-api.de/api/interpreter",
+    "https://overpass.kumi.systems/api/interpreter",
+]
 
 # Pausa entre requisições à Overpass API (segundos) — respeita rate limiting
-PAUSA_ENTRE_REQUISICOES = 3
+PAUSA_ENTRE_REQUISICOES = 6
+
+# Pausa extra após receber HTTP 429 (Too Many Requests).
+# Precisa ser bem maior que a pausa normal para a API se recuperar.
+PAUSA_RATE_LIMIT = 35
 
 # Timeout para requisições HTTP (segundos)
 TIMEOUT_REQUISICAO = 45
 
 # Número máximo de tentativas por requisição em caso de falha
-MAX_TENTATIVAS = 3
+MAX_TENTATIVAS = 4
