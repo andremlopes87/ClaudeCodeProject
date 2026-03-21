@@ -2,11 +2,12 @@
 agentes/secretario/agente_secretario.py — Agente secretário/orquestrador.
 
 Lê o estado dos agentes existentes, consolida a visão operacional do dia,
-registra handoffs entre agentes e identifica bloqueios e deliberações.
+registra handoffs entre agentes e gerencia o ciclo de deliberações do conselho.
 
 Não recria análise financeira. Não recria pipeline comercial.
 Não substitui os agentes operacionais. Não executa contato real.
-Apenas consolida, organiza, prioriza e sobe o que é deliberativo.
+Consolida, organiza, prioriza, escreve deliberacoes_conselho.json
+e reflete decisões do conselho no painel_operacional.json.
 
 Agentes conhecidos nesta versão:
   agente_financeiro, agente_comercial
@@ -16,6 +17,8 @@ Placeholder futuro:
 Saídas:
   dados/painel_operacional.json
   dados/handoffs_agentes.json
+  dados/deliberacoes_conselho.json      (escrito e mantido por este agente)
+  dados/historico_deliberacoes.json     (log auditável de eventos)
   dados/estado_agente_secretario.json
   logs/agentes/agente_secretario_{ts}.log
 """
@@ -35,18 +38,18 @@ from core.controle_agente import (
     registrar_execucao,
     configurar_log_agente,
 )
+from core.deliberacoes import (
+    criar_ou_atualizar_deliberacao,
+    consolidar_deliberacoes_equivalentes,
+    carregar_deliberacoes,
+)
 
 NOME_AGENTE = "agente_secretario"
 
-# Agentes cujos estados o secretário lê
-_AGENTES_CONHECIDOS = ["agente_financeiro", "agente_comercial"]
-
-# Tipos e urgências que sobem para deliberação do conselho
-_TIPOS_DELIBERACAO = {"deliberacao_comercial", "risco_de_caixa", "vencido_sem_resolucao", "vencido_sem_pagamento"}
+_AGENTES_CONHECIDOS    = ["agente_financeiro", "agente_comercial"]
+_TIPOS_DELIBERACAO     = {"deliberacao_comercial", "risco_de_caixa", "vencido_sem_resolucao", "vencido_sem_pagamento"}
 _URGENCIAS_DELIBERACAO = {"alta", "imediata"}
-
-# Destinos ainda não implementados — geram bloqueio
-_AGENTES_FUTUROS = {"agente_executor_contato"}
+_AGENTES_FUTUROS       = {"agente_executor_contato"}
 
 
 # ─── Ponto de entrada ────────────────────────────────────────────────────────
@@ -75,18 +78,23 @@ def executar() -> dict:
     # ── ETAPA 4: Detectar bloqueios ────────────────────────────────────────
     bloqueios = _detectar_bloqueios(insumos, todos_handoffs, log)
 
-    # ── ETAPA 5: Separar deliberações do conselho ──────────────────────────
-    deliberacoes = _detectar_deliberacoes_conselho(insumos, log)
+    # ── ETAPA 5: Sincronizar deliberações do conselho ─────────────────────
+    deliberacoes_dados = _sincronizar_deliberacoes_conselho(insumos, log)
 
     # ── ETAPA 6: Itens operacionais prioritários ───────────────────────────
-    operacionais = _itens_operacionais(insumos, deliberacoes)
+    ids_delib = {
+        d.get("id", "")
+        for bucket in ["pendentes", "em_analise", "deliberadas_aguardando_aplicacao", "aplicadas"]
+        for d in deliberacoes_dados.get(bucket, [])
+    }
+    operacionais = _itens_operacionais(insumos, ids_delib)
 
     # ── ETAPA 7: Status por agente ─────────────────────────────────────────
     status_por_agente = _status_por_agente(insumos)
 
     # ── ETAPA 8: Montar painel operacional ────────────────────────────────
     painel = _consolidar_painel(
-        operacionais, bloqueios, todos_handoffs, deliberacoes, status_por_agente
+        operacionais, bloqueios, todos_handoffs, deliberacoes_dados, status_por_agente
     )
 
     # ── ETAPA 9: Persistir ────────────────────────────────────────────────
@@ -94,16 +102,21 @@ def executar() -> dict:
     _salvar_json("handoffs_agentes.json", todos_handoffs)
 
     # ── ETAPA 10: Salvar estado ────────────────────────────────────────────
+    n_delib_pendentes   = len(deliberacoes_dados.get("pendentes", []))
+    n_delib_deliberadas = len(deliberacoes_dados.get("deliberadas_aguardando_aplicacao", []))
+    n_delib_aplicadas   = len(deliberacoes_dados.get("aplicadas", []))
+
     resumo_str = (
         f"operacionais={len(operacionais)} bloqueios={len(bloqueios)} "
-        f"deliberacoes={len(deliberacoes)} handoffs={len(todos_handoffs)}"
+        f"delib_pendentes={n_delib_pendentes} delib_deliberadas={n_delib_deliberadas} "
+        f"handoffs={len(todos_handoffs)}"
     )
     hash_exec = _hash_estado(painel)
     registrar_execucao(
         estado,
         saldo       = insumos["estado_financeiro"].get("ultimo_saldo") or 0.0,
         resumo      = resumo_str,
-        n_escalados = len(deliberacoes),
+        n_escalados = n_delib_pendentes,
         n_autonomos = len(operacionais),
         hash_exec   = hash_exec,
     )
@@ -112,21 +125,25 @@ def executar() -> dict:
     # ── ETAPA 11: Log final ────────────────────────────────────────────────
     log.info("=" * 60)
     log.info(f"AGENTE SECRETARIO — concluido")
-    log.info(f"  itens operacionais   : {len(operacionais)}")
-    log.info(f"  bloqueios            : {len(bloqueios)}")
-    log.info(f"  handoffs criados     : {n_handoffs_criados} (total: {len(todos_handoffs)})")
-    log.info(f"  deliberacoes conselho: {len(deliberacoes)}")
+    log.info(f"  itens operacionais       : {len(operacionais)}")
+    log.info(f"  bloqueios                : {len(bloqueios)}")
+    log.info(f"  handoffs criados         : {n_handoffs_criados} (total: {len(todos_handoffs)})")
+    log.info(f"  deliberacoes pendentes   : {n_delib_pendentes}")
+    log.info(f"  deliberacoes deliberadas : {n_delib_deliberadas}")
+    log.info(f"  deliberacoes aplicadas   : {n_delib_aplicadas}")
     log.info("=" * 60)
 
     return {
-        "agente":              NOME_AGENTE,
-        "timestamp":           ts,
-        "operacionais":        len(operacionais),
-        "bloqueios":           len(bloqueios),
-        "handoffs_total":      len(todos_handoffs),
-        "handoffs_criados":    n_handoffs_criados,
-        "deliberacoes":        len(deliberacoes),
-        "caminho_log":         str(caminho_log),
+        "agente":                   NOME_AGENTE,
+        "timestamp":                ts,
+        "operacionais":             len(operacionais),
+        "bloqueios":                len(bloqueios),
+        "handoffs_total":           len(todos_handoffs),
+        "handoffs_criados":         n_handoffs_criados,
+        "deliberacoes":             n_delib_pendentes,
+        "deliberacoes_deliberadas": n_delib_deliberadas,
+        "deliberacoes_aplicadas":   n_delib_aplicadas,
+        "caminho_log":              str(caminho_log),
     }
 
 
@@ -135,13 +152,13 @@ def executar() -> dict:
 def _carregar_insumos_operacionais(log) -> dict:
     """Carrega todos os arquivos relevantes dos agentes existentes."""
     insumos = {
-        "fila_consolidada":   _carregar_json("fila_decisoes_consolidada.json", padrao=[]),
-        "agenda_hoje":        _carregar_json("agenda_do_dia.json",             padrao={"itens": []}),
-        "estado_financeiro":  _carregar_json("estado_agente_financeiro.json",  padrao={}),
-        "estado_comercial":   _carregar_json("estado_agente_comercial.json",   padrao={}),
-        "pipeline":           _carregar_json("pipeline_comercial.json",        padrao=[]),
-        "followups":          _carregar_json("fila_followups.json",            padrao=[]),
-        "historico":          _carregar_json("historico_abordagens.json",      padrao=[]),
+        "fila_consolidada":  _carregar_json("fila_decisoes_consolidada.json", padrao=[]),
+        "agenda_hoje":       _carregar_json("agenda_do_dia.json",             padrao={"itens": []}),
+        "estado_financeiro": _carregar_json("estado_agente_financeiro.json",  padrao={}),
+        "estado_comercial":  _carregar_json("estado_agente_comercial.json",   padrao={}),
+        "pipeline":          _carregar_json("pipeline_comercial.json",        padrao=[]),
+        "followups":         _carregar_json("fila_followups.json",            padrao=[]),
+        "historico":         _carregar_json("historico_abordagens.json",      padrao=[]),
     }
     log.info(
         f"Insumos carregados: fila_consolidada={len(insumos['fila_consolidada'])} | "
@@ -156,7 +173,7 @@ def _carregar_insumos_operacionais(log) -> dict:
 def _extrair_handoffs(insumos, existentes, estado, log) -> tuple:
     """
     Cria handoffs para follow-ups que dependem de agentes futuros.
-    Não recria handoffs já registrados (dedup por referencia_id).
+    Não recria handoffs já registrados (dedup por referencia_id + estado).
     """
     refs_existentes = {h.get("referencia_id") for h in existentes}
     novos  = []
@@ -175,17 +192,17 @@ def _extrair_handoffs(insumos, existentes, estado, log) -> tuple:
 
         prioridade = "alta" if fu.get("tipo_acao") == "primeiro_contato" else "media"
         novos.append({
-            "id":            hf_id,
-            "agente_origem": fu.get("agente_origem", "agente_comercial"),
+            "id":             hf_id,
+            "agente_origem":  fu.get("agente_origem", "agente_comercial"),
             "agente_destino": destino,
-            "tipo_handoff":  fu.get("tipo_acao", "operacional"),
-            "referencia_id": fu_id,
-            "descricao":     f"{fu.get('contraparte', '?')} — {fu.get('descricao', '')[:80]}",
-            "prioridade":    prioridade,
-            "status":        "pendente",
-            "depende_de":    fu.get("depende_de"),
-            "registrado_em": agora,
-            "atualizado_em": agora,
+            "tipo_handoff":   fu.get("tipo_acao", "operacional"),
+            "referencia_id":  fu_id,
+            "descricao":      f"{fu.get('contraparte', '?')} \u2014 {fu.get('descricao', '')[:80]}",
+            "prioridade":     prioridade,
+            "status":         "pendente",
+            "depende_de":     fu.get("depende_de"),
+            "registrado_em":  agora,
+            "atualizado_em":  agora,
         })
         marcar_processado(estado, hf_id)
         log.info(f"  [hf novo] {hf_id} | {fu.get('agente_origem')} -> {destino} | {fu.get('contraparte', '?')[:40]}")
@@ -197,28 +214,26 @@ def _extrair_handoffs(insumos, existentes, estado, log) -> tuple:
 
 def _detectar_bloqueios(insumos, handoffs, log) -> list:
     """
-    Detecta itens parados sem executor disponível ou sem dono claro.
-    Nesta versão: follow-ups com destino em _AGENTES_FUTUROS são bloqueios estruturais.
+    Detecta itens parados sem executor disponível.
+    Follow-ups com destino em _AGENTES_FUTUROS = bloqueio estrutural.
     """
     bloqueios = []
     vistos    = set()
 
-    # Handoffs pendentes para agentes futuros = bloqueio estrutural
     for hf in handoffs:
         if hf.get("agente_destino") in _AGENTES_FUTUROS and hf.get("status") == "pendente":
             fu_id = hf.get("referencia_id", hf["id"])
             if fu_id in vistos:
                 continue
             vistos.add(fu_id)
-            # encontrar contraparte
             fu = next((f for f in insumos["followups"] if f.get("id") == fu_id), {})
             bloqueios.append({
-                "tipo":          "agente_destino_nao_disponivel",
-                "referencia_id": fu_id,
-                "handoff_id":    hf["id"],
+                "tipo":           "agente_destino_nao_disponivel",
+                "referencia_id":  fu_id,
+                "handoff_id":     hf["id"],
                 "agente_destino": hf["agente_destino"],
-                "contraparte":   fu.get("contraparte", hf.get("descricao", "?")[:40]),
-                "descricao":     f"Follow-up aguarda {hf['agente_destino']} (ainda nao implementado)",
+                "contraparte":    fu.get("contraparte", hf.get("descricao", "?")[:40]),
+                "descricao":      f"Follow-up aguarda {hf['agente_destino']} (ainda nao implementado)",
             })
 
     if bloqueios:
@@ -229,75 +244,78 @@ def _detectar_bloqueios(insumos, handoffs, log) -> list:
 
 # ─── Deliberações do conselho ────────────────────────────────────────────────
 
-def _detectar_deliberacoes_conselho(insumos, log) -> list:
+def _sincronizar_deliberacoes_conselho(insumos, log) -> dict:
     """
-    Extrai itens da fila_consolidada que são deliberativos (alta urgência ou tipo sensível).
-    Não adiciona à fila — apenas superficia no painel.
-    Deduplica por item_id.
-    """
-    deliberacoes = []
-    vistos = set()
+    Sincroniza deliberações do conselho:
+    1. Cria/atualiza deliberacoes_conselho.json a partir da fila_consolidada
+    2. Consolida deliberações equivalentes (mesmo tipo + contraparte)
+    3. Retorna deliberações separadas por status para o painel
 
+    Esta é a fonte autoritativa — não superficia apenas, escreve e mantém.
+    """
     for item in insumos["fila_consolidada"]:
-        item_id  = item.get("item_id", "")
         urgencia = item.get("urgencia", "")
         tipo     = item.get("tipo", "")
-
-        if item_id in vistos:
-            continue
-
         if urgencia in _URGENCIAS_DELIBERACAO or tipo in _TIPOS_DELIBERACAO:
-            deliberacoes.append({
-                "item_id":       item_id,
-                "agente_origem": item.get("agente_origem", "?"),
-                "tipo":          tipo,
-                "descricao":     item.get("descricao", ""),
-                "urgencia":      urgencia,
-                "acao_sugerida": item.get("acao_sugerida", ""),
-                "prazo_sugerido": item.get("prazo_sugerido"),
-                "status_aprovacao": item.get("status_aprovacao", "pendente"),
-            })
-            vistos.add(item_id)
-            log.info(f"  [deliberacao] {item_id} | {urgencia} | {tipo}")
+            criar_ou_atualizar_deliberacao(item)
+            log.info(f"  [delib sync] {item.get('item_id')} | {urgencia} | {tipo}")
 
-    return deliberacoes
+    n_consol = consolidar_deliberacoes_equivalentes()
+    if n_consol:
+        log.info(f"  [delib consolidar] {n_consol} deliberacoes consolidadas")
+
+    todas = carregar_deliberacoes()
+    pendentes   = [d for d in todas if d["status"] == "pendente"]
+    em_analise  = [d for d in todas if d["status"] == "em_analise"]
+    deliberadas = [d for d in todas if d["status"] == "deliberado"]
+    aplicadas   = [d for d in todas if d["status"] == "aplicado"]
+
+    log.info(
+        f"  Deliberacoes: pendentes={len(pendentes)} em_analise={len(em_analise)} "
+        f"deliberadas={len(deliberadas)} aplicadas={len(aplicadas)}"
+    )
+
+    return {
+        "pendentes":                        pendentes,
+        "em_analise":                       em_analise,
+        "deliberadas_aguardando_aplicacao": deliberadas,
+        "aplicadas":                        aplicadas,
+        "total":                            len(todas),
+    }
 
 
 # ─── Itens operacionais ──────────────────────────────────────────────────────
 
-def _itens_operacionais(insumos, deliberacoes) -> list:
+def _itens_operacionais(insumos, ids_deliberacao: set) -> list:
     """
-    Itens operacionais prioritários = follow-ups pendentes + pipeline em revisão.
-    Exclui itens que já são deliberações do conselho.
+    Itens operacionais prioritários = follow-ups pendentes + pipeline aguardando execução.
+    ids_deliberacao: set de IDs de deliberações (reservado para exclusão futura se necessário).
     """
-    ids_deliberacao = {d["item_id"] for d in deliberacoes}
     operacionais = []
 
-    # Follow-ups pendentes de execução
     for fu in insumos["followups"]:
         if fu.get("status") == "pendente_execucao":
             operacionais.append({
-                "tipo":          "followup_pendente",
-                "referencia_id": fu["id"],
-                "contraparte":   fu.get("contraparte", "?"),
-                "canal":         fu.get("canal", "?"),
-                "acao":          fu.get("tipo_acao", "?"),
+                "tipo":           "followup_pendente",
+                "referencia_id":  fu["id"],
+                "contraparte":    fu.get("contraparte", "?"),
+                "canal":          fu.get("canal", "?"),
+                "acao":           fu.get("tipo_acao", "?"),
                 "agente_destino": fu.get("agente_destino", "?"),
-                "descricao":     fu.get("descricao", "")[:100],
+                "descricao":      fu.get("descricao", "")[:100],
             })
 
-    # Pipeline em aguardando_execucao (sem executor)
     for opp in insumos["pipeline"]:
         if opp.get("status_operacional") == "aguardando_execucao":
             operacionais.append({
-                "tipo":          "oportunidade_aguardando_execucao",
-                "referencia_id": opp["id"],
-                "contraparte":   opp.get("contraparte", "?"),
-                "estagio":       opp.get("estagio", "?"),
-                "prioridade":    opp.get("prioridade", "?"),
+                "tipo":           "oportunidade_aguardando_execucao",
+                "referencia_id":  opp["id"],
+                "contraparte":    opp.get("contraparte", "?"),
+                "estagio":        opp.get("estagio", "?"),
+                "prioridade":     opp.get("prioridade", "?"),
                 "canal_sugerido": opp.get("canal_sugerido", "?"),
-                "depende_de":    opp.get("depende_de", "?"),
-                "descricao":     f"Oportunidade {opp.get('estagio')} aguardando agente_executor_contato",
+                "depende_de":     opp.get("depende_de", "?"),
+                "descricao":      f"Oportunidade {opp.get('estagio')} aguardando agente_executor_contato",
             })
 
     return operacionais
@@ -308,8 +326,8 @@ def _itens_operacionais(insumos, deliberacoes) -> list:
 def _status_por_agente(insumos) -> dict:
     ef = insumos["estado_financeiro"]
     ec = insumos["estado_comercial"]
-    pipeline   = insumos["pipeline"]
-    followups  = insumos["followups"]
+    pipeline  = insumos["pipeline"]
+    followups = insumos["followups"]
 
     por_estagio = {}
     for opp in pipeline:
@@ -318,46 +336,49 @@ def _status_por_agente(insumos) -> dict:
 
     return {
         "agente_financeiro": {
-            "ultima_execucao":         ef.get("ultima_execucao"),
-            "ultimo_saldo":            ef.get("ultimo_saldo"),
-            "ultimo_resumo":           ef.get("ultimo_resumo", "")[:120],
+            "ultima_execucao":           ef.get("ultima_execucao"),
+            "ultimo_saldo":              ef.get("ultimo_saldo"),
+            "ultimo_resumo":             ef.get("ultimo_resumo", "")[:120],
             "itens_pendentes_escalados": len(ef.get("itens_pendentes_escalados", [])),
-            "itens_processados":       len(ef.get("itens_processados", [])),
+            "itens_processados":         len(ef.get("itens_processados", [])),
         },
         "agente_comercial": {
-            "ultima_execucao":         ec.get("ultima_execucao"),
-            "pipeline_total":          len(pipeline),
-            "pipeline_por_estagio":    por_estagio,
-            "followups_pendentes":     sum(1 for f in followups if f.get("status") == "pendente_execucao"),
+            "ultima_execucao":           ec.get("ultima_execucao"),
+            "pipeline_total":            len(pipeline),
+            "pipeline_por_estagio":      por_estagio,
+            "followups_pendentes":       sum(1 for f in followups if f.get("status") == "pendente_execucao"),
             "itens_pendentes_escalados": len(ec.get("itens_pendentes_escalados", [])),
-            "itens_processados":       len(ec.get("itens_processados", [])),
+            "itens_processados":         len(ec.get("itens_processados", [])),
         },
     }
 
 
 # ─── Painel operacional ──────────────────────────────────────────────────────
 
-def _consolidar_painel(operacionais, bloqueios, handoffs, deliberacoes, status_por_agente) -> dict:
-    hoje = date.today().isoformat()
+def _consolidar_painel(operacionais, bloqueios, handoffs, deliberacoes_dados, status_por_agente) -> dict:
+    hoje  = date.today().isoformat()
     agora = datetime.now().isoformat(timespec="seconds")
 
     handoffs_pendentes = [h for h in handoffs if h.get("status") == "pendente"]
-
-    resumo = _resumo_geral(operacionais, bloqueios, deliberacoes, status_por_agente)
+    resumo = _resumo_geral(operacionais, bloqueios, deliberacoes_dados, status_por_agente)
 
     return {
-        "data_referencia":              hoje,
-        "gerado_em":                    agora,
-        "resumo_geral":                 resumo,
+        "data_referencia":               hoje,
+        "gerado_em":                     agora,
+        "resumo_geral":                  resumo,
         "itens_operacionais_prioritarios": operacionais,
-        "bloqueios":                    bloqueios,
-        "handoffs_pendentes":           handoffs_pendentes,
-        "deliberacoes_conselho":        deliberacoes,
-        "status_por_agente":            status_por_agente,
+        "bloqueios":                     bloqueios,
+        "handoffs_pendentes":            handoffs_pendentes,
+        "deliberacoes_conselho": {
+            "pendentes":                        deliberacoes_dados.get("pendentes", []),
+            "deliberadas_aguardando_aplicacao": deliberacoes_dados.get("deliberadas_aguardando_aplicacao", []),
+            "aplicadas":                        deliberacoes_dados.get("aplicadas", []),
+        },
+        "status_por_agente":             status_por_agente,
     }
 
 
-def _resumo_geral(operacionais, bloqueios, deliberacoes, status_por_agente) -> str:
+def _resumo_geral(operacionais, bloqueios, deliberacoes_dados, status_por_agente) -> str:
     partes = []
     sf = status_por_agente.get("agente_financeiro", {})
     sc = status_por_agente.get("agente_comercial", {})
@@ -370,8 +391,12 @@ def _resumo_geral(operacionais, bloqueios, deliberacoes, status_por_agente) -> s
     if pipeline_total:
         partes.append(f"Pipeline: {pipeline_total} oportunidade(s)")
 
-    if deliberacoes:
-        partes.append(f"{len(deliberacoes)} deliberacao(oes) aguardando conselho")
+    pendentes   = deliberacoes_dados.get("pendentes", [])
+    deliberadas = deliberacoes_dados.get("deliberadas_aguardando_aplicacao", [])
+    if pendentes:
+        partes.append(f"{len(pendentes)} deliberacao(oes) pendente(s) no conselho")
+    if deliberadas:
+        partes.append(f"{len(deliberadas)} deliberacao(oes) aguardando aplicacao")
 
     if bloqueios:
         partes.append(f"{len(bloqueios)} bloqueio(s) aguardando agente futuro")
@@ -398,14 +423,18 @@ def _salvar_json(nome, dados) -> None:
     caminho = config.PASTA_DADOS / nome
     with open(caminho, "w", encoding="utf-8") as f:
         json.dump(dados, f, ensure_ascii=False, indent=2)
-    logging.getLogger(__name__).info(f"Salvo: {caminho} ({len(dados) if isinstance(dados, list) else 1} registros)")
+    logging.getLogger(__name__).info(
+        f"Salvo: {caminho} ({len(dados) if isinstance(dados, list) else 1} registros)"
+    )
 
 
 def _hash_estado(painel: dict) -> str:
+    delib = painel.get("deliberacoes_conselho", {})
     chave = json.dumps({
-        "operacionais":  len(painel.get("itens_operacionais_prioritarios", [])),
-        "bloqueios":     len(painel.get("bloqueios", [])),
-        "deliberacoes":  len(painel.get("deliberacoes_conselho", [])),
-        "handoffs":      len(painel.get("handoffs_pendentes", [])),
+        "operacionais": len(painel.get("itens_operacionais_prioritarios", [])),
+        "bloqueios":    len(painel.get("bloqueios", [])),
+        "delib_pend":   len(delib.get("pendentes", [])),
+        "delib_delib":  len(delib.get("deliberadas_aguardando_aplicacao", [])),
+        "handoffs":     len(painel.get("handoffs_pendentes", [])),
     }, sort_keys=True)
     return hashlib.md5(chave.encode()).hexdigest()[:16]

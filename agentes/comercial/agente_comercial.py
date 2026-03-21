@@ -38,6 +38,7 @@ from core.controle_agente import (
     carregar_aprovacoes,
     configurar_log_agente,
 )
+from core.deliberacoes import buscar_deliberacao_por_item_id, marcar_como_aplicada
 from modulos.comercial.pipeline_manager import (
     carregar_pipeline,
     carregar_followups,
@@ -84,6 +85,9 @@ def executar() -> dict:
     # ── ETAPA 3: Verificar aprovações do conselho ──────────────────────────
     aprovacoes = carregar_aprovacoes()
     aprovados_agora = _processar_aprovacoes(aprovacoes, estado, log)
+
+    # ── ETAPA 3b: Verificar deliberações do conselho resolvidas ───────────
+    aprovados_agora += _processar_deliberacoes_resolvidas(estado, log)
 
     # ── ETAPA 4: Carregar dados ────────────────────────────────────────────
     leads     = _carregar_leads(log)
@@ -252,6 +256,30 @@ def _processar_aprovacoes(aprovacoes: list, estado: dict, log) -> int:
                 f"  [resolvido conselho] {ap['item_id']} — {ap['decisao']} "
                 f"em {ap.get('data_decisao', '?')}"
             )
+    return resolvidos
+
+
+# ─── Deliberações do conselho ────────────────────────────────────────────────
+
+def _processar_deliberacoes_resolvidas(estado: dict, log) -> int:
+    """
+    Verifica se alguma deliberação do conselho foi decidida para itens pendentes deste agente.
+    Resolve pendentes e marca deliberações como aplicadas.
+    Retorna número de itens resolvidos.
+    """
+    pendentes  = list(estado.get("itens_pendentes_escalados", []))
+    resolvidos = 0
+    for item_id in pendentes:
+        d = buscar_deliberacao_por_item_id(item_id)
+        if d and d.get("status") == "deliberado":
+            resolver_pendente(estado, item_id)
+            marcar_como_aplicada(d["id"])
+            resolvidos += 1
+            log.info(
+                f"  [deliberado] {item_id} — decisao={str(d.get('decisao_conselho', '?'))[:60]}"
+            )
+    if resolvidos:
+        log.info(f"Deliberacoes aplicadas: {resolvidos} itens fechados pelo comercial")
     return resolvidos
 
 

@@ -38,6 +38,7 @@ from modulos.financeiro.pipeline import executar_analise_financeira
 from modulos.financeiro.registrador_eventos import carregar_eventos
 from modulos.financeiro.contas_a_receber import carregar_com_status_efetivo as receber_efetivo
 from modulos.financeiro.contas_a_pagar import carregar_com_status_efetivo as pagar_efetivo
+from core.deliberacoes import buscar_deliberacao_por_item_id, marcar_como_aplicada
 
 NOME_AGENTE = "agente_financeiro"
 
@@ -68,6 +69,9 @@ def executar() -> dict:
     # ── ETAPA 2: Verificar aprovações recebidas ────────────────────────────
     aprovacoes = carregar_aprovacoes()
     aprovados_agora = _processar_aprovacoes(aprovacoes, estado, log)
+
+    # ── ETAPA 2b: Verificar deliberações do conselho resolvidas ───────────
+    aprovados_agora += _processar_deliberacoes_resolvidas(estado, log)
 
     # ── ETAPA 3: Carregar dados financeiros ────────────────────────────────
     log.info("Carregando dados financeiros com status efetivo...")
@@ -286,6 +290,28 @@ def _formatar_item_consolidado(risco: dict, agente_origem: str) -> dict:
         "prazo_sugerido": risco.get("prazo_sugerido"),
         "status_aprovacao": "pendente",
     }
+
+
+def _processar_deliberacoes_resolvidas(estado: dict, log) -> int:
+    """
+    Verifica se alguma deliberação do conselho foi decidida para itens pendentes deste agente.
+    Resolve pendentes e marca deliberações como aplicadas.
+    Retorna número de itens resolvidos.
+    """
+    pendentes  = list(estado.get("itens_pendentes_escalados", []))
+    resolvidos = 0
+    for item_id in pendentes:
+        d = buscar_deliberacao_por_item_id(item_id)
+        if d and d.get("status") == "deliberado":
+            resolver_pendente(estado, item_id)
+            marcar_como_aplicada(d["id"])
+            resolvidos += 1
+            log.info(
+                f"  [deliberado] {item_id} — decisao={str(d.get('decisao_conselho', '?'))[:60]}"
+            )
+    if resolvidos:
+        log.info(f"Deliberacoes aplicadas: {resolvidos} itens fechados pelo financeiro")
+    return resolvidos
 
 
 def _formatar_item_consolidado_alerta(alerta: dict, agente_origem: str) -> dict:

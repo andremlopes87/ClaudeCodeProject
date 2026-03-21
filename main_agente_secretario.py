@@ -6,8 +6,10 @@ Consolida a visão operacional do dia a partir dos agentes existentes:
   - agente_comercial
 
 Produz:
-  - painel_operacional.json   — visão única da empresa
-  - handoffs_agentes.json     — dependências entre agentes
+  - painel_operacional.json          — visão única da empresa
+  - handoffs_agentes.json            — dependências entre agentes
+  - deliberacoes_conselho.json       — fila de deliberações do conselho
+  - historico_deliberacoes.json      — log auditável de eventos
   - estado_agente_secretario.json
 """
 
@@ -29,12 +31,16 @@ def main() -> None:
     print(f"Itens operacionais             : {resultado['operacionais']}")
     print(f"Bloqueios detectados           : {resultado['bloqueios']}")
     print(f"Handoffs criados               : {resultado['handoffs_criados']} (total: {resultado['handoffs_total']})")
-    print(f"Deliberacoes ao conselho       : {resultado['deliberacoes']}")
+    print(f"Deliberacoes pendentes         : {resultado['deliberacoes']}")
+    print(f"Deliberacoes deliberadas       : {resultado['deliberacoes_deliberadas']}")
+    print(f"Deliberacoes aplicadas         : {resultado['deliberacoes_aplicadas']}")
     print("---")
     print("ARQUIVOS ATUALIZADOS:")
     for nome in [
         "painel_operacional.json",
         "handoffs_agentes.json",
+        "deliberacoes_conselho.json",
+        "historico_deliberacoes.json",
         "estado_agente_secretario.json",
     ]:
         print(f"  {pasta / nome}")
@@ -49,12 +55,28 @@ def main() -> None:
         print(f"\nPAINEL OPERACIONAL — {painel.get('data_referencia', '?')}")
         print(f"  {painel.get('resumo_geral', '')}")
 
-        deliberacoes = painel.get("deliberacoes_conselho", [])
-        if deliberacoes:
-            print(f"\nDELIBERACOES PARA O CONSELHO ({len(deliberacoes)}):")
-            for d in deliberacoes:
-                print(f"  [{d.get('urgencia','?'):8}] {d.get('tipo','?')} — {d.get('descricao','')[:65]}")
-                print(f"           Acao: {d.get('acao_sugerida','')[:70]}")
+        delib_data = painel.get("deliberacoes_conselho", {})
+        pendentes   = delib_data.get("pendentes", []) if isinstance(delib_data, dict) else []
+        deliberadas = delib_data.get("deliberadas_aguardando_aplicacao", []) if isinstance(delib_data, dict) else []
+        aplicadas   = delib_data.get("aplicadas", []) if isinstance(delib_data, dict) else []
+
+        if pendentes:
+            print(f"\nDELIBERACOES PENDENTES — aguardando conselho ({len(pendentes)}):")
+            for d in pendentes:
+                print(f"  [{d.get('urgencia','?'):8}] {d.get('titulo','')[:65]}")
+                print(f"           Recom: {d.get('recomendacao_agente','')[:70]}")
+
+        if deliberadas:
+            print(f"\nDELIBERADAS — aguardando aplicacao ({len(deliberadas)}):")
+            for d in deliberadas:
+                print(f"  [{d.get('urgencia','?'):8}] {d.get('titulo','')[:65]}")
+                print(f"           Decisao: {d.get('decisao_conselho','')[:70]}")
+
+        if aplicadas:
+            print(f"\nDELIBERADAS — aplicadas ({len(aplicadas)}):")
+            for d in aplicadas:
+                print(f"  [{d.get('urgencia','?'):8}] {d.get('titulo','')[:65]}")
+                print(f"           Decisao: {d.get('decisao_conselho','')[:60]} (aplicada)")
 
         bloqueios = painel.get("bloqueios", [])
         if bloqueios:
