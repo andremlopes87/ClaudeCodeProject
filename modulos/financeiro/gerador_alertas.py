@@ -1,10 +1,10 @@
 """
 modulos/financeiro/gerador_alertas.py — Gera filas de alertas e decisões humanas.
 
-Alertas   : eventos urgentes que exigem atenção operacional (curto_prazo ou imediata).
-Decisões  : eventos que precisam de julgamento ou aprovação humana (requer_decisao=True).
+Alertas   : eventos/contas urgentes que exigem atenção operacional.
+Decisões  : itens que precisam de julgamento ou aprovação humana.
 
-A fila de decisões é enxuta — só eventos com impacto real ou ambiguidade real.
+Processa eventos não estruturados + contas a receber + contas a pagar.
 """
 
 import logging
@@ -17,32 +17,69 @@ logger = logging.getLogger(__name__)
 _ORDEM_URGENCIA = {"imediata": 0, "curto_prazo": 1, "medio_prazo": 2}
 
 
-def gerar_alertas(eventos: list, posicao_caixa: dict) -> tuple:
+def gerar_alertas(
+    eventos: list,
+    posicao_caixa: dict,
+    contas_a_receber: list = None,
+    contas_a_pagar: list = None,
+) -> tuple:
     """
     Gera fila de alertas e fila de decisões.
+    contas_a_receber e contas_a_pagar devem ter status efetivo já aplicado.
     Retorna: (fila_alertas, fila_decisoes)
     """
+    contas_a_receber = contas_a_receber or []
+    contas_a_pagar   = contas_a_pagar   or []
     hoje = date.today()
     alertas  = []
     decisoes = []
+    limiar = config.FINANCEIRO_VALOR_RELEVANTE
 
+    # ── Eventos não estruturados ───────────────────────────────────────────
     for ev in eventos:
         if ev.get("status") == "cancelado":
             continue
-
         urgencia       = ev.get("urgencia", "medio_prazo")
         requer_decisao = ev.get("requer_decisao", False)
-
         if urgencia in ("imediata", "curto_prazo"):
-            alertas.append(_resumir(ev, motivo_alerta=_motivo_alerta(ev, hoje)))
-
+            alertas.append(_resumir_evento(ev, motivo_alerta=_motivo_evento(ev, hoje)))
         if requer_decisao:
-            decisoes.append(_resumir(ev, motivo_decisao=ev.get("motivo_decisao")))
+            decisoes.append(_resumir_evento(ev, motivo_decisao=ev.get("motivo_decisao")))
 
-    # Alerta extra: saldo previsto negativo (calculado pelo analisador_caixa)
+    # ── Contas a receber ───────────────────────────────────────────────────
+    for c in contas_a_receber:
+        status          = c.get("status", "aberta")
+        valor_em_aberto = float(c.get("valor_em_aberto", 0))
+        if status in ("recebida", "cancelada"):
+            continue
+        urgencia = _urgencia_conta(c, hoje)
+        if urgencia in ("imediata", "curto_prazo"):
+            alertas.append(_resumir_conta(c, urgencia, motivo_alerta=_motivo_conta_receber(c, hoje)))
+        if status == "vencida" and valor_em_aberto >= limiar:
+            decisoes.append(_resumir_conta(
+                c, urgencia,
+                motivo_decisao=f"conta a receber vencida de R$ {valor_em_aberto:,.2f} — acionar cobranca",
+            ))
+
+    # ── Contas a pagar ─────────────────────────────────────────────────────
+    for c in contas_a_pagar:
+        status          = c.get("status", "aberta")
+        valor_em_aberto = float(c.get("valor_em_aberto", 0))
+        if status in ("paga", "cancelada"):
+            continue
+        urgencia = _urgencia_conta(c, hoje)
+        if urgencia in ("imediata", "curto_prazo"):
+            alertas.append(_resumir_conta(c, urgencia, motivo_alerta=_motivo_conta_pagar(c, hoje)))
+        if status == "vencida" and valor_em_aberto >= limiar:
+            decisoes.append(_resumir_conta(
+                c, urgencia,
+                motivo_decisao=f"conta a pagar vencida de R$ {valor_em_aberto:,.2f} — pagar urgente",
+            ))
+
+    # ── Alerta extra: saldo previsto negativo ─────────────────────────────
     if posicao_caixa.get("risco_caixa") and posicao_caixa.get("saldo_previsto", 0) < 0:
         saldo = posicao_caixa["saldo_previsto"]
-        evento_risco = {
+        item_risco = {
             "id":             "caixa_previsto",
             "tipo":           "risco_de_caixa",
             "status":         "pendente",
@@ -54,22 +91,21 @@ def gerar_alertas(eventos: list, posicao_caixa: dict) -> tuple:
             "motivo_alerta":  f"Saldo previsto: R$ {saldo:,.2f} — caixa insuficiente",
             "motivo_decisao": (
                 f"Caixa previsto negativo (R$ {saldo:,.2f}) — "
-                "revisar pagamentos ou antecipar recebíveis"
+                "revisar pagamentos ou antecipar recebiveis"
             ),
         }
-        alertas.append(evento_risco)
-        decisoes.append(evento_risco)
+        alertas.append(item_risco)
+        decisoes.append(item_risco)
 
     alertas  = _dedup_e_ordenar(alertas)
     decisoes = _dedup_e_ordenar(decisoes)
-
-    logger.info(f"Alertas gerados: {len(alertas)} | Decisões: {len(decisoes)}")
+    logger.info(f"Alertas: {len(alertas)} | Decisoes: {len(decisoes)}")
     return alertas, decisoes
 
 
 # ─── Internos ──────────────────────────────────────────────────────────────
 
-def _resumir(evento: dict, motivo_alerta: str = None, motivo_decisao: str = None) -> dict:
+def _resumir_evento(evento: dict, motivo_alerta: str = None, motivo_decisao: str = None) -> dict:
     return {
         "id":             evento.get("id"),
         "tipo":           evento.get("tipo"),
@@ -84,29 +120,96 @@ def _resumir(evento: dict, motivo_alerta: str = None, motivo_decisao: str = None
     }
 
 
-def _motivo_alerta(evento: dict, hoje: date) -> str:
+def _resumir_conta(conta: dict, urgencia: str, motivo_alerta: str = None, motivo_decisao: str = None) -> dict:
+    return {
+        "id":             conta.get("id"),
+        "tipo":           "conta_a_receber" if "valor_recebido" in conta else "conta_a_pagar",
+        "status":         conta.get("status"),
+        "descricao":      conta.get("descricao"),
+        "valor":          conta.get("valor_em_aberto"),
+        "data_vencimento": conta.get("data_vencimento"),
+        "contraparte":    conta.get("contraparte"),
+        "urgencia":       urgencia,
+        "motivo_alerta":  motivo_alerta,
+        "motivo_decisao": motivo_decisao,
+    }
+
+
+def _urgencia_conta(conta: dict, hoje: date) -> str:
+    status = conta.get("status", "aberta")
+    if status == "vencida":
+        return "imediata"
+    venc = conta.get("data_vencimento")
+    if venc:
+        try:
+            diff = (date.fromisoformat(venc) - hoje).days
+            if diff <= config.FINANCEIRO_DIAS_ALERTA_IMEDIATO:
+                return "imediata"
+            if diff <= config.FINANCEIRO_DIAS_ALERTA_CURTO_PRAZO:
+                return "curto_prazo"
+        except ValueError:
+            pass
+    return "medio_prazo"
+
+
+def _motivo_evento(evento: dict, hoje: date) -> str:
     tipo   = evento.get("tipo", "")
     status = evento.get("status", "")
     valor  = float(evento.get("valor", 0))
     venc   = evento.get("data_vencimento")
-
     if tipo == "conta_vencida" or (status == "vencido" and tipo != "cliente_atrasou"):
         return f"conta vencida de R$ {valor:,.2f} — pagar ou negociar"
     if tipo == "cliente_atrasou":
-        return f"cliente em atraso de R$ {valor:,.2f} — acionar cobrança"
+        return f"cliente em atraso de R$ {valor:,.2f} — acionar cobranca"
     if tipo == "risco_de_caixa":
         return "risco de caixa identificado manualmente"
     if venc:
         try:
             diff = (date.fromisoformat(venc) - hoje).days
             if diff < 0:
-                return f"venceu há {abs(diff)} dia(s)"
+                return f"venceu ha {abs(diff)} dia(s)"
             if diff == 0:
                 return "vence hoje"
             return f"vence em {diff} dia(s)"
         except ValueError:
             pass
     return "evento urgente"
+
+
+def _motivo_conta_receber(conta: dict, hoje: date) -> str:
+    status = conta.get("status", "aberta")
+    valor  = float(conta.get("valor_em_aberto", 0))
+    venc   = conta.get("data_vencimento")
+    contra = conta.get("contraparte", "cliente")
+    if status == "vencida":
+        return f"{contra} — vencido R$ {valor:,.2f} — acionar cobranca"
+    if venc:
+        try:
+            diff = (date.fromisoformat(venc) - hoje).days
+            if diff == 0:
+                return f"{contra} — vence hoje R$ {valor:,.2f}"
+            return f"{contra} — vence em {diff} dia(s) R$ {valor:,.2f}"
+        except ValueError:
+            pass
+    return f"{contra} — R$ {valor:,.2f} pendente"
+
+
+def _motivo_conta_pagar(conta: dict, hoje: date) -> str:
+    status = conta.get("status", "aberta")
+    valor  = float(conta.get("valor_em_aberto", 0))
+    venc   = conta.get("data_vencimento")
+    contra = conta.get("contraparte", "fornecedor")
+    if status == "vencida":
+        return f"{contra} — vencido R$ {valor:,.2f} — pagar urgente"
+    if venc:
+        try:
+            diff = (date.fromisoformat(venc) - hoje).days
+            if diff == 0:
+                return f"{contra} — vence hoje R$ {valor:,.2f}"
+            return f"{contra} — vence em {diff} dia(s) R$ {valor:,.2f}"
+        except ValueError:
+            pass
+    return f"{contra} — R$ {valor:,.2f} pendente"
 
 
 def _dedup_e_ordenar(lista: list) -> list:

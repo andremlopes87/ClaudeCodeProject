@@ -152,6 +152,10 @@ PAUSA_ENTRE_CIDADES = 5
 # Usada apenas por main_financeiro.py / modulos/financeiro/
 # ============================================================
 
+# Saldo inicial do caixa (antes de qualquer evento registrado no sistema).
+# Defina aqui o saldo real da conta da empresa no início do período.
+FINANCEIRO_SALDO_INICIAL = 0.0
+
 # Valor mínimo (R$) para considerar um atraso ou despesa como relevante.
 # Acima deste valor → pode gerar decisão humana.
 FINANCEIRO_VALOR_RELEVANTE = 500.0
