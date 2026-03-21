@@ -146,3 +146,22 @@ LIMITE_EMPRESAS_POR_CIDADE_NICHO = 100
 # Pausa em segundos entre o processamento de cada cidade.
 # Respeita o rate limiting da Overpass API em execuções longas.
 PAUSA_ENTRE_CIDADES = 5
+
+# ============================================================
+# [FINANCEIRO] — Linha financeira interna
+# Usada apenas por main_financeiro.py / modulos/financeiro/
+# ============================================================
+
+# Valor mínimo (R$) para considerar um atraso ou despesa como relevante.
+# Acima deste valor → pode gerar decisão humana.
+FINANCEIRO_VALOR_RELEVANTE = 500.0
+
+# Saldo previsto abaixo deste valor dispara risco_caixa = True.
+# Zero significa que caixa negativo já é risco.
+FINANCEIRO_THRESHOLD_RISCO = 0.0
+
+# Vencimento em até N dias → urgência "imediata"
+FINANCEIRO_DIAS_ALERTA_IMEDIATO = 2
+
+# Vencimento em até N dias → urgência "curto_prazo"
+FINANCEIRO_DIAS_ALERTA_CURTO_PRAZO = 7
