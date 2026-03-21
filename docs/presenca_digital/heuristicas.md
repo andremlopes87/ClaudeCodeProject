@@ -302,3 +302,79 @@ Ordenação:
 ### `candidatas_com_presenca_consolidada.json`
 
 Arquivo timestamped (por execução) com todas as empresas após consolidação — incluindo todos os campos de todas as etapas. Serve como base de histórico da linha de presença digital.
+
+---
+
+## Módulo de planejamento de marketing (`planejador_marketing.py`)
+
+Transforma a oportunidade detectada pelo consolidador em um plano prático de execução e em uma proposta de serviço legível para uso interno.
+
+Este módulo **NÃO** executa nada — apenas planeja. Não envia mensagens, não faz anúncios, não contrata serviços.
+
+### O que este módulo faz
+
+Para cada empresa com oportunidade identificada, gera:
+
+| Campo | Descrição |
+|---|---|
+| `resumo_oportunidade_marketing` | Situação atual em 1-2 frases — o que a empresa tem e o que falta |
+| `gargalo_principal_marketing` | Descrição concreta do problema que bloqueia o resultado |
+| `objetivo_principal_marketing` | O que se quer alcançar com a solução |
+| `solucao_recomendada_marketing` | O que construir ou configurar, adaptado à categoria |
+| `quick_wins_marketing` | 2-3 ações de resultado rápido, em texto livre |
+| `plano_30_dias_marketing` | Roteiro semanal de execução em 4 etapas |
+| `entregaveis_sugeridos_marketing` | Lista do que será entregue ao final da execução |
+| `nivel_complexidade_execucao` | baixa / media / alta — indica esforço de execução |
+| `impacto_esperado` | O que muda para a empresa após a execução |
+| `prioridade_execucao_marketing` | alta / media / baixa / sem_dados |
+| `observacoes_execucao_marketing` | Ressalvas sobre qualidade dos dados e limitações |
+| `proposta_resumida_marketing` | Brief interno de 3-5 frases para entender o que oferecer |
+| `plano_marketing_gerado` | bool — False para empresas sem oportunidade identificada |
+
+### O que este módulo NÃO faz
+
+- Não valida se os dados do OSM estão atualizados
+- Não analisa concorrência ou mercado
+- Não gera mensagens de abordagem ao cliente
+- Não decide preço ou forma de entrega do serviço
+- Não executa nenhuma das ações planejadas
+
+### Como interpretar o plano e a proposta
+
+**`proposta_resumida_marketing`** é um brief interno — serve para entender o que vender, não para enviar ao cliente. Leia como: situação atual → gargalo → solução sugerida → complexidade → disponibilidade de contato.
+
+**`plano_30_dias_marketing`** é uma sugestão de roteiro, não um contrato. Cada semana representa uma fase de execução. O prazo real depende de negociação com o cliente e disponibilidade do time.
+
+**`nivel_complexidade_execucao`**:
+- `baixa` — execução em dias (ex: adicionar botão de WhatsApp, instalar HTTPS)
+- `media` — execução em semanas (ex: criar site simples, recuperar site fora do ar)
+- `alta` — exige pesquisa antes da execução (ex: empresa sem dados suficientes)
+
+**Diferença entre oportunidade e execução**: identificar a oportunidade (o que o consolidador faz) é diferente de ter capacidade de executar. A `fila_propostas_marketing` ordena por viabilidade — empresas com solução clara, dados disponíveis e complexidade baixa ou média aparecem primeiro.
+
+### Lógica de prioridade de execução
+
+| Condição | Prioridade |
+|---|---|
+| oportunidade_alta + contato confirmado (alta/media) + complexidade baixa/media | alta |
+| oportunidade_alta ou media + contato confirmado + complexidade baixa | alta |
+| oportunidade_media + contato confirmado | media |
+| sem contato direto identificado | sem_dados |
+
+### Arquivos gerados
+
+| Arquivo | O que contém |
+|---|---|
+| `candidatas_com_plano_marketing.json` | Timestamped — todas as empresas analisadas, incluindo campos de plano |
+| `fila_propostas_marketing_TIMESTAMP.json` | Timestamped — empresas com plano gerado e viabilidade de execução |
+| `fila_propostas_marketing.json` | Fixo (latest) — mesma fila, sobrescrito a cada execução |
+
+### Critérios da fila de propostas
+
+Inclusão: plano gerado + classificação alta ou media + complexidade baixa ou media.
+
+Ordenação:
+1. `classificacao_presenca_comercial` (alta → media)
+2. `prioridade_execucao_marketing` (alta → media → baixa)
+3. `nivel_complexidade_execucao` (baixa primeiro — execução mais fácil)
+4. `score_presenca_consolidado` decrescente

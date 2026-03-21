@@ -28,11 +28,13 @@ from modulos.presenca_digital.analisador_web import analisar_presenca_web
 from modulos.presenca_digital.diagnosticador_presenca import diagnosticar_presenca
 from modulos.presenca_digital.enriquecedor_canais import enriquecer_canais
 from modulos.presenca_digital.consolidador_presenca import consolidar_presenca, gerar_fila_marketing
+from modulos.presenca_digital.planejador_marketing import planejar_marketing, gerar_fila_propostas
 from core.persistencia import salvar_resultados, salvar_json_fixo
 
 logger = logging.getLogger(__name__)
 
 _NOME_FILA_MARKETING_FIXO = "fila_oportunidades_marketing.json"
+_NOME_FILA_PROPOSTAS_FIXO = "fila_propostas_marketing.json"
 
 
 def configurar_logs() -> str:
@@ -138,12 +140,16 @@ def executar_marketing() -> None:
     logger.info("ETAPA 7 - Consolidando presença comercial...")
     todas_empresas = consolidar_presenca(todas_empresas)
 
+    logger.info("ETAPA 8 - Gerando plano de marketing e propostas...")
+    todas_empresas = planejar_marketing(todas_empresas)
+
     fila_marketing = gerar_fila_marketing(todas_empresas)
+    fila_propostas = gerar_fila_propostas(todas_empresas)
 
-    logger.info(f"Pipeline concluído: {len(todas_empresas)} analisadas, {len(fila_marketing)} na fila.")
+    logger.info(f"Pipeline concluído: {len(todas_empresas)} analisadas, {len(fila_marketing)} na fila de oportunidades, {len(fila_propostas)} na fila de propostas.")
 
-    # ETAPA 3: Salvamento
-    logger.info("ETAPA 8 - Salvando resultados...")
+    # ETAPA 4: Salvamento
+    logger.info("ETAPA 9 - Salvando resultados...")
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
 
     caminho_resultado = salvar_resultados(
@@ -158,6 +164,14 @@ def executar_marketing() -> None:
     logger.info(f"Arquivo salvo: {caminho_fila_ts} ({len(fila_marketing)} registros)")
 
     caminho_fila_fixo = salvar_json_fixo(fila_marketing, _NOME_FILA_MARKETING_FIXO)
+
+    caminho_plano_ts = config.PASTA_DADOS / f"fila_propostas_marketing_{timestamp}.json"
+    with open(caminho_plano_ts, "w", encoding="utf-8") as f:
+        json.dump(fila_propostas, f, ensure_ascii=False, indent=2)
+    logger.info(f"Arquivo salvo: {caminho_plano_ts} ({len(fila_propostas)} registros)")
+
+    caminho_candidatas_plano = salvar_resultados(todas_empresas, sufixo="candidatas_com_plano_marketing")
+    caminho_fila_propostas_fixo = salvar_json_fixo(fila_propostas, _NOME_FILA_PROPOSTAS_FIXO)
 
     # Resumo final
     duracao = int((datetime.now() - inicio).total_seconds())
@@ -176,9 +190,13 @@ def executar_marketing() -> None:
     logger.info(f"  oportunidade_baixa_presenca: {contagem_cls.get('oportunidade_baixa_presenca', 0)}")
     logger.info(f"  pouca_utilidade_presenca   : {contagem_cls.get('pouca_utilidade_presenca', 0)}")
     logger.info(f"  Fila de oportunidades      : {len(fila_marketing)}")
+    logger.info(f"  Fila de propostas          : {len(fila_propostas)}")
     logger.info(f"  Resultado completo         : {caminho_resultado}")
-    logger.info(f"  Fila timestamped           : {caminho_fila_ts}")
-    logger.info(f"  Fila latest (fixo)         : {caminho_fila_fixo}")
+    logger.info(f"  Candidatas com plano       : {caminho_candidatas_plano}")
+    logger.info(f"  Fila oportunidades ts      : {caminho_fila_ts}")
+    logger.info(f"  Fila oportunidades fixo    : {caminho_fila_fixo}")
+    logger.info(f"  Fila propostas ts          : {caminho_plano_ts}")
+    logger.info(f"  Fila propostas fixo        : {caminho_fila_propostas_fixo}")
     logger.info(f"  Log                        : {arquivo_log}")
     logger.info(f"  Duração total              : {duracao}s")
     logger.info("=" * 60)
@@ -199,11 +217,12 @@ def executar_marketing() -> None:
     print(f"pouca_utilidade            : {contagem_cls.get('pouca_utilidade_presenca', 0)}")
     print(f"---")
     print(f"Fila de oportunidades      : {len(fila_marketing)}")
-    _exibir_exemplos_fila(fila_marketing)
+    print(f"Fila de propostas          : {len(fila_propostas)}")
+    _exibir_exemplos_fila(fila_propostas)
     print(f"---")
-    print(f"Resultado completo         : {caminho_resultado}")
-    print(f"Fila timestamped           : {caminho_fila_ts}")
-    print(f"Fila latest (fixo)         : {caminho_fila_fixo}")
+    print(f"Candidatas com plano       : {caminho_candidatas_plano}")
+    print(f"Fila propostas timestamped : {caminho_plano_ts}")
+    print(f"Fila propostas latest      : {caminho_fila_propostas_fixo}")
     print(f"Duração                    : {duracao}s")
     print("=" * 58)
 
