@@ -11,27 +11,20 @@ Para uso real:
   - Execute periodicamente para reclassificar, recalcular e gerar alertas atualizados.
 """
 
-import json
 import logging
 from datetime import datetime
 
 import config
-from modulos.financeiro.registrador_eventos import registrar_lote, carregar_eventos
-from modulos.financeiro.classificador_eventos import classificar_eventos
-from modulos.financeiro.analisador_caixa import analisar_caixa
-from modulos.financeiro.gerador_alertas import gerar_alertas
-from modulos.financeiro.resumo_financeiro import gerar_resumo
-from modulos.financeiro.previsao_caixa import gerar_previsao
+from modulos.financeiro.registrador_eventos import registrar_lote
 from modulos.financeiro.contas_a_receber import (
     registrar_lote_receber,
     carregar_contas_a_receber,
-    carregar_com_status_efetivo as receber_efetivo,
 )
 from modulos.financeiro.contas_a_pagar import (
     registrar_lote_pagar,
     carregar_contas_a_pagar,
-    carregar_com_status_efetivo as pagar_efetivo,
 )
+from modulos.financeiro.pipeline import executar_analise_financeira
 from core.persistencia import salvar_json_fixo
 
 
@@ -156,63 +149,29 @@ def executar_financeiro() -> None:
     registrados = registrar_lote(EVENTOS_EXEMPLO)
     logger.info(f"  {len(registrados)} eventos registrados.")
 
-    # ETAPA 2: Classificar eventos
-    logger.info("ETAPA 2 — Classificando eventos...")
-    eventos = carregar_eventos()
-    eventos = classificar_eventos(eventos)
-    salvar_json_fixo(eventos, "eventos_financeiros.json")
-    _ts(eventos, f"eventos_financeiros_{ts}.json")
-
-    # ETAPA 3: Registrar contas a receber
-    logger.info("ETAPA 3 — Registrando contas a receber...")
+    # ETAPA 2: Registrar contas a receber
+    logger.info("ETAPA 2 — Registrando contas a receber...")
     salvar_json_fixo([], "contas_a_receber.json")
     receber_reg = registrar_lote_receber(CONTAS_A_RECEBER_EXEMPLO)
-    _ts(carregar_contas_a_receber(), f"contas_a_receber_{ts}.json")
     logger.info(f"  {len(receber_reg)} contas registradas.")
 
-    # ETAPA 4: Registrar contas a pagar
-    logger.info("ETAPA 4 — Registrando contas a pagar...")
+    # ETAPA 3: Registrar contas a pagar
+    logger.info("ETAPA 3 — Registrando contas a pagar...")
     salvar_json_fixo([], "contas_a_pagar.json")
     pagar_reg = registrar_lote_pagar(CONTAS_A_PAGAR_EXEMPLO)
-    _ts(carregar_contas_a_pagar(), f"contas_a_pagar_{ts}.json")
     logger.info(f"  {len(pagar_reg)} contas registradas.")
 
-    # ETAPA 5: Carregar com status efetivo (vencimento ajustado em memória)
-    receber = receber_efetivo()
-    pagar   = pagar_efetivo()
-
-    # ETAPA 6: Posição de caixa
-    logger.info("ETAPA 6 — Calculando posicao de caixa...")
-    posicao = analisar_caixa(eventos, contas_a_receber=receber, contas_a_pagar=pagar)
-    salvar_json_fixo(posicao, "posicao_caixa.json")
-    _ts(posicao, f"posicao_caixa_{ts}.json")
-
-    # ETAPA 7: Alertas e decisões
-    logger.info("ETAPA 7 — Gerando alertas e decisoes...")
-    alertas, decisoes = gerar_alertas(eventos, posicao, contas_a_receber=receber, contas_a_pagar=pagar)
-    salvar_json_fixo(alertas,  "fila_alertas_financeiros.json")
-    salvar_json_fixo(decisoes, "fila_decisoes_financeiras.json")
-    _ts(alertas,  f"fila_alertas_financeiros_{ts}.json")
-    _ts(decisoes, f"fila_decisoes_financeiras_{ts}.json")
-
-    # ETAPA 8: Resumo financeiro operacional
-    logger.info("ETAPA 8 — Gerando resumo operacional...")
-    resumo = gerar_resumo(posicao, receber, pagar, alertas, decisoes)
-    salvar_json_fixo(resumo, "resumo_financeiro_operacional.json")
-    _ts(resumo, f"resumo_financeiro_operacional_{ts}.json")
-
-    # ETAPA 9: Previsão de caixa + fila de riscos
-    logger.info("ETAPA 9 — Gerando previsao de caixa e fila de riscos...")
-    previsao, fila_riscos = gerar_previsao(
-        saldo_base=posicao["saldo_atual_estimado"],
-        contas_a_receber=receber,
-        contas_a_pagar=pagar,
-        eventos=eventos,
-    )
-    salvar_json_fixo(previsao,    "previsao_caixa.json")
-    salvar_json_fixo(fila_riscos, "fila_riscos_financeiros.json")
-    _ts(previsao,    f"previsao_caixa_{ts}.json")
-    _ts(fila_riscos, f"fila_riscos_financeiros_{ts}.json")
+    # ETAPA 4–9: Pipeline de análise financeira (reutilizável por agentes)
+    logger.info("ETAPA 4 — Executando pipeline de analise financeira...")
+    resultado   = executar_analise_financeira(salvar=True, ts=ts)
+    posicao     = resultado["posicao"]
+    alertas     = resultado["alertas"]
+    decisoes    = resultado["decisoes"]
+    resumo      = resultado["resumo"]
+    previsao    = resultado["previsao"]
+    fila_riscos = resultado["fila_riscos"]
+    receber     = resultado["contas_a_receber"]
+    pagar       = resultado["contas_a_pagar"]
     logger.info(f"  {len(fila_riscos)} riscos identificados.")
 
     duracao = int((datetime.now() - inicio).total_seconds())
@@ -291,16 +250,6 @@ def executar_financeiro() -> None:
         print(f"  {pasta / nome}")
     print(f"Duracao                        : {duracao}s")
     print("=" * 64)
-
-
-def _ts(dados, nome_arquivo: str) -> None:
-    """Salva snapshot timestamped em dados/."""
-    config.PASTA_DADOS.mkdir(parents=True, exist_ok=True)
-    caminho = config.PASTA_DADOS / nome_arquivo
-    with open(caminho, "w", encoding="utf-8") as f:
-        json.dump(dados, f, ensure_ascii=False, indent=2)
-    n = len(dados) if isinstance(dados, list) else 1
-    logging.getLogger(__name__).info(f"Arquivo salvo: {caminho} ({n} registros)")
 
 
 if __name__ == "__main__":
