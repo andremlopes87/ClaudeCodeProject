@@ -169,3 +169,19 @@ FINANCEIRO_DIAS_ALERTA_IMEDIATO = 2
 
 # Vencimento em até N dias → urgência "curto_prazo"
 FINANCEIRO_DIAS_ALERTA_CURTO_PRAZO = 7
+
+# ============================================================
+# [COMERCIAL] — Agente comercial e pipeline de vendas
+# ============================================================
+
+# Valor estimado acima deste valor → sobe para deliberação do conselho
+COMERCIAL_THRESHOLD_PROPOSTA = 5000.0
+
+# Dias em estagio "aguardando_decisao" sem atividade → escalar para conselho
+COMERCIAL_DIAS_LIMITE_DECISAO = 7
+
+# Dias sem atividade → marcar para revisão interna
+COMERCIAL_DIAS_SEM_ATIVIDADE_REVISAO = 30
+
+# Número máximo de tentativas antes de sugerir encerramento
+COMERCIAL_TENTATIVAS_MAXIMAS = 3

@@ -128,12 +128,21 @@ def executar() -> dict:
             log.info(f"  [autonomo] {item_id} — urgencia={risco['urgencia']} tipo={risco['tipo']}")
 
     # Processar alertas de urgência imediata não mapeados pelos riscos
+    # Dedup: se a mesma contraparte já foi coberta por um risco vencido escalado, pular o alerta
+    contrapartes_cobertas = _extrair_contrapartes_cobertas(itens_escalados)
+
     for alerta in alertas:
         item_id = alerta.get("id")
         if not item_id:
             continue
         if ja_processado(estado, item_id) or esta_pendente(estado, item_id):
             continue
+
+        contraparte = alerta.get("contraparte", "")
+        if contraparte and contraparte in contrapartes_cobertas:
+            log.info(f"  [coberto por risco] alerta {item_id} — {contraparte} ja escalado via risco vencido")
+            continue
+
         if alerta.get("urgencia") == "imediata":
             item_consolidado = _formatar_item_consolidado_alerta(alerta, NOME_AGENTE)
             itens_escalados.append(item_consolidado)
@@ -247,6 +256,23 @@ def _processar_aprovacoes(aprovacoes: list, estado: dict, log) -> int:
 
 
 # ─── Formatação de itens para filas ─────────────────────────────────────────
+
+def _extrair_contrapartes_cobertas(itens_escalados: list) -> set:
+    """
+    Extrai contrapartes já cobertas por riscos vencidos escalados.
+    Evita duplicar o mesmo problema (vencido_sem_resolucao + alerta imediato).
+    Formato da descricao: 'Contraparte — descricao — vencido em data'
+    """
+    tipos_vencidos = {"vencido_sem_resolucao", "vencido_sem_pagamento"}
+    cobertas = set()
+    for item in itens_escalados:
+        if item.get("tipo") in tipos_vencidos:
+            desc  = item.get("descricao", "")
+            parte = desc.split("—")[0].strip()
+            if parte:
+                cobertas.add(parte)
+    return cobertas
+
 
 def _formatar_item_consolidado(risco: dict, agente_origem: str) -> dict:
     """Formata risco no esquema da fila consolidada."""
