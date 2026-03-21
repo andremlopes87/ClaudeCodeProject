@@ -29,12 +29,14 @@ from modulos.presenca_digital.diagnosticador_presenca import diagnosticar_presen
 from modulos.presenca_digital.enriquecedor_canais import enriquecer_canais
 from modulos.presenca_digital.consolidador_presenca import consolidar_presenca, gerar_fila_marketing
 from modulos.presenca_digital.planejador_marketing import planejar_marketing, gerar_fila_propostas
+from modulos.comercial.planejador_comercial import planejar_comercial, gerar_fila_execucao
 from core.persistencia import salvar_resultados, salvar_json_fixo
 
 logger = logging.getLogger(__name__)
 
 _NOME_FILA_MARKETING_FIXO = "fila_oportunidades_marketing.json"
 _NOME_FILA_PROPOSTAS_FIXO = "fila_propostas_marketing.json"
+_NOME_FILA_EXECUCAO_FIXO  = "fila_execucao_comercial.json"
 
 
 def configurar_logs() -> str:
@@ -143,13 +145,22 @@ def executar_marketing() -> None:
     logger.info("ETAPA 8 - Gerando plano de marketing e propostas...")
     todas_empresas = planejar_marketing(todas_empresas)
 
+    logger.info("ETAPA 9 - Gerando plano comercial...")
+    todas_empresas = planejar_comercial(todas_empresas)
+
     fila_marketing = gerar_fila_marketing(todas_empresas)
     fila_propostas = gerar_fila_propostas(todas_empresas)
+    fila_execucao  = gerar_fila_execucao(todas_empresas)
 
-    logger.info(f"Pipeline concluído: {len(todas_empresas)} analisadas, {len(fila_marketing)} na fila de oportunidades, {len(fila_propostas)} na fila de propostas.")
+    logger.info(
+        f"Pipeline concluído: {len(todas_empresas)} analisadas, "
+        f"{len(fila_marketing)} oportunidades, "
+        f"{len(fila_propostas)} propostas, "
+        f"{len(fila_execucao)} na fila de execução comercial."
+    )
 
-    # ETAPA 4: Salvamento
-    logger.info("ETAPA 9 - Salvando resultados...")
+    # ETAPA 5: Salvamento
+    logger.info("ETAPA 10 - Salvando resultados...")
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
 
     caminho_resultado = salvar_resultados(
@@ -170,8 +181,15 @@ def executar_marketing() -> None:
         json.dump(fila_propostas, f, ensure_ascii=False, indent=2)
     logger.info(f"Arquivo salvo: {caminho_plano_ts} ({len(fila_propostas)} registros)")
 
-    caminho_candidatas_plano = salvar_resultados(todas_empresas, sufixo="candidatas_com_plano_marketing")
+    caminho_candidatas_plano = salvar_resultados(todas_empresas, sufixo="candidatas_com_plano_comercial")
     caminho_fila_propostas_fixo = salvar_json_fixo(fila_propostas, _NOME_FILA_PROPOSTAS_FIXO)
+
+    caminho_execucao_ts = config.PASTA_DADOS / f"fila_execucao_comercial_{timestamp}.json"
+    with open(caminho_execucao_ts, "w", encoding="utf-8") as f:
+        json.dump(fila_execucao, f, ensure_ascii=False, indent=2)
+    logger.info(f"Arquivo salvo: {caminho_execucao_ts} ({len(fila_execucao)} registros)")
+
+    caminho_execucao_fixo = salvar_json_fixo(fila_execucao, _NOME_FILA_EXECUCAO_FIXO)
 
     # Resumo final
     duracao = int((datetime.now() - inicio).total_seconds())
@@ -191,18 +209,24 @@ def executar_marketing() -> None:
     logger.info(f"  pouca_utilidade_presenca   : {contagem_cls.get('pouca_utilidade_presenca', 0)}")
     logger.info(f"  Fila de oportunidades      : {len(fila_marketing)}")
     logger.info(f"  Fila de propostas          : {len(fila_propostas)}")
+    logger.info(f"  Fila de execução comercial : {len(fila_execucao)}")
     logger.info(f"  Resultado completo         : {caminho_resultado}")
     logger.info(f"  Candidatas com plano       : {caminho_candidatas_plano}")
     logger.info(f"  Fila oportunidades ts      : {caminho_fila_ts}")
     logger.info(f"  Fila oportunidades fixo    : {caminho_fila_fixo}")
     logger.info(f"  Fila propostas ts          : {caminho_plano_ts}")
     logger.info(f"  Fila propostas fixo        : {caminho_fila_propostas_fixo}")
+    logger.info(f"  Fila execucao ts           : {caminho_execucao_ts}")
+    logger.info(f"  Fila execucao fixo         : {caminho_execucao_fixo}")
     logger.info(f"  Log                        : {arquivo_log}")
     logger.info(f"  Duração total              : {duracao}s")
     logger.info("=" * 60)
 
+    contagem_status = _contar_por_campo(todas_empresas, "status_comercial_sugerido")
+    contagem_prio_c = _contar_por_campo(todas_empresas, "nivel_prioridade_comercial")
+
     print("\n" + "=" * 58)
-    print("LINHA DE MARKETING CONCLUÍDA")
+    print("LINHA DE MARKETING CONCLUÍDA v0.11")
     print("=" * 58)
     print(f"Cidades processadas        : {len(cidades)}")
     for cidade, n in contagem_por_cidade.items():
@@ -216,13 +240,24 @@ def executar_marketing() -> None:
     print(f"oportunidade_baixa         : {contagem_cls.get('oportunidade_baixa_presenca', 0)}")
     print(f"pouca_utilidade            : {contagem_cls.get('pouca_utilidade_presenca', 0)}")
     print(f"---")
+    print(f"COMERCIAL:")
+    for s in ("pronto_para_contato", "identificado", "aguardando_dados", "descartado"):
+        n = contagem_status.get(s, 0)
+        if n:
+            print(f"  {s:<28}: {n}")
+    for p in ("alta", "media", "baixa", "sem_dados"):
+        n = contagem_prio_c.get(p, 0)
+        if n:
+            print(f"  prioridade_{p:<20}: {n}")
+    print(f"---")
     print(f"Fila de oportunidades      : {len(fila_marketing)}")
     print(f"Fila de propostas          : {len(fila_propostas)}")
-    _exibir_exemplos_fila(fila_propostas)
+    print(f"Fila de execução comercial : {len(fila_execucao)}")
+    _exibir_exemplos_fila(fila_execucao)
     print(f"---")
     print(f"Candidatas com plano       : {caminho_candidatas_plano}")
-    print(f"Fila propostas timestamped : {caminho_plano_ts}")
-    print(f"Fila propostas latest      : {caminho_fila_propostas_fixo}")
+    print(f"Fila execução timestamped  : {caminho_execucao_ts}")
+    print(f"Fila execução latest       : {caminho_execucao_fixo}")
     print(f"Duração                    : {duracao}s")
     print("=" * 58)
 
