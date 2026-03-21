@@ -37,6 +37,8 @@ def main() -> None:
     print(f"Casos para revisao interna     : {resultado['casos_revisao']}")
     print(f"Escalados ao conselho          : {resultado['escalados_conselho']}")
     print(f"Aprovacoes resolvidas          : {resultado['aprovados_nesta_exec']}")
+    print(f"Resultados de contato aplicados: {resultado.get('resultados_aplicados', 0)}")
+    print(f"Follow-ups gerados (resultado) : {resultado.get('followups_de_resultado', 0)}")
     print("---")
     print("ARQUIVOS ATUALIZADOS:")
     for nome in [

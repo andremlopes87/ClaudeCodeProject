@@ -100,6 +100,9 @@ def executar() -> dict:
         f"{len(followups)} follow-ups"
     )
 
+    # ── ETAPA 4b: Aplicar resultados de contato registrados ───────────────
+    res_stats = _aplicar_resultados_contato(pipeline, followups, historico, log)
+
     # ── ETAPA 5: Importar oportunidades novas ─────────────────────────────
     novas_opps    = []
     novos_fus     = []
@@ -223,6 +226,8 @@ def executar() -> dict:
         "casos_revisao":         len(revisoes),
         "escalados_conselho":    len(itens_para_consolidada),
         "aprovados_nesta_exec":  aprovados_agora,
+        "resultados_aplicados":  res_stats["aplicados"],
+        "followups_de_resultado": res_stats["novos_followups"],
         "caminho_log":           str(caminho_log),
     }
 
@@ -232,6 +237,7 @@ def executar() -> dict:
     log.info(f"  oportunidades novas: {len(novas_opps)}")
     log.info(f"  pipeline total     : {len(pipeline)}")
     log.info(f"  follow-ups criados : {len(novos_fus)}")
+    log.info(f"  resultados aplicados: {res_stats['aplicados']} | novos follow-ups: {res_stats['novos_followups']}")
     log.info(f"  casos para revisao : {len(revisoes)}")
     log.info(f"  escalados conselho : {len(itens_para_consolidada)}")
     log.info("=" * 60)
@@ -257,6 +263,46 @@ def _processar_aprovacoes(aprovacoes: list, estado: dict, log) -> int:
                 f"em {ap.get('data_decisao', '?')}"
             )
     return resolvidos
+
+
+# ─── Resultados de contato ───────────────────────────────────────────────────
+
+def _aplicar_resultados_contato(pipeline: list, followups: list, historico: list, log) -> dict:
+    """
+    Lê resultados_contato.json e aplica cada resultado pendente ao estado comercial.
+    Modifica pipeline, followups e historico in-place.
+    Marca resultados como aplicados no arquivo.
+    Retorna stats: {aplicados, novos_followups}.
+    """
+    from modulos.comercial.processador_resultados_contato import (
+        carregar_resultados_pendentes,
+        aplicar_resultado_contato,
+        marcar_resultado_como_aplicado,
+    )
+
+    pendentes = carregar_resultados_pendentes()
+    if not pendentes:
+        log.info("Resultados de contato: nenhum pendente")
+        return {"aplicados": 0, "novos_followups": 0}
+
+    log.info(f"Resultados de contato pendentes: {len(pendentes)}")
+    novos_followups = 0
+
+    for resultado in pendentes:
+        tipo        = resultado.get("tipo_resultado", "?")
+        contraparte = resultado.get("contraparte", "?")
+        log.info(f"  [resultado] {tipo} | {contraparte[:40]}")
+
+        acoes = aplicar_resultado_contato(resultado, pipeline, followups, historico, log)
+
+        if acoes.get("novo_fu"):
+            followups.append(acoes["novo_fu"])
+            novos_followups += 1
+
+        marcar_resultado_como_aplicado(resultado["id"])
+
+    log.info(f"Resultados aplicados: {len(pendentes)} | novos follow-ups gerados: {novos_followups}")
+    return {"aplicados": len(pendentes), "novos_followups": novos_followups}
 
 
 # ─── Deliberações do conselho ────────────────────────────────────────────────
