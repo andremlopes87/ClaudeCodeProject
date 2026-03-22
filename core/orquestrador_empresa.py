@@ -62,13 +62,14 @@ def executar_ciclo_empresa() -> dict:
     # ── Sequência do ciclo ────────────────────────────────────────────────────
     # Cada tupla: (nome_etapa, importador_fn, label_posicao)
     sequencia = [
-        ("agente_financeiro",        _importar_financeiro,   "1/7"),
-        ("agente_comercial",         _importar_comercial,    "2/7"),
-        ("agente_secretario",        _importar_secretario,   "3/7"),
-        ("agente_executor_contato",  _importar_executor,     "4/7"),
-        ("integrador_canais",        _importar_integrador,   "5/7"),
-        ("agente_comercial",         _importar_comercial,    "6/7"),
-        ("agente_secretario",        _importar_secretario,   "7/7"),
+        ("agente_financeiro",        _importar_financeiro,    "1/8"),
+        ("agente_prospeccao",        _importar_prospeccao,    "2/8"),
+        ("agente_comercial",         _importar_comercial,     "3/8"),
+        ("agente_secretario",        _importar_secretario,    "4/8"),
+        ("agente_executor_contato",  _importar_executor,      "5/8"),
+        ("integrador_canais",        _importar_integrador,    "6/8"),
+        ("agente_comercial",         _importar_comercial,     "7/8"),
+        ("agente_secretario",        _importar_secretario,    "8/8"),
     ]
 
     for nome, importador, posicao in sequencia:
@@ -180,6 +181,7 @@ def montar_resumo_final_ciclo(etapas: list) -> dict:
             por_agente[etapa["nome_agente"]] = etapa["resumo"]
 
     fin  = por_agente.get("agente_financeiro", {})
+    prs  = por_agente.get("agente_prospeccao", {})
     com  = por_agente.get("agente_comercial", {})
     exe  = por_agente.get("agente_executor_contato", {})
     intg = por_agente.get("integrador_canais", {})
@@ -192,6 +194,7 @@ def montar_resumo_final_ciclo(etapas: list) -> dict:
         "riscos_financeiros":              fin.get("total_riscos", 0),
         "risco_caixa":                     fin.get("risco_caixa", False),
         "saldo_atual":                     fin.get("saldo_atual", 0.0),
+        "leads_prospectados_no_ciclo":     prs.get("prontas_para_handoff", 0),
         "oportunidades_novas_no_ciclo":    com.get("oportunidades_novas", 0),
         "resultados_aplicados":            com.get("resultados_aplicados", 0),
         "execucoes_preparadas":            exe.get("preparados", 0),
@@ -235,6 +238,10 @@ def _importar_executor():
 
 def _importar_integrador():
     from core.integrador_canais import executar
+    return executar
+
+def _importar_prospeccao():
+    from agentes.prospeccao.agente_prospeccao import executar
     return executar
 
 
