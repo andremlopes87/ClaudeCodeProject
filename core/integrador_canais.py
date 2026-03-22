@@ -25,12 +25,14 @@ from hashlib import md5
 
 import config
 from conectores.canal_dry_run import CanalDryRun
+from core.motor_cenarios_contato import carregar_config_cenarios, carregar_pipeline_idx
 
-_ARQ_FILA_EXEC = "fila_execucao_contato.json"
-_ARQ_RESULTADOS = "resultados_contato.json"
-_ARQ_SIMULADAS  = "respostas_simuladas_contato.json"
-_ARQ_ESTADO     = "estado_integrador_canais.json"
-_ARQ_HIST_EXEC  = "historico_execucao_contato.json"
+_ARQ_FILA_EXEC    = "fila_execucao_contato.json"
+_ARQ_RESULTADOS   = "resultados_contato.json"
+_ARQ_SIMULADAS    = "respostas_simuladas_contato.json"
+_ARQ_ESTADO       = "estado_integrador_canais.json"
+_ARQ_HIST_EXEC    = "historico_execucao_contato.json"
+_ARQ_HIST_CENARIOS = "historico_cenarios_contato.json"
 
 _STATUS_PRONTO = "aguardando_integracao_canal"
 _STATUS_GERADO = "resultado_gerado"
@@ -53,13 +55,17 @@ def executar() -> dict:
     log.info(f"INTEGRADOR CANAIS [dry_run] — {ts}")
     log.info("=" * 60)
 
-    estado     = _carregar_estado()
-    execucoes  = carregar_execucoes_prontas()
-    simuladas  = carregar_respostas_simuladas()
-    resultados = _carregar_json(_ARQ_RESULTADOS, [])
-    hist_exec  = _carregar_json(_ARQ_HIST_EXEC, [])
+    estado        = _carregar_estado()
+    execucoes     = carregar_execucoes_prontas()
+    simuladas     = carregar_respostas_simuladas()
+    resultados    = _carregar_json(_ARQ_RESULTADOS, [])
+    hist_exec     = _carregar_json(_ARQ_HIST_EXEC, [])
+    hist_cenarios = _carregar_json(_ARQ_HIST_CENARIOS, [])
 
-    canal = CanalDryRun(simuladas)
+    config_motor = carregar_config_cenarios()
+    pipeline_idx = carregar_pipeline_idx()
+
+    canal = CanalDryRun(simuladas, config_motor, pipeline_idx, hist_cenarios)
 
     n_disponiveis = sum(1 for r in simuladas if not r.get("consumido"))
     log.info(
@@ -92,10 +98,12 @@ def executar() -> dict:
         # Histórico de execução
         registrar_historico_integracao(hist_exec, execucao, resultado)
 
+        origem_resultado = resultado_raw.get("_origem", "dry_run")
         log.info(
             f"  [resultado_gerado] {exec_id} | "
             f"{execucao.get('contraparte', '?')[:30]} | "
-            f"tipo={resultado['tipo_resultado']}"
+            f"tipo={resultado['tipo_resultado']} | "
+            f"origem={origem_resultado}"
         )
         n_gerados += 1
 
@@ -104,6 +112,7 @@ def executar() -> dict:
     _salvar_json(_ARQ_SIMULADAS, simuladas)
     _salvar_fila_exec(execucoes)
     _salvar_json(_ARQ_HIST_EXEC, hist_exec)
+    _salvar_json(_ARQ_HIST_CENARIOS, hist_cenarios)
 
     estado = _atualizar_estado(estado, n_gerados, n_sem_resp, simuladas)
     salvar_estado_integrador(estado)
@@ -161,6 +170,9 @@ def gerar_resultado_contato(resultado_raw: dict, execucao: dict) -> dict:
         "status_aplicacao":      "pendente",
         "aplicado_em":           None,
         "origem":                resultado_raw.get("origem", "dry_run"),
+        "origem_resultado":      resultado_raw.get("_origem", "dry_run"),
+        "regra_cenario_aplicada": resultado_raw.get("_regra"),
+        "simulado":              True,
     }
 
 
