@@ -57,6 +57,7 @@ def main() -> None:
     print(f"  Riscos financeiros          : {resumo.get('riscos_financeiros', 0)}")
     print(f"  Risco de caixa              : {'SIM' if resumo.get('risco_caixa') else 'nao'}")
     print(f"  Oportunidades novas         : {resumo.get('oportunidades_novas_no_ciclo', 0)}")
+    print(f"  Resultados gerados (integr.): {resumo.get('resultados_gerados_integrador', 0)}")
     print(f"  Resultados de contato aplic.: {resumo.get('resultados_aplicados', 0)}")
     print(f"  Execucoes preparadas        : {resumo.get('execucoes_preparadas', 0)}")
     print(f"  Erros no ciclo              : {resumo.get('erros_no_ciclo', 0)}")

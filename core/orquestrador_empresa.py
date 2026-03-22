@@ -60,14 +60,15 @@ def executar_ciclo_empresa() -> dict:
     erros  = []
 
     # ── Sequência do ciclo ────────────────────────────────────────────────────
-    # Cada tupla: (nome_agente, importador_fn, label_posicao)
+    # Cada tupla: (nome_etapa, importador_fn, label_posicao)
     sequencia = [
-        ("agente_financeiro",       _importar_financeiro,  "1/6"),
-        ("agente_comercial",        _importar_comercial,   "2/6"),
-        ("agente_secretario",       _importar_secretario,  "3/6"),
-        ("agente_executor_contato", _importar_executor,    "4/6"),
-        ("agente_comercial",        _importar_comercial,   "5/6"),
-        ("agente_secretario",       _importar_secretario,  "6/6"),
+        ("agente_financeiro",        _importar_financeiro,   "1/7"),
+        ("agente_comercial",         _importar_comercial,    "2/7"),
+        ("agente_secretario",        _importar_secretario,   "3/7"),
+        ("agente_executor_contato",  _importar_executor,     "4/7"),
+        ("integrador_canais",        _importar_integrador,   "5/7"),
+        ("agente_comercial",         _importar_comercial,    "6/7"),
+        ("agente_secretario",        _importar_secretario,   "7/7"),
     ]
 
     for nome, importador, posicao in sequencia:
@@ -178,9 +179,10 @@ def montar_resumo_final_ciclo(etapas: list) -> dict:
         if etapa["status"] == "ok":
             por_agente[etapa["nome_agente"]] = etapa["resumo"]
 
-    fin = por_agente.get("agente_financeiro", {})
-    com = por_agente.get("agente_comercial", {})
-    exe = por_agente.get("agente_executor_contato", {})
+    fin  = por_agente.get("agente_financeiro", {})
+    com  = por_agente.get("agente_comercial", {})
+    exe  = por_agente.get("agente_executor_contato", {})
+    intg = por_agente.get("integrador_canais", {})
 
     return {
         "deliberacoes_pendentes":          _contar_deliberacoes_pendentes(),
@@ -193,6 +195,7 @@ def montar_resumo_final_ciclo(etapas: list) -> dict:
         "oportunidades_novas_no_ciclo":    com.get("oportunidades_novas", 0),
         "resultados_aplicados":            com.get("resultados_aplicados", 0),
         "execucoes_preparadas":            exe.get("preparados", 0),
+        "resultados_gerados_integrador":   intg.get("resultados_gerados", 0),
         "erros_no_ciclo":                  sum(1 for e in etapas if e["status"] == "erro"),
     }
 
@@ -228,6 +231,10 @@ def _importar_secretario():
 
 def _importar_executor():
     from agentes.executor_contato.agente_executor_contato import executar
+    return executar
+
+def _importar_integrador():
+    from core.integrador_canais import executar
     return executar
 
 
