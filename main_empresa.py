@@ -56,6 +56,8 @@ def main() -> None:
     print(f"  Follow-ups para integracao  : {resumo.get('followups_aguardando_integracao', 0)}")
     print(f"  Riscos financeiros          : {resumo.get('riscos_financeiros', 0)}")
     print(f"  Risco de caixa              : {'SIM' if resumo.get('risco_caixa') else 'nao'}")
+    print(f"  Mkt oport. importadas       : {resumo.get('mkt_importadas', 0)}")
+    print(f"  Mkt handoffs criados        : {resumo.get('mkt_handoffs_criados', 0)}")
     print(f"  Oportunidades novas         : {resumo.get('oportunidades_novas_no_ciclo', 0)}")
     print(f"  Resultados gerados (integr.): {resumo.get('resultados_gerados_integrador', 0)}")
     print(f"  Resultados de contato aplic.: {resumo.get('resultados_aplicados', 0)}")
