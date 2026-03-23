@@ -105,16 +105,22 @@ def executar() -> dict:
         ok, motivo = validar_followup_para_execucao(fu, opp, handoff)
 
         if ok:
-            payload  = montar_payload_execucao(fu, opp)
+            abordagem = detectar_abordagem_execucao(fu, opp)
+            payload   = montar_payload_execucao(fu, opp)
+            enriquecer_payload_execucao(payload, abordagem, fu, opp)
+
             execucao = criar_execucao_contato(handoff, fu, opp, payload,
                                               status="aguardando_integracao_canal",
                                               motivo_bloqueio=None,
-                                              exec_id=exec_id)
+                                              exec_id=exec_id,
+                                              abordagem=abordagem)
             _upsert_execucao(fila_exec, idx_exec, execucao)
+
+            ev_prep = f"execucao_preparada_{abordagem}"
             registrar_historico_execucao(hist_exec, execucao, "handoff_recebido",
                 f"Handoff {handoff['id']} recebido de {handoff.get('agente_origem','?')}")
-            registrar_historico_execucao(hist_exec, execucao, "execucao_preparada",
-                f"Payload montado | canal={payload['canal']} | contato={payload['contato_destino']}")
+            registrar_historico_execucao(hist_exec, execucao, ev_prep,
+                f"Payload montado | abordagem={abordagem} | canal={payload['canal']} | contato={payload['contato_destino']}")
             registrar_historico_execucao(hist_exec, execucao, "pronto_para_integracao",
                 f"Aguardando conector de canal real ({payload['canal']})")
 
@@ -122,11 +128,11 @@ def executar() -> dict:
                                             status_handoff="em_andamento",
                                             status_followup="aguardando_integracao_canal",
                                             status_operacional="aguardando_integracao_canal")
-            _registrar_evento_historico_abordagens(hist_abord, fu, opp, exec_id)
+            _registrar_evento_historico_abordagens(hist_abord, fu, opp, exec_id, abordagem)
 
             n_preparados += 1
             log.info(
-                f"  [preparado] {exec_id} | {fu.get('contraparte','?')[:40]} | "
+                f"  [preparado/{abordagem}] {exec_id} | {fu.get('contraparte','?')[:40]} | "
                 f"canal={payload['canal']} | contato={payload['contato_destino']}"
             )
         else:
@@ -285,26 +291,31 @@ def criar_execucao_contato(
     status: str,
     motivo_bloqueio,
     exec_id: str,
+    abordagem: str = "padrao",
 ) -> dict:
     """Cria item de execucao para fila_execucao_contato.json."""
     agora = datetime.now().isoformat(timespec="seconds")
     pronto = status == "aguardando_integracao_canal"
     return {
-        "id":                    exec_id,
-        "handoff_id":            handoff["id"],
-        "followup_id":           fu.get("id", "") if fu else "",
-        "oportunidade_id":       fu.get("oportunidade_id", "") if fu else "",
-        "contraparte":           fu.get("contraparte", "") if fu else "",
-        "canal":                 fu.get("canal", "") if fu else "",
-        "tipo_acao":             fu.get("tipo_acao", "") if fu else "",
-        "descricao":             fu.get("descricao", "") if fu else "",
-        "payload_execucao":      payload,
-        "status":                status,
-        "motivo_bloqueio":       motivo_bloqueio,
-        "tentativa_numero":      _calcular_numero_tentativa(fu) if fu else 1,
-        "pronto_para_integracao": pronto,
-        "registrado_em":         agora,
-        "atualizado_em":         agora,
+        "id":                      exec_id,
+        "handoff_id":              handoff["id"],
+        "followup_id":             fu.get("id", "") if fu else "",
+        "oportunidade_id":         fu.get("oportunidade_id", "") if fu else "",
+        "contraparte":             fu.get("contraparte", "") if fu else "",
+        "canal":                   fu.get("canal", "") if fu else "",
+        "tipo_acao":               fu.get("tipo_acao", "") if fu else "",
+        "descricao":               fu.get("descricao", "") if fu else "",
+        "abordagem_inicial_tipo":  abordagem,
+        "origem_oportunidade":     opp.get("origem_oportunidade", "") if opp else "",
+        "linha_servico_sugerida":  opp.get("linha_servico_sugerida", "") if opp else "",
+        "roteiro_base":            payload.get("roteiro_base", "") if payload else "",
+        "payload_execucao":        payload,
+        "status":                  status,
+        "motivo_bloqueio":         motivo_bloqueio,
+        "tentativa_numero":        _calcular_numero_tentativa(fu) if fu else 1,
+        "pronto_para_integracao":  pronto,
+        "registrado_em":           agora,
+        "atualizado_em":           agora,
     }
 
 
@@ -356,6 +367,90 @@ def atualizar_statuses_relacionados(
     if opp:
         opp["status_operacional"] = status_operacional
         opp["atualizado_em"]      = agora
+
+
+# ─── Especialização por abordagem ────────────────────────────────────────────
+
+def detectar_abordagem_execucao(fu: dict, opp) -> str:
+    """
+    Determina o tipo de abordagem para a execução.
+    Ordem: opp.abordagem_inicial_tipo → opp.origem_oportunidade → fu.origem_followup → 'padrao'
+
+    Retorna: 'exploratoria' | 'consultiva_diagnostica' | 'padrao'
+    """
+    if opp:
+        tipo = opp.get("abordagem_inicial_tipo", "")
+        if tipo in ("exploratoria", "consultiva_diagnostica"):
+            return tipo
+        origem = opp.get("origem_oportunidade", "")
+        if "marketing" in origem:
+            return "consultiva_diagnostica"
+        if origem == "prospeccao":
+            return "exploratoria"
+
+    if fu:
+        orig_fu = fu.get("origem_followup", "")
+        if orig_fu == "marketing":
+            return "consultiva_diagnostica"
+        if orig_fu == "prospeccao_e_marketing":
+            return "consultiva_diagnostica"
+        if orig_fu == "prospeccao":
+            return "exploratoria"
+
+    return "padrao"
+
+
+def montar_roteiro_base_por_abordagem(abordagem: str, fu: dict, opp) -> str:
+    """
+    Gera roteiro_base diferenciado conforme a abordagem.
+    Não inventa resposta do cliente. Não negocia preço.
+    """
+    empresa = (fu.get("contraparte", "empresa") if fu else "empresa") or "empresa"
+
+    if abordagem == "consultiva_diagnostica":
+        contexto = ""
+        if opp:
+            contexto = (opp.get("contexto_origem", "") or "")[:200]
+        partes = [
+            f"Retomar oportunidade detectada no digital — {empresa}",
+            "Apresentar diagnóstico resumido quando existir",
+            "Validar interesse em resolver gargalo específico",
+            "Avançar para proposta quando fizer sentido",
+        ]
+        if contexto:
+            partes.append(f"Contexto: {contexto}")
+        return " | ".join(partes)
+
+    if abordagem == "exploratoria":
+        desc_fu = (fu.get("descricao", "") if fu else "")[:200]
+        return (
+            f"Mapear interesse e validar dor — abrir conversa inicial com {empresa} | "
+            f"Confirmar contexto básico e qualificar interesse | "
+            f"Não assumir problema específico como fato | "
+            f"{desc_fu}"
+        ).rstrip(" | ")
+
+    # padrao — usa descricao original do follow-up
+    return (fu.get("descricao", "") if fu else "")[:300]
+
+
+def enriquecer_payload_execucao(payload: dict, abordagem: str, fu: dict, opp) -> None:
+    """
+    Enriquece o payload in-place com campos de abordagem e roteiro especializado.
+    Adiciona: roteiro_base, abordagem_inicial_tipo, linha_servico_sugerida,
+              origem_oportunidade ao payload e ao contexto_oportunidade.
+    """
+    roteiro = montar_roteiro_base_por_abordagem(abordagem, fu, opp)
+    payload["roteiro_base"]           = roteiro
+    payload["abordagem_inicial_tipo"] = abordagem
+    payload["linha_servico_sugerida"] = opp.get("linha_servico_sugerida", "") if opp else ""
+    payload["origem_oportunidade"]    = opp.get("origem_oportunidade", "") if opp else ""
+
+    ctx = payload.get("contexto_oportunidade", {})
+    if isinstance(ctx, dict):
+        ctx["abordagem_inicial_tipo"]  = abordagem
+        ctx["linha_servico_sugerida"]  = payload["linha_servico_sugerida"]
+        ctx["contexto_origem"]         = (opp.get("contexto_origem", "") or "")[:200] if opp else ""
 
 
 # ─── Internos ─────────────────────────────────────────────────────────────────
@@ -434,23 +529,30 @@ def _registrar_bloqueio_sem_fu(handoff, fila_exec, hist_exec, idx_exec, log) -> 
     log.warning(f"  [bloqueado] {exec_id} — follow-up ausente")
 
 
-def _registrar_evento_historico_abordagens(hist_abord: list, fu: dict, opp, exec_id: str) -> None:
+def _registrar_evento_historico_abordagens(hist_abord: list, fu: dict, opp, exec_id: str, abordagem: str = "padrao") -> None:
     """
-    Registra evento coerente em historico_abordagens.json.
+    Registra evento em historico_abordagens.json com tipo específico por abordagem.
     Nunca afirma que houve contato real.
     """
-    agora  = datetime.now().isoformat(timespec="seconds")
-    opp_id = fu.get("oportunidade_id", "?")
-    chave  = f"{opp_id}|execucao_preparada|{agora}"
+    agora    = datetime.now().isoformat(timespec="seconds")
+    opp_id   = fu.get("oportunidade_id", "?")
+    chave    = f"{opp_id}|payload_execucao_gerado|{agora}"
+    tipo_ev  = f"payload_execucao_gerado_{abordagem}"
+
+    contexto_origem = ""
+    if opp:
+        contexto_origem = opp.get("contexto_origem", "")[:120] or ""
+
     hist_abord.append({
         "id":              "hab_" + hashlib.md5(chave.encode()).hexdigest()[:12],
         "oportunidade_id": opp_id,
         "contraparte":     fu.get("contraparte", "?"),
-        "tipo_evento":     "execucao_preparada",
+        "tipo_evento":     tipo_ev,
         "descricao":       (
-            f"Tentativa preparada internamente por agente_executor_contato | "
+            f"Payload preparado por agente_executor_contato | "
+            f"abordagem={abordagem} | "
             f"execucao_id={exec_id} | canal={fu.get('canal','?')} | "
-            f"aguardando integracao com canal real"
+            + (f"contexto: {contexto_origem}" if contexto_origem else "aguardando integracao com canal real")
         ),
         "origem":          NOME_AGENTE,
         "agente_responsavel": NOME_AGENTE,
