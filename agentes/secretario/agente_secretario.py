@@ -81,6 +81,36 @@ def executar() -> dict:
     # ── ETAPA 5: Sincronizar deliberações do conselho ─────────────────────
     deliberacoes_dados = _sincronizar_deliberacoes_conselho(insumos, log)
 
+    # ── ETAPA 5b: Detectar estagnação por origem e deliberar ──────────────
+    pipeline       = insumos["pipeline"]
+    estagnadas_mkt = detectar_estagnacao_marketing(pipeline)
+    estagnadas_prs = detectar_estagnacao_prospeccao(pipeline)
+    mistas_prio    = detectar_oportunidades_mistas_prioritarias(pipeline)
+
+    todas_delib = carregar_deliberacoes()
+    n_delib_mkt = 0
+    for est in estagnadas_mkt:
+        opp_full = next((o for o in pipeline if o.get("id") == est["id"]), est)
+        if criar_deliberacao_estagnacao_marketing_se_necessario(opp_full, todas_delib):
+            n_delib_mkt += 1
+            log.info(f"  [estag mkt] deliberacao: {est.get('contraparte', '?')[:40]}")
+
+    if n_delib_mkt:
+        recarregadas = carregar_deliberacoes()
+        deliberacoes_dados = {
+            "pendentes":                        [d for d in recarregadas if d["status"] == "pendente"],
+            "em_analise":                       [d for d in recarregadas if d["status"] == "em_analise"],
+            "deliberadas_aguardando_aplicacao": [d for d in recarregadas if d["status"] == "deliberado"],
+            "aplicadas":                        [d for d in recarregadas if d["status"] == "aplicado"],
+            "total":                            len(recarregadas),
+        }
+        log.info(f"  [estag mkt] {n_delib_mkt} deliberacoes de estagnacao criadas")
+
+    if estagnadas_prs:
+        log.info(f"  [estag prs] {len(estagnadas_prs)} oportunidades estagnadas (prospeccao)")
+    if mistas_prio:
+        log.info(f"  [mistas]    {len(mistas_prio)} oportunidades mistas prioritarias")
+
     # ── ETAPA 6: Itens operacionais prioritários ───────────────────────────
     ids_delib = {
         d.get("id", "")
@@ -94,7 +124,10 @@ def executar() -> dict:
 
     # ── ETAPA 8: Montar painel operacional ────────────────────────────────
     painel = _consolidar_painel(
-        operacionais, bloqueios, todos_handoffs, deliberacoes_dados, status_por_agente
+        operacionais, bloqueios, todos_handoffs, deliberacoes_dados, status_por_agente,
+        estagnadas_mkt=estagnadas_mkt,
+        estagnadas_prs=estagnadas_prs,
+        mistas_prio=mistas_prio,
     )
 
     # ── ETAPA 9: Persistir ────────────────────────────────────────────────
@@ -131,6 +164,9 @@ def executar() -> dict:
     log.info(f"  deliberacoes pendentes   : {n_delib_pendentes}")
     log.info(f"  deliberacoes deliberadas : {n_delib_deliberadas}")
     log.info(f"  deliberacoes aplicadas   : {n_delib_aplicadas}")
+    log.info(f"  estagnadas marketing     : {len(estagnadas_mkt)}")
+    log.info(f"  estagnadas prospeccao    : {len(estagnadas_prs)}")
+    log.info(f"  mistas prioritarias      : {len(mistas_prio)}")
     log.info("=" * 60)
 
     return {
@@ -143,6 +179,9 @@ def executar() -> dict:
         "deliberacoes":             n_delib_pendentes,
         "deliberacoes_deliberadas": n_delib_deliberadas,
         "deliberacoes_aplicadas":   n_delib_aplicadas,
+        "estagnadas_marketing":     len(estagnadas_mkt),
+        "estagnadas_prospeccao":    len(estagnadas_prs),
+        "mistas_prioritarias":      len(mistas_prio),
         "caminho_log":              str(caminho_log),
     }
 
@@ -334,6 +373,9 @@ def _status_por_agente(insumos) -> dict:
         e = opp.get("estagio", "desconhecido")
         por_estagio[e] = por_estagio.get(e, 0) + 1
 
+    por_origem = {k: len(v) for k, v in classificar_pipeline_por_origem(pipeline).items()}
+    por_linha  = {k: len(v) for k, v in classificar_pipeline_por_linha_servico(pipeline).items()}
+
     return {
         "agente_financeiro": {
             "ultima_execucao":           ef.get("ultima_execucao"),
@@ -343,24 +385,190 @@ def _status_por_agente(insumos) -> dict:
             "itens_processados":         len(ef.get("itens_processados", [])),
         },
         "agente_comercial": {
-            "ultima_execucao":           ec.get("ultima_execucao"),
-            "pipeline_total":            len(pipeline),
-            "pipeline_por_estagio":      por_estagio,
-            "followups_pendentes":       sum(1 for f in followups if f.get("status") == "pendente_execucao"),
-            "itens_pendentes_escalados": len(ec.get("itens_pendentes_escalados", [])),
-            "itens_processados":         len(ec.get("itens_processados", [])),
+            "ultima_execucao":            ec.get("ultima_execucao"),
+            "pipeline_total":             len(pipeline),
+            "pipeline_por_estagio":       por_estagio,
+            "pipeline_por_origem":        por_origem,
+            "pipeline_por_linha_servico": por_linha,
+            "followups_pendentes":        sum(1 for f in followups if f.get("status") == "pendente_execucao"),
+            "itens_pendentes_escalados":  len(ec.get("itens_pendentes_escalados", [])),
+            "itens_processados":          len(ec.get("itens_processados", [])),
         },
     }
 
 
+# ─── Classificação e estagnação por origem ───────────────────────────────────
+
+def classificar_pipeline_por_origem(pipeline: list) -> dict:
+    """
+    Classifica o pipeline em buckets por origem_oportunidade.
+    Retorna dict com listas de oportunidades por origem.
+    """
+    buckets: dict = {
+        "prospeccao":               [],
+        "marketing_presenca_digital": [],
+        "prospeccao_e_marketing":   [],
+        "outros":                   [],
+    }
+    for opp in pipeline:
+        origem = opp.get("origem_oportunidade", "")
+        linha  = opp.get("linha_servico_sugerida", "")
+        if origem == "prospeccao_e_marketing":
+            buckets["prospeccao_e_marketing"].append(opp)
+        elif origem == "marketing" or linha == "marketing_presenca_digital":
+            buckets["marketing_presenca_digital"].append(opp)
+        elif origem == "prospeccao":
+            buckets["prospeccao"].append(opp)
+        else:
+            buckets["outros"].append(opp)
+    return buckets
+
+
+def classificar_pipeline_por_linha_servico(pipeline: list) -> dict:
+    """
+    Agrupa pipeline por linha_servico_sugerida.
+    Entradas sem campo recebem chave 'nao_definida'.
+    """
+    resultado: dict = {}
+    for opp in pipeline:
+        linha = opp.get("linha_servico_sugerida") or "nao_definida"
+        resultado.setdefault(linha, []).append(opp)
+    return resultado
+
+
+def detectar_estagnacao_prospeccao(pipeline: list) -> list:
+    """
+    Detecta estagnação em oportunidades de prospecção pura.
+    Regras genéricas: dias_sem_atividade >= 14 OU tentativas_contato >= 3.
+    """
+    estagnadas = []
+    for opp in pipeline:
+        origem = opp.get("origem_oportunidade", "")
+        if origem not in ("prospeccao", ""):  # só prospeccao pura ou legado
+            continue
+        if opp.get("estagio") in ("fechado", "perdido"):
+            continue
+        dias       = opp.get("dias_sem_atividade", 0) or 0
+        tentativas = opp.get("tentativas_contato", 0) or 0
+        if dias >= 14 or tentativas >= 3:
+            estagnadas.append({
+                "id":                opp.get("id"),
+                "contraparte":       opp.get("contraparte"),
+                "estagio":           opp.get("estagio"),
+                "dias_sem_atividade": dias,
+                "tentativas_contato": tentativas,
+                "origem":            "prospeccao",
+                "motivo_estagnacao": "dias_sem_atividade" if dias >= 14 else "muitas_tentativas",
+            })
+    return estagnadas
+
+
+def detectar_estagnacao_marketing(pipeline: list) -> list:
+    """
+    Detecta estagnação em oportunidades com componente marketing.
+    Regras mais sensíveis: marketing é mais quente — sinal de sem_resposta
+    com 2+ tentativas já indica problema de abordagem.
+    """
+    _ESTAGIOS_CRITICOS   = {"qualificando", "aguardando_proposta", "primeiro_contato"}
+    _RESPOSTAS_NEGATIVAS = {"sem_resposta", "pediu_retorno_futuro", "nao_respondeu"}
+
+    estagnadas = []
+    vistos: set = set()
+
+    for opp in pipeline:
+        origem = opp.get("origem_oportunidade", "")
+        if "marketing" not in origem:
+            continue
+        if opp.get("estagio") in ("fechado", "perdido"):
+            continue
+
+        opp_id     = opp.get("id", "")
+        dias       = opp.get("dias_sem_atividade", 0) or 0
+        tentativas = opp.get("tentativas_contato", 0) or 0
+        estagio    = opp.get("estagio", "")
+        ultima_rsp = opp.get("ultima_resposta_tipo", "")
+
+        motivo = None
+        if tentativas >= 2 and ultima_rsp in _RESPOSTAS_NEGATIVAS and estagio in _ESTAGIOS_CRITICOS:
+            motivo = "marketing_sem_avanco"
+        elif dias >= 10:
+            motivo = "marketing_inativo"
+
+        if motivo and opp_id not in vistos:
+            vistos.add(opp_id)
+            estagnadas.append({
+                "id":                 opp_id,
+                "contraparte":        opp.get("contraparte"),
+                "estagio":            estagio,
+                "dias_sem_atividade": dias,
+                "tentativas_contato": tentativas,
+                "ultima_resposta_tipo": ultima_rsp,
+                "linha_servico":      opp.get("linha_servico_sugerida", ""),
+                "contexto_origem":    opp.get("contexto_origem", ""),
+                "origem":             origem,
+                "motivo_estagnacao":  motivo,
+            })
+    return estagnadas
+
+
+def detectar_oportunidades_mistas_prioritarias(pipeline: list) -> list:
+    """
+    Retorna oportunidades prospeccao_e_marketing com prioridade alta/crítica
+    que ainda não foram fechadas/perdidas.
+    """
+    return [
+        opp for opp in pipeline
+        if opp.get("origem_oportunidade") == "prospeccao_e_marketing"
+        and opp.get("prioridade") in ("alta", "muito_alta", "critica")
+        and opp.get("estagio") not in ("fechado", "perdido")
+    ]
+
+
+def criar_deliberacao_estagnacao_marketing_se_necessario(opp: dict, deliberacoes: list) -> bool:
+    """
+    Cria deliberação de estagnação de marketing para a oportunidade, se ainda não existir.
+    Não cria duplicatas: verifica deliberações pendentes/em_analise do mesmo tipo para o mesmo id.
+    Retorna True se criou, False se já existia.
+    """
+    opp_id = opp.get("id", "")
+    for d in deliberacoes:
+        if (
+            d.get("status") in ("pendente", "em_analise")
+            and opp_id in d.get("referencias", [])
+            and d.get("tipo") == "estagnacao_marketing"
+        ):
+            return False
+
+    item = {
+        "item_id":    f"estag_mkt_{opp_id}",
+        "tipo":       "estagnacao_marketing",
+        "urgencia":   "alta",
+        "contraparte": opp.get("contraparte", "?"),
+        "descricao": (
+            f"Oportunidade de marketing estagnada em '{opp.get('estagio', '?')}' "
+            f"para {opp.get('contraparte', '?')}. "
+            f"Tentativas: {opp.get('tentativas_contato', 0)}. "
+            f"Contexto: {str(opp.get('contexto_origem', ''))[:120]}"
+        ),
+        "referencias": [opp_id],
+        "linha_servico": opp.get("linha_servico_sugerida", ""),
+    }
+    criar_ou_atualizar_deliberacao(item)
+    return True
+
+
 # ─── Painel operacional ──────────────────────────────────────────────────────
 
-def _consolidar_painel(operacionais, bloqueios, handoffs, deliberacoes_dados, status_por_agente) -> dict:
+def _consolidar_painel(
+    operacionais, bloqueios, handoffs, deliberacoes_dados, status_por_agente,
+    estagnadas_mkt=None, estagnadas_prs=None, mistas_prio=None,
+) -> dict:
     hoje  = date.today().isoformat()
     agora = datetime.now().isoformat(timespec="seconds")
 
     handoffs_pendentes = [h for h in handoffs if h.get("status") == "pendente"]
     resumo = _resumo_geral(operacionais, bloqueios, deliberacoes_dados, status_por_agente)
+    sc = status_por_agente.get("agente_comercial", {})
 
     return {
         "data_referencia":               hoje,
@@ -374,7 +582,12 @@ def _consolidar_painel(operacionais, bloqueios, handoffs, deliberacoes_dados, st
             "deliberadas_aguardando_aplicacao": deliberacoes_dados.get("deliberadas_aguardando_aplicacao", []),
             "aplicadas":                        deliberacoes_dados.get("aplicadas", []),
         },
-        "status_por_agente":             status_por_agente,
+        "status_por_agente":                   status_por_agente,
+        "pipeline_por_origem":                 sc.get("pipeline_por_origem", {}),
+        "pipeline_por_linha_servico":          sc.get("pipeline_por_linha_servico", {}),
+        "oportunidades_estagnadas_marketing":  estagnadas_mkt or [],
+        "oportunidades_estagnadas_prospeccao": estagnadas_prs or [],
+        "oportunidades_mistas_prioritarias":   mistas_prio or [],
     }
 
 
