@@ -36,6 +36,12 @@ from core.deliberacoes import (
     criar_ou_atualizar_deliberacao,
     carregar_deliberacoes,
 )
+from modulos.entrega.processador_insumos_entrega import (
+    carregar_insumos_pendentes,
+    aplicar_insumo_na_entrega,
+    atualizar_pipeline_entrega_por_checklist,
+    marcar_insumo_como_aplicado,
+)
 
 NOME_AGENTE = "agente_operacao_entrega"
 
@@ -68,12 +74,14 @@ def executar() -> dict:
     historico        = entradas["historico"]
     todas_delib      = entradas["deliberacoes"]
     handoffs         = entradas["handoffs"]
+    insumos          = entradas["insumos"]
 
-    n_abertas     = 0
-    n_atualizadas = 0
-    n_checklists  = 0
-    n_bloqueadas  = 0
-    n_delib       = 0
+    n_abertas      = 0
+    n_atualizadas  = 0
+    n_checklists   = 0
+    n_bloqueadas   = 0
+    n_delib        = 0
+    n_insumos_aplic = 0
 
     for opp in aptas:
         opp_id      = opp.get("id", "")
@@ -149,16 +157,51 @@ def executar() -> dict:
 
         marcar_processado(estado, entrega_key)
 
+    # ── ETAPA 3b: Processar insumos pendentes ──────────────────────────────
+    pendentes = carregar_insumos_pendentes(insumos)
+    log.info(f"  Insumos pendentes para processar: {len(pendentes)}")
+
+    for insumo in pendentes:
+        entrega_id = insumo.get("entrega_id", "")
+        entrega    = next((e for e in pipeline_entrega if e["id"] == entrega_id), None)
+        checklist  = next((c for c in checklists if c.get("entrega_id") == entrega_id), None)
+
+        if not entrega or not checklist:
+            log.info(f"  [insumo ignorado] {insumo.get('id')} — entrega/checklist nao encontrado")
+            marcar_insumo_como_aplicado(insumo, False)
+            continue
+
+        log.info(f"  [insumo] {insumo.get('tipo_insumo')} → {entrega_id}")
+        mudou = aplicar_insumo_na_entrega(insumo, entrega, checklist, historico, log)
+        marcar_insumo_como_aplicado(insumo, mudou)
+
+        # Recalcular status_entrega com base no checklist atualizado
+        status_mudou = atualizar_pipeline_entrega_por_checklist(entrega, checklist, log)
+        if status_mudou:
+            historico.append({
+                "id":            f"hev_{entrega_id}_transicao_{len(historico)}",
+                "entrega_id":    entrega_id,
+                "evento":        "status_entrega_atualizado",
+                "descricao":     f"Status atualizado para '{entrega['status_entrega']}' — {entrega.get('percentual_conclusao', 0)}% concluido",
+                "origem":        NOME_AGENTE,
+                "registrado_em": datetime.now().isoformat(timespec="seconds"),
+            })
+
+        if mudou:
+            n_insumos_aplic += 1
+
     # ── ETAPA 4: Persistir ─────────────────────────────────────────────────
     _salvar_json("pipeline_entrega.json",   pipeline_entrega)
     _salvar_json("checklists_entrega.json", checklists)
     _salvar_json("historico_entrega.json",  historico)
     _salvar_json("handoffs_agentes.json",   handoffs)
+    _salvar_json("insumos_entrega.json",    insumos)
 
     # ── ETAPA 5: Salvar estado ─────────────────────────────────────────────
     resumo_str = (
         f"aptas={len(aptas)} abertas={n_abertas} atualizadas={n_atualizadas} "
-        f"checklists={n_checklists} bloqueadas={n_bloqueadas} deliberacoes={n_delib}"
+        f"checklists={n_checklists} bloqueadas={n_bloqueadas} "
+        f"insumos_aplicados={n_insumos_aplic} deliberacoes={n_delib}"
     )
     hash_exec = hashlib.md5(resumo_str.encode()).hexdigest()[:16]
     registrar_execucao(
@@ -166,7 +209,7 @@ def executar() -> dict:
         saldo=0.0,
         resumo=resumo_str,
         n_escalados=n_delib,
-        n_autonomos=n_abertas + n_atualizadas,
+        n_autonomos=n_abertas + n_atualizadas + n_insumos_aplic,
         hash_exec=hash_exec,
     )
     salvar_estado(NOME_AGENTE, estado)
@@ -179,6 +222,7 @@ def executar() -> dict:
     log.info(f"  entregas atualizadas : {n_atualizadas}")
     log.info(f"  checklists criados   : {n_checklists}")
     log.info(f"  entregas bloqueadas  : {n_bloqueadas}")
+    log.info(f"  insumos aplicados    : {n_insumos_aplic} / {len(pendentes)}")
     log.info(f"  deliberacoes criadas : {n_delib}")
     log.info("=" * 60)
 
@@ -190,6 +234,7 @@ def executar() -> dict:
         "atualizadas":        n_atualizadas,
         "checklists_criados": n_checklists,
         "bloqueadas":         n_bloqueadas,
+        "insumos_aplicados":  n_insumos_aplic,
         "deliberacoes":       n_delib,
         "pipeline_entrega":   len(pipeline_entrega),
         "caminho_log":        str(caminho_log),
@@ -204,10 +249,11 @@ def carregar_entradas_entrega(log) -> dict:
     checklists       = _carregar_json("checklists_entrega.json",  padrao=[])
     historico        = _carregar_json("historico_entrega.json",   padrao=[])
     handoffs         = _carregar_json("handoffs_agentes.json",    padrao=[])
+    insumos          = _carregar_json("insumos_entrega.json",     padrao=[])
     deliberacoes     = carregar_deliberacoes()
     log.info(
         f"Entradas: pipeline={len(pipeline)} | entregas={len(pipeline_entrega)} | "
-        f"checklists={len(checklists)} | handoffs={len(handoffs)}"
+        f"checklists={len(checklists)} | insumos={len(insumos)} | handoffs={len(handoffs)}"
     )
     return {
         "pipeline":         pipeline,
@@ -215,6 +261,7 @@ def carregar_entradas_entrega(log) -> dict:
         "checklists":       checklists,
         "historico":        historico,
         "handoffs":         handoffs,
+        "insumos":          insumos,
         "deliberacoes":     deliberacoes,
     }
 
@@ -340,14 +387,18 @@ def _itens_checklist_por_linha(linha: str) -> list:
 
 
 def _item(id_sufixo, titulo, descricao, obrigatorio=True, depende_de=None) -> dict:
+    agora = datetime.now().isoformat(timespec="seconds")
     return {
-        "id":          id_sufixo,
-        "titulo":      titulo,
-        "descricao":   descricao,
-        "obrigatorio": obrigatorio,
-        "status":      "pendente",
-        "depende_de":  depende_de,
-        "observacoes": "",
+        "id":                  id_sufixo,
+        "titulo":              titulo,
+        "descricao":           descricao,
+        "obrigatorio":         obrigatorio,
+        "status":              "pendente",
+        "depende_de":          depende_de,
+        "observacoes":         "",
+        "criterios_conclusao": f"Insumo do tipo correspondente registrado e validado.",
+        "evidencias":          [],
+        "atualizado_em":       agora,
     }
 
 
