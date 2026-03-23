@@ -55,6 +55,14 @@ def executar_ciclo_empresa() -> dict:
         _salvar_ciclo(ciclo)
         return ciclo
 
+    # Derivar políticas operacionais a partir da governança ativa (início do ciclo)
+    try:
+        from core.politicas_empresa import derivar_e_salvar_politicas
+        politicas = derivar_e_salvar_politicas()
+        log.info(f"Politicas operacionais derivadas: modo={politicas.get('modo_empresa','?')} | score_ganho={politicas.get('fechamento_comercial',{}).get('score_ganho','?')}")
+    except Exception as _e:
+        log.warning(f"Falha ao derivar politicas operacionais: {_e}")
+
     estado = carregar_estado_empresa()
     etapas = []
     erros  = []

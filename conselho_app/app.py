@@ -288,13 +288,16 @@ async def api_status():
 @app.get("/governanca", response_class=HTMLResponse)
 async def pagina_governanca(request: Request):
     from core.governanca_conselho import resumir_governanca_ativa
+    from core.politicas_empresa import resumir_politicas_ativas
     gov     = resumir_governanca_ativa()
+    politicas_resumo = resumir_politicas_ativas()
     historico = _ler("historico_comandos_conselho.json", [])
     historico_recente = sorted(historico, key=lambda x: x.get("registrado_em",""), reverse=True)[:20]
     return templates.TemplateResponse("governanca.html", {
         "request":    request,
         "page":       "governanca",
         "gov":        gov,
+        "politicas":  politicas_resumo,
         "historico":  historico_recente,
         "agentes_conhecidos": [
             "agente_financeiro", "agente_prospeccao", "agente_marketing",
@@ -326,6 +329,7 @@ async def acao_deliberar(
         valor=valor,
         justificativa=justificativa or f"Ação '{acao}' via painel do conselho",
     )
+    _atualizar_politicas()
     _atualizar_observabilidade()
     return RedirectResponse("/deliberacoes", status_code=303)
 
@@ -354,6 +358,7 @@ async def acao_governanca(
             valor=valor,
             justificativa=justificativa or f"Comando '{tipo_comando}' via painel",
         )
+    _atualizar_politicas()
     _atualizar_observabilidade()
     return RedirectResponse("/governanca", status_code=303)
 
@@ -362,6 +367,7 @@ async def acao_governanca(
 async def acao_desativar_diretriz(dir_id: str):
     from core.governanca_conselho import desativar_diretriz_conselho
     desativar_diretriz_conselho(dir_id)
+    _atualizar_politicas()
     _atualizar_observabilidade()
     return RedirectResponse("/governanca", status_code=303)
 
@@ -438,5 +444,13 @@ def _atualizar_observabilidade():
     try:
         from core.observabilidade_empresa import executar_observabilidade
         executar_observabilidade()
+    except Exception:
+        pass
+
+
+def _atualizar_politicas():
+    try:
+        from core.politicas_empresa import derivar_e_salvar_politicas
+        derivar_e_salvar_politicas()
     except Exception:
         pass

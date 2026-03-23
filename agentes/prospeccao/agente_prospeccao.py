@@ -32,6 +32,7 @@ from hashlib import md5
 from pathlib import Path
 
 import config
+from core.politicas_empresa import carregar_politicas
 from core.controle_agente import (
     carregar_estado,
     salvar_estado,
@@ -69,6 +70,13 @@ def executar() -> dict:
         f"processados={len(estado['itens_processados'])}"
     )
 
+    # ── ETAPA 0: Carregar políticas operacionais ───────────────────────────────
+    politicas = carregar_politicas()
+    limite_novas = politicas.get("prospeccao", {}).get("limite_novas_por_ciclo", 0)
+    ritmo        = politicas.get("prospeccao", {}).get("ritmo", "normal")
+    modo_empresa = politicas.get("modo_empresa", "normal")
+    log.info(f"Politicas carregadas: modo={modo_empresa} | limite_novas={limite_novas} | ritmo={ritmo}")
+
     # ── ETAPA 1: Carregar insumos ─────────────────────────────────────────────
     insumos = carregar_insumos_prospeccao(log)
 
@@ -89,6 +97,7 @@ def executar() -> dict:
 
     # ── ETAPA 4: Processar candidatas ─────────────────────────────────────────
     n_novas = n_prontas = n_revisao = n_baixa = n_skip = 0
+    n_novas_ciclo = 0  # contador para respeitar limite_novas_por_ciclo
 
     for candidata in insumos["candidatas"]:
         osm_id = str(candidata.get("osm_id", ""))
@@ -106,9 +115,15 @@ def executar() -> dict:
             n_skip += 1
             continue
 
+        # Respeitar limite de novas por ciclo (0 = sem limite)
+        if limite_novas > 0 and n_novas_ciclo >= limite_novas:
+            log.info(f"  [limite_ciclo] atingido ({limite_novas}) — parando novas entradas | ritmo={ritmo}")
+            break
+
         # Classificar
         status, prioridade = classificar_para_handoff_ou_revisao(candidata)
         n_novas += 1
+        n_novas_ciclo += 1
 
         # Montar oportunidade de prospecção
         opp_prosp = _montar_oportunidade_prospeccao(candidata, status, prioridade)
@@ -192,6 +207,8 @@ def executar() -> dict:
         "baixa_prioridade":   n_baixa,
         "skip":               n_skip,
         "fila_prosp_total":   len(fila_prosp),
+        "modo_empresa":       modo_empresa,
+        "limite_novas_ciclo": limite_novas,
         "caminho_log":        str(caminho_log),
     }
 

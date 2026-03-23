@@ -39,6 +39,7 @@ from core.controle_agente import (
     configurar_log_agente,
 )
 from core.deliberacoes import buscar_deliberacao_por_item_id, marcar_como_aplicada
+from core.politicas_empresa import carregar_politicas
 from modulos.comercial.pipeline_manager import (
     carregar_pipeline,
     carregar_followups,
@@ -75,6 +76,13 @@ def executar() -> dict:
     log.info("=" * 60)
     log.info(f"AGENTE COMERCIAL — inicio {ts}")
     log.info("=" * 60)
+
+    # ── ETAPA 0: Carregar políticas operacionais ──────────────────────────
+    politicas = carregar_politicas()
+    linhas_priorizadas = politicas.get("linhas_priorizadas", [])
+    foco_curto_prazo   = politicas.get("comercial", {}).get("foco_curto_prazo", False)
+    modo_empresa = politicas.get("modo_empresa", "normal")
+    log.info(f"Politicas carregadas: modo={modo_empresa} | linhas_prio={linhas_priorizadas} | foco_curto={foco_curto_prazo}")
 
     # ── ETAPA 1: Garantir arquivos base ───────────────────────────────────
     persistir_arquivos_base()
@@ -117,6 +125,18 @@ def executar() -> dict:
 
     candidatas = importar_oportunidades_novas(leads, pipeline, handoffs)
     leads_idx  = {str(l.get("osm_id", "")): l for l in leads}
+
+    # Ordenar candidatas: linhas priorizadas primeiro; dentro delas, foco_curto_prazo
+    # prioriza menor prazo de fechamento esperado.
+    if linhas_priorizadas:
+        candidatas = sorted(
+            candidatas,
+            key=lambda o: (
+                0 if o.get("linha_servico_sugerida") in linhas_priorizadas else 1,
+                0 if foco_curto_prazo and o.get("prioridade") == "alta" else 1,
+            )
+        )
+        log.info(f"  [politica] candidatas reordenadas por linhas priorizadas: {linhas_priorizadas}")
 
     for opp in candidatas:
         if ja_processado(estado, opp["id"]):

@@ -39,11 +39,12 @@ from modulos.financeiro.registrador_eventos import carregar_eventos
 from modulos.financeiro.contas_a_receber import carregar_com_status_efetivo as receber_efetivo
 from modulos.financeiro.contas_a_pagar import carregar_com_status_efetivo as pagar_efetivo
 from core.deliberacoes import buscar_deliberacao_por_item_id, marcar_como_aplicada
+from core.politicas_empresa import carregar_politicas
 
 NOME_AGENTE = "agente_financeiro"
 
-# Urgências que exigem escalamento ao usuário
-_URGENCIAS_ESCALAMENTO = {"imediata", "alta"}
+# Urgências padrão (sobrescritas pelas políticas operacionais em cada execução)
+_URGENCIAS_ESCALAMENTO_PADRAO = {"imediata", "alta"}
 
 
 def executar() -> dict:
@@ -57,6 +58,13 @@ def executar() -> dict:
     log.info("=" * 60)
     log.info(f"AGENTE FINANCEIRO — inicio {ts}")
     log.info("=" * 60)
+
+    # ── ETAPA 0: Carregar políticas operacionais ──────────────────────────
+    politicas = carregar_politicas()
+    urgencias_escalar  = set(politicas.get("financeiro", {}).get("urgencias_escalamento", ["imediata", "alta"]))
+    urgencias_alertas  = set(politicas.get("financeiro", {}).get("escalar_alertas_urgencia", ["imediata"]))
+    modo_empresa = politicas.get("modo_empresa", "normal")
+    log.info(f"Politicas carregadas: modo={modo_empresa} | urgencias_riscos={sorted(urgencias_escalar)} | urgencias_alertas={sorted(urgencias_alertas)}")
 
     # ── ETAPA 1: Carregar estado anterior ─────────────────────────────────
     estado = carregar_estado(NOME_AGENTE)
@@ -121,7 +129,7 @@ def executar() -> dict:
             log.info(f"  [aguardando] {item_id} — escalado, sem resposta ainda")
             continue
 
-        if _deve_escalar_risco(risco, posicao, previsao):
+        if _deve_escalar_risco(risco, posicao, previsao, urgencias_escalar):
             item_consolidado = _formatar_item_consolidado(risco, NOME_AGENTE)
             itens_escalados.append(item_consolidado)
             marcar_pendente(estado, item_id)
@@ -147,7 +155,7 @@ def executar() -> dict:
             log.info(f"  [coberto por risco] alerta {item_id} — {contraparte} ja escalado via risco vencido")
             continue
 
-        if alerta.get("urgencia") == "imediata":
+        if alerta.get("urgencia") in urgencias_alertas:
             item_consolidado = _formatar_item_consolidado_alerta(alerta, NOME_AGENTE)
             itens_escalados.append(item_consolidado)
             marcar_pendente(estado, item_id)
@@ -159,7 +167,7 @@ def executar() -> dict:
         log.info(f"Fila consolidada atualizada: {len(itens_escalados)} itens escalados")
 
     # ── ETAPA 7: Atualizar agenda do dia ──────────────────────────────────
-    itens_agenda = [i for i in itens_escalados if i.get("urgencia") in _URGENCIAS_ESCALAMENTO]
+    itens_agenda = [i for i in itens_escalados if i.get("urgencia") in urgencias_escalar]
     if itens_agenda:
         atualizar_agenda(itens_agenda)
         log.info(f"Agenda do dia atualizada: {len(itens_agenda)} itens urgentes")
@@ -188,6 +196,8 @@ def executar() -> dict:
         "autonomos":          len(itens_autonomos),
         "escalados":          len(itens_escalados),
         "aprovados_nesta_exec": aprovados_agora,
+        "modo_empresa":       modo_empresa,
+        "urgencias_escalar":  sorted(urgencias_escalar),
         "caminho_log":        str(caminho_log),
     }
 
@@ -207,17 +217,23 @@ def executar() -> dict:
 
 # ─── Regras de escalamento ───────────────────────────────────────────────────
 
-def _deve_escalar_risco(risco: dict, posicao: dict, previsao: dict) -> bool:
+def _deve_escalar_risco(risco: dict, posicao: dict, previsao: dict,
+                        urgencias_escalar: set = None) -> bool:
     """
     Retorna True se o risco deve ser escalado para o usuário.
 
+    urgencias_escalar: conjunto de urgências que disparam escalamento.
+    Quando None usa o padrão {imediata, alta}.
+
     Critérios de escalamento:
-    - Urgência alta
+    - Urgência na lista de urgências configuradas
     - Buraco de caixa em 7 dias
     - Risco operacional imediato (sinais heurísticos)
     - Risco de caixa na posição atual
     """
-    if risco.get("urgencia") == "alta":
+    if urgencias_escalar is None:
+        urgencias_escalar = _URGENCIAS_ESCALAMENTO_PADRAO
+    if risco.get("urgencia") in urgencias_escalar:
         return True
 
     tipo = risco.get("tipo", "")

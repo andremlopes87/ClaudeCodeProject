@@ -23,6 +23,7 @@ from pathlib import Path
 from unicodedata import normalize
 
 import config
+from core.politicas_empresa import carregar_politicas
 from core.controle_agente import (
     carregar_estado,
     configurar_log_agente,
@@ -59,6 +60,19 @@ def executar() -> dict:
     log.info("=" * 60)
     log.info(f"AGENTE MARKETING — {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     log.info("=" * 60)
+
+    # Carregar políticas operacionais
+    politicas = carregar_politicas()
+    complexidades_sensiveis = set(
+        politicas.get("marketing", {}).get("complexidades_sensiveis", list(_COMPLEXIDADES_SENSIVEIS))
+    )
+    rigor_deliberacao = politicas.get("marketing", {}).get("rigor_deliberacao", "normal")
+    modo_empresa      = politicas.get("modo_empresa", "normal")
+    log.info(
+        f"Politicas carregadas: modo={modo_empresa} "
+        f"| complexidades_sensiveis={sorted(complexidades_sensiveis)} "
+        f"| rigor={rigor_deliberacao}"
+    )
 
     estado    = carregar_estado(_NOME_AGENTE)
     insumos   = carregar_insumos_marketing()
@@ -106,7 +120,9 @@ def executar() -> dict:
         log.info(f"  [importada] {oport['empresa']} | prio={oport['prioridade']}")
 
         # Triagem
-        destino, requer_delib = classificar_para_handoff_ou_deliberacao(item)
+        destino, requer_delib = classificar_para_handoff_ou_deliberacao(
+            item, complexidades_sensiveis=complexidades_sensiveis
+        )
         oport["status"]            = "triada"
         oport["pronto_para_handoff"] = destino == "agente_comercial" and not requer_delib
         oport["destino_sugerido"]  = destino
@@ -286,13 +302,22 @@ def importar_oportunidade_marketing(item: dict) -> dict:
     }
 
 
-def classificar_para_handoff_ou_deliberacao(item: dict) -> tuple[str, bool]:
+def classificar_para_handoff_ou_deliberacao(
+    item: dict,
+    complexidades_sensiveis: set = None,
+) -> tuple[str, bool]:
     """
     Retorna (destino, requer_deliberacao).
 
     Destino: "agente_comercial" | "em_revisao"
     requer_deliberacao: True quando escopo sensível (complexidade alta, etc.)
+
+    complexidades_sensiveis: conjunto de complexidades que disparam deliberação.
+    Quando None usa _COMPLEXIDADES_SENSIVEIS (padrão).
     """
+    if complexidades_sensiveis is None:
+        complexidades_sensiveis = _COMPLEXIDADES_SENSIVEIS
+
     pronta         = item.get("pronta_para_oferta_presenca", False)
     plano_gerado   = item.get("plano_marketing_gerado", False)
     complexidade   = item.get("nivel_complexidade_execucao", "")
@@ -308,7 +333,7 @@ def classificar_para_handoff_ou_deliberacao(item: dict) -> tuple[str, bool]:
         return "em_revisao", False
 
     # Alta complexidade → deliberação
-    if complexidade in _COMPLEXIDADES_SENSIVEIS:
+    if complexidade in complexidades_sensiveis:
         return "agente_comercial", True
 
     # Prioridade nula sem plano → revisão

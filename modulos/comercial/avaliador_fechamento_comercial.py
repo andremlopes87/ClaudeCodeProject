@@ -41,6 +41,7 @@ from datetime import datetime
 from pathlib import Path
 
 import config
+from core.politicas_empresa import carregar_politicas
 
 logger = logging.getLogger(__name__)
 
@@ -48,13 +49,25 @@ _TIPOS_RESULTADO_POSITIVO = {"pediu_proposta", "respondeu_interesse"}
 _TIPOS_RESULTADO_NEGATIVO = {"sem_resposta", "nao_respondeu", "contato_invalido"}
 _ESTAGIOS_FINAIS          = {"ganho", "perdido", "encerrado"}
 
-_SCORE_GANHO              = 8
-_SCORE_PRONTO             = 5
+# Thresholds padrão — sobrescritos pelas políticas operacionais em cada execução
+_SCORE_GANHO_PADRAO       = 8
+_SCORE_PRONTO_PADRAO      = 5
 
 
 # ─── Ponto de entrada ─────────────────────────────────────────────────────────
 
 def executar() -> dict:
+    # Carregar políticas operacionais
+    politicas   = carregar_politicas()
+    score_ganho = politicas.get("fechamento_comercial", {}).get("score_ganho", _SCORE_GANHO_PADRAO)
+    score_pronto = politicas.get("fechamento_comercial", {}).get("score_pronto", _SCORE_PRONTO_PADRAO)
+    exigir_escopo = politicas.get("fechamento_comercial", {}).get("exigir_escopo_para_ganho", False)
+    modo_empresa  = politicas.get("modo_empresa", "normal")
+    logger.info(
+        f"[avaliador] politicas: modo={modo_empresa} "
+        f"score_ganho={score_ganho} score_pronto={score_pronto} exigir_escopo={exigir_escopo}"
+    )
+
     pipeline   = _carregar_json("pipeline_comercial.json",              padrao=[])
     resultados = _carregar_json("resultados_contato.json",              padrao=[])
     insumos    = _carregar_json("insumos_entrega.json",                 padrao=[])
@@ -82,7 +95,10 @@ def executar() -> dict:
             continue
 
         score, sinais = avaliar_sinais_de_fechamento(opp, res_opp, ins_opp)
-        decisao       = decidir_promocao(opp, score, sinais, ins_opp)
+        decisao       = decidir_promocao(opp, score, sinais, ins_opp,
+                                         score_ganho=score_ganho,
+                                         score_pronto=score_pronto,
+                                         exigir_escopo=exigir_escopo)
 
         logger.info(
             f"  [avaliador] {opp_id} score={score} "
@@ -118,6 +134,9 @@ def executar() -> dict:
         "promovidos_pronto":    prontos,
         "escalados":            escalados,
         "mantidos":             mantidos,
+        "modo_empresa":         modo_empresa,
+        "score_ganho_usado":    score_ganho,
+        "score_pronto_usado":   score_pronto,
     }
 
 
@@ -208,19 +227,28 @@ def detectar_bloqueios_fechamento(opp: dict, resultados_opp: list) -> list:
     return bloqueios
 
 
-def decidir_promocao(opp: dict, score: int, sinais: list, insumos_opp: list) -> dict:
+def decidir_promocao(opp: dict, score: int, sinais: list, insumos_opp: list,
+                     score_ganho: int = None, score_pronto: int = None,
+                     exigir_escopo: bool = False) -> dict:
     """
     Retorna dict com 'acao' (ganho|pronto_para_entrega|escalar|manter) e 'motivo'.
-    """
-    linha   = opp.get("linha_servico_sugerida", "")
-    tipos_ins = {i.get("tipo_insumo", "") for i in insumos_opp}
-    e_mkt   = "marketing" in linha.lower()
 
-    sem_escopo   = "escopo_confirmado"    not in tipos_ins
+    score_ganho / score_pronto: thresholds dinâmicos das políticas operacionais.
+    exigir_escopo: sob modo conservador/manutencao, não promover a ganho sem escopo_confirmado.
+    """
+    if score_ganho is None:
+        score_ganho = _SCORE_GANHO_PADRAO
+    if score_pronto is None:
+        score_pronto = _SCORE_PRONTO_PADRAO
+
+    linha     = opp.get("linha_servico_sugerida", "")
+    tipos_ins = {i.get("tipo_insumo", "") for i in insumos_opp}
+    e_mkt     = "marketing" in linha.lower()
+
+    sem_escopo   = "escopo_confirmado"   not in tipos_ins
     sem_objetivo = "objetivo_confirmado" not in tipos_ins
 
     # ESCALAR tem prioridade sobre PRONTO: mkt + pediu_proposta + sem escopo/objetivo
-    # Mesmo com score intermediario, nao auto-promover sem base para escopo
     if (score >= 2 and e_mkt and "pediu_proposta" in sinais
             and sem_escopo and sem_objetivo):
         return {
@@ -232,17 +260,26 @@ def decidir_promocao(opp: dict, score: int, sinais: list, insumos_opp: list) -> 
         }
 
     # GANHO: score alto + linha + sem bloqueios (ja filtrados antes)
-    if score >= _SCORE_GANHO:
+    # Com exigir_escopo ativado: bloquear ganho se sem escopo
+    if score >= score_ganho:
+        if exigir_escopo and sem_escopo:
+            return {
+                "acao":   "escalar",
+                "motivo": (
+                    f"score={score} >= {score_ganho} mas exigir_escopo=True e sem escopo_confirmado; "
+                    "requer validacao"
+                ),
+            }
         return {
             "acao":   "ganho",
-            "motivo": f"score={score} >= {_SCORE_GANHO}; sinais={sinais}",
+            "motivo": f"score={score} >= {score_ganho}; sinais={sinais}",
         }
 
     # PRONTO_PARA_ENTREGA: score intermediario
-    if score >= _SCORE_PRONTO:
+    if score >= score_pronto:
         return {
             "acao":   "pronto_para_entrega",
-            "motivo": f"score={score} [{_SCORE_PRONTO},{_SCORE_GANHO-1}]; sinais={sinais}",
+            "motivo": f"score={score} [{score_pronto},{score_ganho-1}]; sinais={sinais}",
         }
 
     return {

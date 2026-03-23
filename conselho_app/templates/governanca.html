@@ -6,6 +6,22 @@
   <p>Comandos estratégicos de alto nível. Não opera o dia a dia — orienta e governa.</p>
 </div>
 
+<!-- Políticas operacionais derivadas -->
+{% if politicas %}
+<div class="card" style="margin-bottom:16px;padding:12px 16px;">
+  <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Políticas Operacionais Ativas (modo: <b style="color:var(--accent);">{{ politicas.modo_empresa }}</b>)</div>
+  <div style="display:flex;gap:20px;flex-wrap:wrap;font-size:11px;">
+    <div><span class="text-muted">Score Ganho:</span> <b>{{ politicas.score_ganho }}</b></div>
+    <div><span class="text-muted">Score Pronto:</span> <b>{{ politicas.score_pronto }}</b></div>
+    <div><span class="text-muted">Limite Prosp/ciclo:</span> <b>{{ politicas.limite_prosp if politicas.limite_prosp else 'sem limite' }}</b></div>
+    <div><span class="text-muted">Urgências Financeiro:</span> <b>{{ politicas.urgencias_financeiro | join(', ') }}</b></div>
+    <div><span class="text-muted">Rigor Marketing:</span> <b>{{ politicas.rigor_marketing }}</b></div>
+    {% if politicas.linhas_priorizadas %}<div><span class="text-muted">Linhas Priorizadas:</span> {% for l in politicas.linhas_priorizadas %}<span class="badge badge-accent" style="margin-right:3px;">{{ l }}</span>{% endfor %}</div>{% endif %}
+    <div style="margin-left:auto;"><span class="text-muted" style="font-size:10px;">gerado {{ politicas.gerado_em[:16].replace('T',' ') if politicas.gerado_em else '—' }}</span></div>
+  </div>
+</div>
+{% endif %}
+
 <!-- Estado atual -->
 <div class="kpi-grid">
   <div class="kpi {% if gov.modo_empresa != 'normal' %}warning{% else %}success{% endif %}">
