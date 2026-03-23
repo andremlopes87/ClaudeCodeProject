@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Feed de Eventos — Painel do Conselho{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Feed de Eventos</h1>
+  <p>{{ feed.total }} eventos · gerado em {{ feed.gerado_em }}</p>
+</div>
+
+<div class="filter-bar" id="filters">
+  <button class="filter-btn active" onclick="filtrar('todos', this)">Todos</button>
+  <button class="filter-btn" onclick="filtrar('area:comercial', this)">Comercial</button>
+  <button class="filter-btn" onclick="filtrar('area:entrega', this)">Entrega</button>
+  <button class="filter-btn" onclick="filtrar('area:financeiro', this)">Financeiro</button>
+  <button class="filter-btn" onclick="filtrar('area:operacao', this)">Operação</button>
+  <button class="filter-btn" onclick="filtrar('sev:critico', this)">⚠ Críticos</button>
+  <button class="filter-btn" onclick="filtrar('sev:sucesso', this)">✓ Sucessos</button>
+  <button class="filter-btn" onclick="filtrar('sev:erro', this)">✗ Erros</button>
+</div>
+
+<div class="card" id="feed-container">
+  {% for ev in feed.eventos %}
+  <div class="feed-item" data-area="{{ ev.area }}" data-sev="{{ ev.severidade }}" data-tipo="{{ ev.tipo_evento }}">
+    <div class="feed-dot {{ ev.severidade }}"></div>
+    <div class="feed-content" style="flex:1;">
+      <div class="title">{{ ev.titulo }}</div>
+      {% if ev.descricao %}<div class="desc">{{ ev.descricao }}</div>{% endif %}
+      <div class="meta">
+        <span class="badge badge-accent">{{ ev.tipo_evento }}</span>
+        <span class="badge badge-muted" style="margin-left:4px;">{{ ev.area }}</span>
+        {% if ev.agente_origem and ev.agente_origem != '?' %}
+          <span class="text-muted" style="margin-left:6px;">via {{ ev.agente_origem }}</span>
+        {% endif %}
+        {% if ev.referencia_id %}
+          · <a href="/drill/auto/{{ ev.referencia_id }}">{{ ev.referencia_id[:30] }}</a>
+        {% endif %}
+      </div>
+    </div>
+    <div class="feed-time">{{ ev.timestamp[:16].replace('T',' ') if ev.timestamp else '—' }}</div>
+  </div>
+  {% else %}
+  <div class="empty">Nenhum evento registrado ainda. Execute o ciclo da empresa.</div>
+  {% endfor %}
+</div>
+
+{% endblock %}
+{% block scripts %}
+<script>
+function filtrar(filtro, btn) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.feed-item').forEach(item => {
+    if (filtro === 'todos') {
+      item.style.display = '';
+      return;
+    }
+    const [tipo, valor] = filtro.split(':');
+    const attr = tipo === 'area' ? item.dataset.area : item.dataset.sev;
+    item.style.display = (attr === valor) ? '' : 'none';
+  });
+}
+</script>
+{% endblock %}

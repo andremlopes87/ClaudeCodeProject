@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Agentes — Painel do Conselho{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Agentes</h1>
+  <p>Status de cada agente no último ciclo executado.</p>
+</div>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Agente</th>
+        <th>Área</th>
+        <th>Status</th>
+        <th>Última Exec.</th>
+        <th>Duração</th>
+        <th>Itens</th>
+        <th>Pendências</th>
+        <th>Resumo</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for ag in agentes %}
+      <tr>
+        <td><b>{{ ag.agente }}</b></td>
+        <td><span class="badge badge-accent">{{ ag.area }}</span></td>
+        <td>
+          {% if ag.status == 'ok' %}
+            <span class="badge badge-success">ok</span>
+          {% elif ag.status == 'erro' %}
+            <span class="badge badge-danger">erro</span>
+          {% else %}
+            <span class="badge badge-muted">{{ ag.status }}</span>
+          {% endif %}
+        </td>
+        <td class="text-muted">{{ ag.ultima_execucao[:16] if ag.ultima_execucao and ag.ultima_execucao != '—' else '—' }}</td>
+        <td class="text-muted">{{ ag.duracao_ms }}ms</td>
+        <td>{{ ag.itens_processados }}</td>
+        <td>{{ ag.pendencias }}</td>
+        <td class="text-muted" style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+          {% if ag.bloqueios %}
+            <span class="text-danger">{{ ag.bloqueios[:80] }}</span>
+          {% else %}
+            {{ ag.resumo[:80] if ag.resumo else '—' }}
+          {% endif %}
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="8" class="empty">Nenhum agente registrado</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<h2>Resumo por Área</h2>
+<div class="kpi-grid">
+  {% set areas_count = {} %}
+  {% for ag in agentes %}
+    {% if ag.status == 'erro' %}
+      <span style="display:none;">erro</span>
+    {% endif %}
+  {% endfor %}
+  {% for area_nome in ['financeiro','prospeccao','marketing','comercial','entrega','operacao'] %}
+    {% set area_agents = agentes | selectattr('area','eq', area_nome) | list %}
+    {% set erros = area_agents | selectattr('status','eq','erro') | list %}
+    <div class="kpi {% if erros %}danger{% endif %}">
+      <div class="label">{{ area_nome }}</div>
+      <div class="value">{{ area_agents | length }}</div>
+      <div class="sub">
+        {% if erros %}<span class="text-danger">{{ erros|length }} erro(s)</span>
+        {% else %}<span class="text-success">todos ok</span>{% endif %}
+      </div>
+    </div>
+  {% endfor %}
+</div>
+{% endblock %}

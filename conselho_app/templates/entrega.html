@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Entrega — Painel do Conselho{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Operação de Entrega</h1>
+  <p>Entregas abertas, checklists e insumos.</p>
+</div>
+
+<div class="kpi-grid">
+  <div class="kpi"><div class="label">Total</div><div class="value">{{ ent.volume }}</div><div class="sub">entregas</div></div>
+  <div class="kpi"><div class="label">Ativas</div><div class="value">{{ ent.ativas }}</div><div class="sub">em andamento</div></div>
+  <div class="kpi {% if ent.bloqueadas > 0 %}danger{% endif %}"><div class="label">Bloqueadas</div><div class="value">{{ ent.bloqueadas }}</div><div class="sub">com bloqueio</div></div>
+  <div class="kpi success"><div class="label">Concluídas</div><div class="value">{{ ent.concluidas }}</div><div class="sub">entregues</div></div>
+  <div class="kpi"><div class="label">% Médio</div><div class="value">{{ ent.pct_medio }}%</div><div class="sub">conclusão</div></div>
+  <div class="kpi"><div class="label">Insumos pend.</div><div class="value">{{ metricas.get('insumos_pendentes', 0) }}</div><div class="sub">aguardando aplicação</div></div>
+</div>
+
+<div class="row">
+  <div class="col">
+    <h2>Por Status</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Status</th><th>Qtd</th></tr></thead>
+        <tbody>
+          {% for s, q in (ent.por_status or {}).items() %}
+          <tr>
+            <td><span class="badge {% if s == 'concluida' %}badge-success{% elif s == 'em_execucao' %}badge-info{% elif s == 'aguardando_insumo' %}badge-warning{% else %}badge-muted{% endif %}">{{ s }}</span></td>
+            <td><b>{{ q }}</b></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="col">
+    <h2>Gargalos</h2>
+    <div class="card">
+      {% for g in ent.gargalos %}
+      <div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;color:var(--warning);">⚠ {{ g }}</div>
+      {% else %}
+      <div class="empty">Sem gargalos identificados</div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<h2>Entregas Detalhadas</h2>
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>Empresa</th><th>Linha Serviço</th><th>Status</th><th>%</th><th>Bloqueios</th><th>Últ. Insumo</th></tr>
+    </thead>
+    <tbody>
+      {% for e in pipeline_entrega %}
+      <tr>
+        <td><a href="/drill/entrega/{{ e.id }}"><b>{{ e.contraparte }}</b></a></td>
+        <td class="text-muted">{{ e.get('linha_servico','—') }}</td>
+        <td><span class="badge {% if e.status_entrega == 'concluida' %}badge-success{% elif e.status_entrega == 'em_execucao' %}badge-info{% elif e.status_entrega == 'aguardando_insumo' %}badge-warning{% else %}badge-muted{% endif %}">{{ e.status_entrega }}</span></td>
+        <td>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <div style="width:60px;height:6px;background:var(--border);border-radius:3px;">
+              <div style="width:{{ e.get('percentual_conclusao',0) }}%;height:6px;background:{% if e.get('percentual_conclusao',0) > 70 %}var(--success){% elif e.get('percentual_conclusao',0) > 30 %}var(--warning){% else %}var(--danger){% endif %};border-radius:3px;"></div>
+            </div>
+            {{ e.get('percentual_conclusao', 0) }}%
+          </div>
+        </td>
+        <td class="{% if e.get('bloqueios') %}text-danger{% else %}text-muted{% endif %}">{{ e.get('bloqueios')|length if e.get('bloqueios') else '—' }}</td>
+        <td class="text-muted">{{ e.get('ultimo_insumo_em','—')[:10] if e.get('ultimo_insumo_em') else '—' }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" class="empty">Nenhuma entrega no pipeline</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

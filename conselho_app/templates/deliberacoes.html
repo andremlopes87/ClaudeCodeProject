@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Deliberações — Painel do Conselho{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Deliberações do Conselho</h1>
+  <p>{{ delibs_resumo.total }} total · {{ delibs_resumo.pendentes }} pendentes · {{ delibs_resumo.resolvidas }} resolvidas</p>
+</div>
+
+<div class="kpi-grid">
+  <div class="kpi {% if delibs_resumo.pendentes > 5 %}warning{% endif %}">
+    <div class="label">Pendentes</div>
+    <div class="value">{{ delibs_resumo.pendentes }}</div>
+    <div class="sub">aguardando decisão</div>
+  </div>
+  <div class="kpi">
+    <div class="label">Resolvidas</div>
+    <div class="value">{{ delibs_resumo.resolvidas }}</div>
+    <div class="sub">com decisão</div>
+  </div>
+  <div class="kpi">
+    <div class="label">Aplicadas</div>
+    <div class="value">{{ delibs_resumo.aplicadas }}</div>
+    <div class="sub">implementadas</div>
+  </div>
+  <div class="kpi">
+    <div class="label">Total</div>
+    <div class="value">{{ delibs_resumo.total }}</div>
+    <div class="sub">histórico completo</div>
+  </div>
+</div>
+
+<h2>Pendentes / Em Análise</h2>
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>ID</th><th>Título</th><th>Tipo</th><th>Urgência</th><th>Impacto</th><th>Criado em</th></tr>
+    </thead>
+    <tbody>
+      {% for d in deliberacoes_pendentes %}
+      <tr>
+        <td class="text-muted" style="font-size:10px;">{{ d.get('id','—')[:30] }}</td>
+        <td><a href="/drill/deliberacao/{{ d.get('id','') }}">{{ d.get('titulo','—')[:70] }}</a></td>
+        <td><span class="badge badge-accent">{{ d.get('tipo','?') }}</span></td>
+        <td><span class="badge {% if d.get('urgencia') == 'imediata' %}badge-danger{% elif d.get('urgencia') == 'alta' %}badge-warning{% else %}badge-muted{% endif %}">{{ d.get('urgencia','?') }}</span></td>
+        <td>{{ d.get('impacto','?') }}</td>
+        <td class="text-muted">{{ d.get('criado_em','—')[:10] }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" class="empty">Nenhuma deliberação pendente</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<h2>Histórico Completo</h2>
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>Título</th><th>Tipo</th><th>Status</th><th>Urgência</th><th>Decisão</th><th>Criado em</th></tr>
+    </thead>
+    <tbody>
+      {% for d in todas_deliberacoes %}
+      <tr>
+        <td><a href="/drill/deliberacao/{{ d.get('id','') }}">{{ d.get('titulo','—')[:60] }}</a></td>
+        <td><span class="badge badge-accent">{{ d.get('tipo','?') }}</span></td>
+        <td><span class="badge {% if d.get('status') == 'resolvida' %}badge-success{% elif d.get('status') in ('pendente','em_analise') %}badge-warning{% else %}badge-muted{% endif %}">{{ d.get('status','?') }}</span></td>
+        <td><span class="badge {% if d.get('urgencia') == 'imediata' %}badge-danger{% elif d.get('urgencia') == 'alta' %}badge-warning{% else %}badge-muted{% endif %}">{{ d.get('urgencia','?') }}</span></td>
+        <td class="text-muted">{{ d.get('decisao_conselho','—')[:50] if d.get('decisao_conselho') else '—' }}</td>
+        <td class="text-muted">{{ d.get('criado_em','—')[:10] }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" class="empty">Nenhuma deliberação registrada</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

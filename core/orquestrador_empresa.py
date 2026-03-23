@@ -111,6 +111,13 @@ def executar_ciclo_empresa() -> dict:
     estado = _atualizar_estado_empresa(estado, ciclo)
     salvar_estado_empresa(estado)
 
+    # Atualizar camada de observabilidade ao final de cada ciclo
+    try:
+        from core.observabilidade_empresa import executar_observabilidade
+        executar_observabilidade()
+    except Exception as exc:
+        log.warning(f"Observabilidade nao atualizada: {exc}")
+
     log.info("=" * 64)
     log.info(f"CICLO CONCLUIDO — {status_geral}")
     log.info(f"  deliberacoes pendentes     : {resumo.get('deliberacoes_pendentes', '?')}")

@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}Financeiro — Painel do Conselho{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Operação Financeira</h1>
+  <p>Caixa, previsões e riscos financeiros.</p>
+</div>
+
+<div class="kpi-grid">
+  <div class="kpi {% if fin.risco_caixa %}danger{% endif %}">
+    <div class="label">Caixa Atual</div>
+    <div class="value">R${{ "%.2f"|format(fin.caixa_atual) }}</div>
+    <div class="sub">{% if fin.risco_caixa %}<span class="text-danger">RISCO DE CAIXA</span>{% else %}sem risco imediato{% endif %}</div>
+  </div>
+  <div class="kpi {% if fin.risco_7d %}warning{% endif %}">
+    <div class="label">Prev. 7 dias</div>
+    <div class="value">R${{ "%.2f"|format(fin.saldo_previsto_7d) }}</div>
+    <div class="sub">{% if fin.risco_7d %}<span class="text-warning">risco no período</span>{% else %}ok{% endif %}</div>
+  </div>
+  <div class="kpi {% if fin.risco_30d %}warning{% endif %}">
+    <div class="label">Prev. 30 dias</div>
+    <div class="value">R${{ "%.2f"|format(fin.saldo_previsto_30d) }}</div>
+    <div class="sub">{% if fin.risco_30d %}<span class="text-warning">risco no período</span>{% else %}ok{% endif %}</div>
+  </div>
+  <div class="kpi">
+    <div class="label">A Receber</div>
+    <div class="value">R${{ "%.2f"|format(fin.a_receber) }}</div>
+    <div class="sub">em aberto</div>
+  </div>
+  <div class="kpi">
+    <div class="label">A Pagar</div>
+    <div class="value">R${{ "%.2f"|format(fin.a_pagar) }}</div>
+    <div class="sub">em aberto</div>
+  </div>
+  <div class="kpi {% if fin.get('vencido',0) > 0 %}danger{% endif %}">
+    <div class="label">Vencido</div>
+    <div class="value">R${{ "%.2f"|format(fin.get('vencido',0)) }}</div>
+    <div class="sub">total em atraso</div>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col">
+    <h2>Riscos Financeiros</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Tipo</th><th>Descrição</th><th>Urgência</th><th>Impacto</th><th>Ação Sugerida</th></tr></thead>
+        <tbody>
+          {% for r in riscos %}
+          <tr>
+            <td><span class="badge badge-accent">{{ r.get('tipo','?') }}</span></td>
+            <td>{{ r.get('descricao','—')[:70] }}</td>
+            <td><span class="badge {% if r.get('urgencia') == 'imediata' %}badge-danger{% elif r.get('urgencia') == 'curto_prazo' %}badge-warning{% else %}badge-muted{% endif %}">{{ r.get('urgencia','?') }}</span></td>
+            <td class="text-muted">R${{ "%.2f"|format(r.get('impacto_estimado', 0)) }}</td>
+            <td class="text-muted">{{ r.get('acao_sugerida','—')[:60] }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5" class="empty">Nenhum risco financeiro registrado</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="col">
+    <h2>Previsão por Janela</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Janela</th><th>Entradas</th><th>Saídas</th><th>Saldo Proj.</th><th>Risco</th></tr></thead>
+        <tbody>
+          {% for janela_nome, jan in previsao.get('janelas', {}).items() %}
+          <tr>
+            <td><b>{{ janela_nome }}</b></td>
+            <td class="text-success">+R${{ "%.2f"|format(jan.get('entradas_previstas',0)) }}</td>
+            <td class="text-danger">-R${{ "%.2f"|format(jan.get('saidas_previstas',0)) }}</td>
+            <td class="{% if jan.get('saldo_projetado',0) < 0 %}text-danger{% else %}text-success{% endif %}">R${{ "%.2f"|format(jan.get('saldo_projetado',0)) }}</td>
+            <td>{% if jan.get('risco_periodo') %}<span class="badge badge-danger">risco</span>{% else %}<span class="badge badge-success">ok</span>{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <h2>Resumo do Caixa</h2>
+    <div class="card">
+      {% if caixa %}
+      <div class="drill-row"><span>Saldo inicial</span><b>R${{ "%.2f"|format(caixa.get('saldo_inicial',0)) }}</b></div>
+      <div class="drill-row"><span>Recebido (confirmado)</span><b class="text-success">+R${{ "%.2f"|format(caixa.get('total_recebido_confirmado',0)) }}</b></div>
+      <div class="drill-row"><span>Pago (confirmado)</span><b class="text-danger">-R${{ "%.2f"|format(caixa.get('total_pago_confirmado',0)) }}</b></div>
+      <div class="drill-row"><span>Vencido total</span><b class="{% if caixa.get('total_vencido',0) > 0 %}text-danger{% else %}text-muted{% endif %}">R${{ "%.2f"|format(caixa.get('total_vencido',0)) }}</b></div>
+      <div class="drill-row"><span>Calculado em</span><b class="text-muted">{{ caixa.get('calculado_em','—') }}</b></div>
+      {% else %}
+      <div class="empty">Dados de caixa não disponíveis</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Áreas — Painel do Conselho{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Áreas Operacionais</h1>
+  <p>Estado atual de cada área da empresa.</p>
+</div>
+
+<div class="card-grid">
+  {% for area_id, area in areas.items() %}
+  <div class="area-card">
+    <div class="area-title">
+      {% if area_id == 'prospeccao' %}⬡{% elif area_id == 'marketing' %}◎{% elif area_id == 'comercial' %}◷{% elif area_id == 'entrega' %}◫{% else %}◈{% endif %}
+      {{ area_id | title }}
+      <span class="badge {% if area.status == 'risco' %}badge-danger{% elif area.status == 'sem_atividade' %}badge-muted{% elif area.status == 'vazio' %}badge-muted{% else %}badge-success{% endif %}" style="font-size:10px;">{{ area.status }}</span>
+    </div>
+
+    {% if area_id == 'prospeccao' %}
+      <div class="area-stat"><span>Volume gerado</span><b>{{ area.volume }}</b></div>
+    {% elif area_id == 'marketing' %}
+      <div class="area-stat"><span>Oportunidades</span><b>{{ area.volume }}</b></div>
+    {% elif area_id == 'comercial' %}
+      <div class="area-stat"><span>Total pipeline</span><b>{{ area.volume }}</b></div>
+      <div class="area-stat"><span>Ativos</span><b>{{ area.ativos }}</b></div>
+      <div class="area-stat"><span>Ganhos</span><b class="text-success">{{ area.ganhos }}</b></div>
+      <div class="area-stat"><span>Perdidos</span><b class="text-muted">{{ area.perdidos }}</b></div>
+      <div class="area-stat"><span>Estagnados</span><b class="{% if area.estagnadas > 0 %}text-warning{% else %}text-muted{% endif %}">{{ area.estagnadas }}</b></div>
+      <div class="area-stat"><span>Follow-ups pend.</span><b>{{ area.followups_pendentes }}</b></div>
+    {% elif area_id == 'entrega' %}
+      <div class="area-stat"><span>Total</span><b>{{ area.volume }}</b></div>
+      <div class="area-stat"><span>Ativas</span><b>{{ area.ativas }}</b></div>
+      <div class="area-stat"><span>Bloqueadas</span><b class="{% if area.bloqueadas > 0 %}text-danger{% else %}text-muted{% endif %}">{{ area.bloqueadas }}</b></div>
+      <div class="area-stat"><span>Concluídas</span><b class="text-success">{{ area.concluidas }}</b></div>
+      <div class="area-stat"><span>% Médio</span><b>{{ area.pct_medio }}%</b></div>
+    {% elif area_id == 'financeiro' %}
+      <div class="area-stat"><span>Caixa atual</span><b class="{% if area.risco_caixa %}text-danger{% else %}text-success{% endif %}">R${{ "%.2f"|format(area.caixa_atual) }}</b></div>
+      <div class="area-stat"><span>A receber</span><b>R${{ "%.2f"|format(area.a_receber) }}</b></div>
+      <div class="area-stat"><span>A pagar</span><b>R${{ "%.2f"|format(area.a_pagar) }}</b></div>
+      <div class="area-stat"><span>Vencido</span><b class="{% if area.vencido > 0 %}text-danger{% else %}text-muted{% endif %}">R${{ "%.2f"|format(area.vencido) }}</b></div>
+      <div class="area-stat"><span>Riscos abertos</span><b class="{% if area.riscos_abertos > 0 %}text-warning{% else %}text-muted{% endif %}">{{ area.riscos_abertos }}</b></div>
+      <div class="area-stat"><span>Prev. 7 dias</span><b>R${{ "%.2f"|format(area.saldo_previsto_7d) }}</b></div>
+    {% endif %}
+
+    {% if area.gargalos %}
+    <div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border);">
+      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Gargalos</div>
+      {% for g in area.gargalos %}
+      <div style="font-size:11px;color:var(--warning);margin-bottom:3px;">⚠ {{ g[:80] }}</div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+
+{% for area_id, area in areas.items() %}
+{% if area.por_estagio or area.por_status %}
+<h2>{{ area_id | title }} — Distribuição</h2>
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>Estado</th><th>Quantidade</th></tr></thead>
+    <tbody>
+      {% for k, v in (area.por_estagio or area.por_status or {}).items() %}
+      <tr><td>{{ k }}</td><td><b>{{ v }}</b></td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endfor %}
+{% endblock %}

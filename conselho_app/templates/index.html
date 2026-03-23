@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}Visão Geral — Painel do Conselho{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Visão Geral
+    <span class="badge {% if status == 'concluido' %}badge-success{% elif 'alerta' in status or 'parcial' in status %}badge-warning{% elif 'falha' in status %}badge-danger{% else %}badge-muted{% endif %}" style="font-size:11px;margin-left:10px;">
+      {{ status }}
+    </span>
+  </h1>
+  <p>Último ciclo: {{ ultimo_ciclo.get('ciclo_id','—') }} — atualizado {{ atualizado_em }}</p>
+</div>
+
+<div class="kpi-grid">
+  <div class="kpi {% if metricas.get('risco_de_caixa') %}danger{% endif %}">
+    <div class="label">Pipeline</div>
+    <div class="value">{{ metricas.get('oportunidades_no_pipeline', 0) }}</div>
+    <div class="sub">oportunidades</div>
+  </div>
+  <div class="kpi">
+    <div class="label">Entregas</div>
+    <div class="value">{{ metricas.get('entregas_abertas', 0) }}</div>
+    <div class="sub">{{ metricas.get('entregas_bloqueadas', 0) }} bloqueadas</div>
+  </div>
+  <div class="kpi {% if metricas.get('deliberacoes_pendentes', 0) > 5 %}warning{% endif %}">
+    <div class="label">Deliberações</div>
+    <div class="value">{{ metricas.get('deliberacoes_pendentes', 0) }}</div>
+    <div class="sub">pendentes</div>
+  </div>
+  <div class="kpi">
+    <div class="label">Handoffs</div>
+    <div class="value">{{ metricas.get('total_handoffs_pendentes', 0) }}</div>
+    <div class="sub">pendentes</div>
+  </div>
+  <div class="kpi {% if metricas.get('risco_de_caixa') %}danger{% endif %}">
+    <div class="label">Caixa</div>
+    <div class="value">R${{ "%.0f"|format(metricas.get('caixa_atual', 0)) }}</div>
+    <div class="sub">{% if metricas.get('risco_de_caixa') %}<span class="text-danger">RISCO</span>{% else %}normal{% endif %}</div>
+  </div>
+  <div class="kpi">
+    <div class="label">Riscos Fin.</div>
+    <div class="value">{{ metricas.get('riscos_financeiros_abertos', 0) }}</div>
+    <div class="sub">abertos</div>
+  </div>
+  <div class="kpi {% if metricas.get('erros_ciclo_atual', 0) > 0 %}warning{% endif %}">
+    <div class="label">Ciclo</div>
+    <div class="value">{{ metricas.get('etapas_ciclo_atual', 0) }}</div>
+    <div class="sub">{{ metricas.get('erros_ciclo_atual', 0) }} erros</div>
+  </div>
+  <div class="kpi">
+    <div class="label">Seguimento</div>
+    <div class="value">{{ metricas.get('followups_pendentes', 0) }}</div>
+    <div class="sub">followups</div>
+  </div>
+</div>
+
+{% if gargalos %}
+<h2>Gargalos Críticos</h2>
+<div class="gargalo-list">
+  {% for g in gargalos %}
+  <div class="gargalo {{ g.severidade }}">
+    <span class="badge {% if g.severidade == 'critico' %}badge-danger{% elif g.severidade == 'alto' %}badge-warning{% else %}badge-muted{% endif %}">{{ g.area }}</span>
+    {{ g.descricao }}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="row">
+  <div class="col">
+    <h2>Deliberações Pendentes</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Título</th><th>Urgência</th><th>Impacto</th><th>Criado em</th></tr></thead>
+        <tbody>
+          {% for d in deliberacoes.get('lista_pendentes', []) %}
+          <tr>
+            <td><a href="/deliberacoes">{{ d.titulo[:60] }}</a></td>
+            <td><span class="badge {% if d.urgencia == 'imediata' %}badge-danger{% elif d.urgencia == 'alta' %}badge-warning{% else %}badge-muted{% endif %}">{{ d.urgencia }}</span></td>
+            <td>{{ d.impacto }}</td>
+            <td class="text-muted">{{ d.criado_em[:10] if d.criado_em else '—' }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="4" class="empty">Nenhuma deliberação pendente</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="col">
+    <h2>Próximas Ações</h2>
+    <div class="card">
+      {% for acao in proximas_acoes %}
+      <div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;">{{ acao }}</div>
+      {% else %}
+      <div class="empty">Sem ações críticas no momento</div>
+      {% endfor %}
+    </div>
+
+    <h2>Último Ciclo</h2>
+    <div class="card">
+      <div class="drill-row"><span>ID</span><b>{{ ultimo_ciclo.get('ciclo_id','—') }}</b></div>
+      <div class="drill-row"><span>Status</span><b>{{ ultimo_ciclo.get('status','—') }}</b></div>
+      <div class="drill-row"><span>Etapas OK</span><b class="text-success">{{ ultimo_ciclo.get('etapas_ok', 0) }}</b></div>
+      <div class="drill-row"><span>Etapas Erro</span><b class="{% if ultimo_ciclo.get('etapas_erro',0) > 0 %}text-danger{% else %}text-muted{% endif %}">{{ ultimo_ciclo.get('etapas_erro', 0) }}</b></div>
+      <div class="drill-row"><span>Duração total</span><b>{{ ultimo_ciclo.get('duracao_total_ms', 0) }}ms</b></div>
+      <div class="drill-row"><span>Iniciado em</span><b class="text-muted">{{ ultimo_ciclo.get('iniciado_em','—') }}</b></div>
+    </div>
+  </div>
+</div>
+{% endblock %}

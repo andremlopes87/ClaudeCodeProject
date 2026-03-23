@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Painel do Conselho{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<nav>
+  <div class="nav-brand">
+    <span>EMPRESA IA</span>
+    <div class="title">Painel do Conselho</div>
+  </div>
+  <div class="nav-section">Visão</div>
+  <a href="/" class="{% if page=='index' %}active{% endif %}">◈ Visão Geral</a>
+  <a href="/feed" class="{% if page=='feed' %}active{% endif %}">◎ Feed de Eventos</a>
+  <div class="nav-section">Operação</div>
+  <a href="/agentes" class="{% if page=='agentes' %}active{% endif %}">⬡ Agentes</a>
+  <a href="/areas" class="{% if page=='areas' %}active{% endif %}">⊞ Áreas</a>
+  <a href="/comercial" class="{% if page=='comercial' %}active{% endif %}">◷ Comercial</a>
+  <a href="/entrega" class="{% if page=='entrega' %}active{% endif %}">◫ Entrega</a>
+  <a href="/financeiro" class="{% if page=='financeiro' %}active{% endif %}">◈ Financeiro</a>
+  <div class="nav-section">Conselho</div>
+  <a href="/deliberacoes" class="{% if page=='deliberacoes' %}active{% endif %}">✦ Deliberações</a>
+  <div class="nav-footer">
+    <div><span id="poll-indicator">●</span> auto-refresh</div>
+    <div id="last-updated" class="text-muted" style="margin-top:4px;font-size:10px;">—</div>
+    <div style="margin-top:8px;"><a href="/api/refresh" onclick="triggerRefresh(event)">↻ atualizar agora</a></div>
+  </div>
+</nav>
+
+<main>
+{% block content %}{% endblock %}
+</main>
+
+<script>
+const POLL_INTERVAL = 15000;
+let pollTimer = null;
+
+function updateTimestamp() {
+  const el = document.getElementById('last-updated');
+  if (el) el.textContent = new Date().toLocaleTimeString('pt-BR');
+}
+
+async function triggerRefresh(e) {
+  if (e) e.preventDefault();
+  try {
+    await fetch('/api/refresh', {method:'POST'});
+    setTimeout(() => location.reload(), 500);
+  } catch(err) {
+    location.reload();
+  }
+}
+
+function startPolling() {
+  pollTimer = setInterval(() => {
+    location.reload();
+  }, POLL_INTERVAL);
+}
+
+updateTimestamp();
+startPolling();
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

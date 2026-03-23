@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Comercial — Painel do Conselho{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Operação Comercial</h1>
+  <p>Pipeline, follow-ups e oportunidades.</p>
+</div>
+
+<div class="kpi-grid">
+  <div class="kpi"><div class="label">Total Pipeline</div><div class="value">{{ com.volume }}</div><div class="sub">oportunidades</div></div>
+  <div class="kpi"><div class="label">Ativos</div><div class="value">{{ com.ativos }}</div><div class="sub">em negociação</div></div>
+  <div class="kpi success"><div class="label">Ganhos</div><div class="value">{{ com.ganhos }}</div><div class="sub">convertidos</div></div>
+  <div class="kpi"><div class="label">Perdidos</div><div class="value">{{ com.perdidos }}</div><div class="sub">encerrados</div></div>
+  <div class="kpi {% if com.estagnadas > 0 %}warning{% endif %}"><div class="label">Estagnados</div><div class="value">{{ com.estagnadas }}</div><div class="sub">> 10 dias</div></div>
+  <div class="kpi"><div class="label">Follow-ups</div><div class="value">{{ com.followups_pendentes }}</div><div class="sub">pendentes</div></div>
+</div>
+
+<div class="row">
+  <div class="col">
+    <h2>Por Estágio</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Estágio</th><th>Quantidade</th></tr></thead>
+        <tbody>
+          {% for estagio, qtd in (com.por_estagio or {}).items() %}
+          <tr>
+            <td>{{ estagio }}</td>
+            <td><b>{{ qtd }}</b></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="col">
+    <h2>Por Origem</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Origem</th><th>Quantidade</th></tr></thead>
+        <tbody>
+          {% for orig, qtd in (metricas.get('oportunidades_por_origem', {})).items() %}
+          <tr><td>{{ orig }}</td><td><b>{{ qtd }}</b></td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<h2>Pipeline Detalhado</h2>
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>Empresa</th><th>Estágio</th><th>Linha Serviço</th><th>Cidade</th><th>Dias s/ ativ.</th><th>Prioridade</th><th>Próx. Ação</th></tr>
+    </thead>
+    <tbody>
+      {% for opp in pipeline_comercial %}
+      <tr>
+        <td><a href="/drill/oportunidade/{{ opp.id }}"><b>{{ opp.contraparte }}</b></a></td>
+        <td><span class="badge {% if opp.estagio == 'ganho' %}badge-success{% elif opp.estagio in ('perdido','encerrado') %}badge-muted{% elif opp.estagio == 'aguardando_proposta' %}badge-warning{% else %}badge-info{% endif %}">{{ opp.estagio }}</span></td>
+        <td class="text-muted">{{ opp.get('linha_servico_sugerida','—')[:30] }}</td>
+        <td class="text-muted">{{ opp.get('cidade','—') }}</td>
+        <td class="{% if opp.get('dias_sem_atividade',0) > 10 %}text-warning{% elif opp.get('dias_sem_atividade',0) > 5 %}text-muted{% endif %}">{{ opp.get('dias_sem_atividade','—') }}</td>
+        <td><span class="badge {% if opp.get('prioridade') == 'alta' %}badge-danger{% elif opp.get('prioridade') == 'media' %}badge-warning{% else %}badge-muted{% endif %}">{{ opp.get('prioridade','—') }}</span></td>
+        <td class="text-muted">{{ opp.get('proxima_acao','—')[:50] }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="7" class="empty">Nenhuma oportunidade no pipeline</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

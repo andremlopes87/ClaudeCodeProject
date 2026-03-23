@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}Drill-down — {{ tipo | title }} {{ ref_id[:20] }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>
+    <a href="javascript:history.back()" style="color:var(--muted);font-size:14px;">← voltar</a>
+    <span style="margin-left:12px;">{{ tipo | title }}</span>
+    <span class="badge badge-accent" style="margin-left:8px;font-size:11px;">{{ ref_id[:40] }}</span>
+  </h1>
+  <p>Contexto detalhado e histórico relacionado</p>
+</div>
+
+{% if not item %}
+<div class="card"><div class="empty">Item não encontrado: {{ tipo }}/{{ ref_id }}</div></div>
+{% else %}
+
+<div class="row">
+  <div class="col">
+    <h2>Dados Principais</h2>
+    <div class="card">
+      {% for k, v in item.items() %}
+      {% if v is not none and v != '' and v != [] %}
+      <div class="drill-row">
+        <span>{{ k }}</span>
+        <b class="text-muted" style="max-width:60%;text-align:right;word-break:break-word;">
+          {% if v is mapping %}
+            {{ v | tojson(indent=0) | truncate(80) }}
+          {% elif v is iterable and v is not string %}
+            {% if v | length > 0 %}[{{ v | length }} itens]{% else %}—{% endif %}
+          {% else %}
+            {{ v | string | truncate(100) }}
+          {% endif %}
+        </b>
+      </div>
+      {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+
+  {% if historico %}
+  <div class="col">
+    <h2>Histórico ({{ historico | length }})</h2>
+    <div class="card">
+      {% for h in historico[:20] %}
+      <div class="feed-item">
+        <div class="feed-dot info"></div>
+        <div class="feed-content">
+          <div class="title">{{ h.get('evento', h.get('acao', h.get('tipo_insumo_gerado', '?'))) }}</div>
+          <div class="desc">{{ h.get('descricao', h.get('motivo', h.get('regra_aplicada', '')))[:100] }}</div>
+          <div class="meta">{{ h.get('registrado_em', '')[:16].replace('T',' ') }}</div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+{% if extras %}
+{% for secao, dados in extras.items() %}
+<h2>{{ secao | title | replace('_', ' ') }}</h2>
+{% if dados is iterable and dados is not string and dados is not mapping %}
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        {% if dados %}{% for k in dados[0].keys() | list %}{% if loop.index <= 6 %}<th>{{ k }}</th>{% endif %}{% endfor %}{% endif %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in dados[:20] %}
+      <tr>
+        {% for k, v in row.items() %}{% if loop.index <= 6 %}
+        <td class="text-muted">{{ v | string | truncate(60) if v else '—' }}</td>
+        {% endif %}{% endfor %}
+      </tr>
+      {% else %}
+      <tr><td colspan="6" class="empty">Sem dados</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% elif dados is mapping %}
+<div class="card">
+  {% for k, v in dados.items() %}
+  <div class="drill-row"><span>{{ k }}</span><b class="text-muted">{{ v | string | truncate(80) }}</b></div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endfor %}
+{% endif %}
+
+{% endif %}
+{% endblock %}
