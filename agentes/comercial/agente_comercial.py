@@ -53,10 +53,15 @@ from modulos.comercial.pipeline_manager import (
     salvar_followups,
     salvar_historico,
     persistir_arquivos_base,
+    enriquecer_oportunidade_com_marketing,
+    detectar_handoffs_marketing_para_enriquecimento,
+    detectar_pipeline_sem_contexto_marketing,
 )
 
-NOME_AGENTE = "agente_comercial"
-_ARQ_LEADS  = "fila_execucao_comercial.json"
+NOME_AGENTE      = "agente_comercial"
+_ARQ_LEADS       = "fila_execucao_comercial.json"
+_ARQ_HANDOFFS    = "handoffs_agentes.json"
+_ARQ_MKT_PROP    = "fila_propostas_marketing.json"
 
 
 def executar() -> dict:
@@ -94,10 +99,12 @@ def executar() -> dict:
     pipeline  = carregar_pipeline()
     followups = carregar_followups()
     historico = carregar_historico()
+    handoffs  = _carregar_handoffs(log)
     log.info(
         f"Dados carregados: {len(leads)} leads | "
         f"{len(pipeline)} opp no pipeline | "
-        f"{len(followups)} follow-ups"
+        f"{len(followups)} follow-ups | "
+        f"{len(handoffs)} handoffs"
     )
 
     # ── ETAPA 4b: Aplicar resultados de contato registrados ───────────────
@@ -108,7 +115,7 @@ def executar() -> dict:
     novos_fus     = []
     novos_eventos = []
 
-    candidatas = importar_oportunidades_novas(leads, pipeline)
+    candidatas = importar_oportunidades_novas(leads, pipeline, handoffs)
     leads_idx  = {str(l.get("osm_id", "")): l for l in leads}
 
     for opp in candidatas:
@@ -116,8 +123,9 @@ def executar() -> dict:
             log.info(f"  [skip] {opp['id']} — ja importado em execucao anterior")
             continue
 
-        lead = leads_idx.get(opp["origem_id"], {})
-        fu   = criar_followup_inicial(opp, lead, followups + novos_fus)
+        lead   = leads_idx.get(opp["origem_id"], {})
+        fu     = criar_followup_inicial(opp, lead, followups + novos_fus)
+        origem = opp.get("origem_oportunidade", "prospeccao")
 
         # Vincular follow-up à oportunidade
         opp["depende_de"] = fu["id"]
@@ -126,24 +134,68 @@ def executar() -> dict:
         novos_fus.append(fu)
         marcar_processado(estado, opp["id"])
 
-        # Histórico: oportunidade importada
+        # Histórico com tipo específico por origem
+        tipo_ev_import = f"oportunidade_importada_{origem}"
+        tipo_ev_fu     = f"followup_criado_{origem}"
+
         novos_eventos.append(criar_evento_historico(
             opp["id"], opp["contraparte"],
-            "oportunidade_importada",
-            f"Importada de fila_execucao_comercial | prioridade={opp['prioridade']} | canal={opp['canal_sugerido']}",
+            tipo_ev_import,
+            (
+                f"Importada de fila_execucao_comercial | origem={origem} | "
+                f"prioridade={opp['prioridade']} | canal={opp['canal_sugerido']} | "
+                f"abordagem={opp.get('abordagem_inicial_tipo', '?')} | "
+                f"linha={opp.get('linha_servico_sugerida', '?')}"
+            ),
         ))
-        # Histórico: follow-up criado
         novos_eventos.append(criar_evento_historico(
             opp["id"], opp["contraparte"],
-            "followup_criado",
-            f"Follow-up inicial criado: {fu['id']} | destino={fu['agente_destino']} | canal={fu['canal']}",
+            tipo_ev_fu,
+            f"Follow-up inicial criado: {fu['id']} | origem={origem} | descricao={fu['descricao'][:100]}",
         ))
 
         log.info(
-            f"  [importado] {opp['id']} — {opp['contraparte']} | "
-            f"prioridade={opp['prioridade']} | canal={opp['canal_sugerido']}"
+            f"  [importado/{origem}] {opp['id']} — {opp['contraparte']} | "
+            f"prioridade={opp['prioridade']} | abordagem={opp.get('abordagem_inicial_tipo')}"
         )
-        log.info(f"  [followup ] {fu['id']} → {fu['agente_destino']}")
+        log.info(f"  [followup/{origem}] {fu['id']} → {fu['agente_destino']}")
+
+    # ── ETAPA 5b: Enriquecer oportunidades com dados de marketing ─────────
+    n_enriquecidas = 0
+    mkt_props  = _carregar_propostas_marketing(log)
+    mkt_por_osm = {str(p.get("osm_id", "")): p for p in mkt_props}
+
+    # 5b-i: via handoffs ativos de marketing (empresas novas com handoff)
+    pares_handoff = detectar_handoffs_marketing_para_enriquecimento(pipeline, handoffs)
+    for opp_idx, osm_id, handoff_mkt in pares_handoff:
+        lead_mkt = mkt_por_osm.get(osm_id, leads_idx.get(osm_id, {}))
+        opp      = pipeline[opp_idx]
+        if enriquecer_oportunidade_com_marketing(opp, lead_mkt):
+            novos_eventos.append(criar_evento_historico(
+                opp["id"], opp["contraparte"],
+                "oportunidade_enriquecida_marketing",
+                f"Via handoff {handoff_mkt['id']} | linha={opp.get('linha_servico_sugerida')} | prio={opp.get('prioridade')}",
+            ))
+            n_enriquecidas += 1
+            log.info(f"  [enriquecido/handoff_mkt] {opp['id']} — {opp['contraparte']}")
+
+    # 5b-ii: itens sem contexto de origem que têm dados em fila_propostas_marketing
+    sem_ctx = detectar_pipeline_sem_contexto_marketing(pipeline)
+    for opp_idx, osm_id in sem_ctx:
+        opp = pipeline[opp_idx]
+        # Determinar origem via handoffs
+        origem_info = detectar_origem_handoff_opp(osm_id, handoffs, mkt_por_osm)
+        _aplicar_contexto_origem(opp, origem_info, mkt_por_osm.get(osm_id, leads_idx.get(osm_id, {})))
+        if opp.get("origem_oportunidade"):
+            novos_eventos.append(criar_evento_historico(
+                opp["id"], opp["contraparte"],
+                f"contexto_origem_aplicado_{opp['origem_oportunidade']}",
+                f"Campos de origem preenchidos retroativamente | origem={opp['origem_oportunidade']} | abordagem={opp.get('abordagem_inicial_tipo')}",
+            ))
+            n_enriquecidas += 1
+
+    if n_enriquecidas:
+        log.info(f"  [enriquecimento] {n_enriquecidas} oportunidades com contexto de origem atualizado")
 
     # Consolidar
     pipeline  = pipeline  + novas_opps
@@ -223,6 +275,7 @@ def executar() -> dict:
         "pipeline_total":        len(pipeline),
         "followups_criados":     len(novos_fus),
         "followups_total":       len(followups),
+        "enriquecidas_marketing": n_enriquecidas,
         "casos_revisao":         len(revisoes),
         "escalados_conselho":    len(itens_para_consolidada),
         "aprovados_nesta_exec":  aprovados_agora,
@@ -238,6 +291,7 @@ def executar() -> dict:
     log.info(f"  pipeline total     : {len(pipeline)}")
     log.info(f"  follow-ups criados : {len(novos_fus)}")
     log.info(f"  resultados aplicados: {res_stats['aplicados']} | novos follow-ups: {res_stats['novos_followups']}")
+    log.info(f"  enriquecidas marketing: {n_enriquecidas}")
     log.info(f"  casos para revisao : {len(revisoes)}")
     log.info(f"  escalados conselho : {len(itens_para_consolidada)}")
     log.info("=" * 60)
@@ -329,7 +383,7 @@ def _processar_deliberacoes_resolvidas(estado: dict, log) -> int:
     return resolvidos
 
 
-# ─── Carga de leads ──────────────────────────────────────────────────────────
+# ─── Carga de leads e handoffs ───────────────────────────────────────────────
 
 def _carregar_leads(log) -> list:
     caminho = config.PASTA_DADOS / _ARQ_LEADS
@@ -340,3 +394,51 @@ def _carregar_leads(log) -> list:
         leads = json.load(f)
     log.info(f"Leads carregados: {len(leads)} de {caminho}")
     return leads
+
+
+def _carregar_handoffs(log) -> list:
+    caminho = config.PASTA_DADOS / _ARQ_HANDOFFS
+    if not caminho.exists():
+        return []
+    with open(caminho, "r", encoding="utf-8") as f:
+        handoffs = json.load(f)
+    log.info(f"Handoffs carregados: {len(handoffs)}")
+    return handoffs
+
+
+def _carregar_propostas_marketing(log) -> list:
+    caminho = config.PASTA_DADOS / _ARQ_MKT_PROP
+    if not caminho.exists():
+        return []
+    with open(caminho, "r", encoding="utf-8") as f:
+        props = json.load(f)
+    log.info(f"Propostas marketing carregadas: {len(props)}")
+    return props
+
+
+def detectar_origem_handoff_opp(osm_id: str, handoffs: list, mkt_por_osm: dict) -> dict:
+    """Detecta origem de uma oportunidade já no pipeline via handoffs + dados de marketing."""
+    from modulos.comercial.pipeline_manager import detectar_origem_handoff
+    info = detectar_origem_handoff(osm_id, handoffs)
+    # Se não detectado via handoffs mas tem dados de marketing, assume marketing+prospeccao
+    if info["origem"] == "prospeccao" and osm_id in mkt_por_osm:
+        return {"origem": "prospeccao_e_marketing", "tipo_handoff": "dupla_origem", "handoff_id": None}
+    return info
+
+
+def _aplicar_contexto_origem(opp: dict, origem_info: dict, lead: dict) -> None:
+    """Aplica campos de contexto de origem a oportunidade existente no pipeline."""
+    from modulos.comercial.pipeline_manager import montar_contexto_comercial_por_origem
+    origem = origem_info.get("origem", "prospeccao")
+
+    # Para prospeccao_e_marketing, usar contexto de marketing
+    info_efetiva = {"origem": "marketing" if "marketing" in origem else "prospeccao",
+                    "tipo_handoff": origem_info.get("tipo_handoff", "")}
+    ctx = montar_contexto_comercial_por_origem(lead, info_efetiva)
+
+    opp["origem_oportunidade"]    = origem
+    opp["tipo_handoff"]           = ctx["tipo_handoff"]
+    opp["contexto_origem"]        = ctx["contexto_origem"]
+    opp["linha_servico_sugerida"] = ctx["linha_servico_sugerida"]
+    opp["abordagem_inicial_tipo"] = ctx["abordagem_inicial_tipo"]
+    opp["atualizado_em"]          = datetime.now().isoformat(timespec="seconds")

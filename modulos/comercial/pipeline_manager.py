@@ -41,12 +41,193 @@ def carregar_historico() -> list:
     return _carregar(_ARQ_HISTORICO, padrao=[])
 
 
+# ─── Origem do handoff ──────────────────────────────────────────────────────
+
+def detectar_origem_handoff(osm_id: str, handoffs: list) -> dict:
+    """
+    Encontra o handoff mais recente destinado ao agente_comercial para este osm_id.
+    Retorna dict com {origem, tipo_handoff, handoff_id} ou defaults de prospeccao.
+    """
+    candidatos = []
+    for h in handoffs:
+        if h.get("agente_destino") != "agente_comercial":
+            continue
+        ref = h.get("referencia_id", "") or ""
+        hid = h.get("id", "") or ""
+        if osm_id in ref or osm_id in hid:
+            candidatos.append(h)
+
+    if not candidatos:
+        return {"origem": "prospeccao", "tipo_handoff": "prospeccao_fria", "handoff_id": None}
+
+    # Preferir marketing sobre prospeccao se ambos existirem
+    for h in candidatos:
+        if h.get("agente_origem") == "agente_marketing":
+            return {
+                "origem":      "marketing",
+                "tipo_handoff": h.get("tipo_handoff", "oportunidade_marketing"),
+                "handoff_id":  h.get("id"),
+            }
+
+    h = candidatos[-1]
+    return {
+        "origem":      "prospeccao",
+        "tipo_handoff": h.get("tipo_handoff", "prospeccao_fria"),
+        "handoff_id":  h.get("id"),
+    }
+
+
+def montar_contexto_comercial_por_origem(lead: dict, origem_info: dict) -> dict:
+    """
+    Retorna campos de contexto que enriquecem a oportunidade no pipeline
+    conforme a origem (prospeccao | marketing).
+    """
+    origem = origem_info.get("origem", "prospeccao")
+
+    if origem == "marketing":
+        return {
+            "origem_oportunidade":   "marketing",
+            "tipo_handoff":          origem_info.get("tipo_handoff", "oportunidade_marketing"),
+            "contexto_origem":       (
+                lead.get("resumo_oportunidade_marketing")
+                or lead.get("oportunidade_marketing_principal")
+                or lead.get("principal_gargalo_presenca", "")
+            ),
+            "linha_servico_sugerida": "marketing_presenca_digital",
+            "abordagem_inicial_tipo": "consultiva_diagnostica",
+        }
+    else:
+        return {
+            "origem_oportunidade":   "prospeccao",
+            "tipo_handoff":          origem_info.get("tipo_handoff", "prospeccao_fria"),
+            "contexto_origem":       lead.get("motivo_prioridade", ""),
+            "linha_servico_sugerida": "comercial_base",
+            "abordagem_inicial_tipo": "exploratoria",
+        }
+
+
+def definir_abordagem_inicial_por_origem(origem: str, lead: dict) -> dict:
+    """
+    Retorna {tipo_acao, descricao_base} para o follow-up inicial
+    conforme a origem do handoff.
+    """
+    if origem == "marketing":
+        oportunidade = (
+            lead.get("oportunidade_marketing_principal")
+            or lead.get("oportunidade_presenca_principal")
+            or "gargalo digital identificado"
+        )
+        empresa = lead.get("nome", "empresa")
+        return {
+            "tipo_acao":     "primeiro_contato",
+            "descricao_base": (
+                f"Retomar oportunidade detectada no digital — {oportunidade} | "
+                f"Apresentar diagnóstico resumido para {empresa} | "
+                f"Validar interesse em resolver gargalo específico | "
+                f"Avançar para proposta quando fizer sentido"
+            ),
+        }
+    else:
+        empresa = lead.get("nome", "empresa")
+        return {
+            "tipo_acao":     "primeiro_contato",
+            "descricao_base": (
+                f"Mapear interesse e validar dor — abrir conversa inicial com {empresa} | "
+                f"Confirmar contexto básico e qualificar interesse | "
+                f"{lead.get('proxima_acao_comercial', 'Identificar dor principal e encaixe do serviço')}"
+            ),
+        }
+
+
+def enriquecer_oportunidade_com_marketing(opp: dict, lead: dict) -> bool:
+    """
+    Atualiza oportunidade existente no pipeline com contexto de marketing.
+    Eleva prioridade se warranted. Retorna True se houve mudança.
+    """
+    agora = datetime.now().isoformat(timespec="seconds")
+    mudou = False
+
+    # Só enriquece se ainda não tem origem marketing
+    if opp.get("origem_oportunidade") == "marketing":
+        return False
+
+    opp["origem_oportunidade"]    = "prospeccao_e_marketing"
+    opp["linha_servico_sugerida"] = "marketing_presenca_digital"
+    opp["abordagem_inicial_tipo"] = "consultiva_diagnostica"
+    opp["contexto_origem"]        = (
+        lead.get("resumo_oportunidade_marketing")
+        or lead.get("oportunidade_marketing_principal", "")
+    )
+
+    # Elevar prioridade de media→alta quando há proposta pronta
+    if (
+        lead.get("prioridade_execucao_marketing") == "alta"
+        and opp.get("prioridade") != "alta"
+    ):
+        opp["prioridade"] = "alta"
+
+    # Atualizar proxima_acao com contexto de marketing se mais específica
+    oferta = lead.get("oferta_principal_comercial", "")
+    if oferta and oferta not in opp.get("proxima_acao", ""):
+        opp["proxima_acao"] = (
+            f"[Marketing] {oferta} | {opp.get('proxima_acao', '')}"
+        )
+
+    opp["atualizado_em"] = agora
+    return True
+
+
+def detectar_handoffs_marketing_para_enriquecimento(pipeline: list, handoffs: list) -> list:
+    """
+    Encontra pares (opp_idx, osm_id, handoff) onde:
+    - A oportunidade já existe no pipeline
+    - Existe handoff de marketing para a mesma empresa (pelo osm_id)
+    - O pipeline ainda não tem contexto de marketing
+
+    Retorna lista de (opp_idx, osm_id, handoff_dict).
+    """
+    opp_por_osm = {opp.get("origem_id", ""): idx for idx, opp in enumerate(pipeline) if opp.get("origem_id")}
+
+    pares = []
+    for h in handoffs:
+        if h.get("agente_origem") != "agente_marketing":
+            continue
+        if h.get("agente_destino") != "agente_comercial":
+            continue
+        if h.get("status") in ("concluido", "cancelado"):
+            continue
+        ref    = h.get("referencia_id", "")
+        osm_id = ref.replace("mkt_", "")
+        if osm_id in opp_por_osm:
+            idx = opp_por_osm[osm_id]
+            if pipeline[idx].get("origem_oportunidade") not in ("marketing", "prospeccao_e_marketing"):
+                pares.append((idx, osm_id, h))
+
+    return pares
+
+
+def detectar_pipeline_sem_contexto_marketing(pipeline: list) -> list:
+    """
+    Encontra oportunidades no pipeline sem campos de origem preenchidos
+    (foram importadas antes da especialização por origem).
+    Retorna lista de (opp_idx, osm_id).
+    """
+    return [
+        (idx, opp.get("origem_id", ""))
+        for idx, opp in enumerate(pipeline)
+        if not opp.get("origem_oportunidade") and opp.get("origem_id")
+    ]
+
+
 # ─── Importação de novas oportunidades ──────────────────────────────────────
 
-def importar_oportunidades_novas(leads: list, pipeline: list) -> list:
+def importar_oportunidades_novas(leads: list, pipeline: list, handoffs: list | None = None) -> list:
     """
     Para cada lead em fila_execucao_comercial.json que ainda não está no pipeline,
     cria um dict de oportunidade com estagio='qualificado'.
+
+    Detecta a origem do handoff (prospeccao | marketing) para personalizar
+    a oportunidade desde a importação.
 
     Critérios de importação:
       - lead.abordavel_agora = True
@@ -54,7 +235,8 @@ def importar_oportunidades_novas(leads: list, pipeline: list) -> list:
 
     Retorna lista de novas oportunidades criadas (não persiste aqui).
     """
-    ids_existentes = {o["id"] for o in pipeline}
+    handoffs = handoffs or []
+    ids_existentes    = {o["id"] for o in pipeline}
     origens_existentes = {o.get("origem_id") for o in pipeline}
     novas = []
 
@@ -65,7 +247,8 @@ def importar_oportunidades_novas(leads: list, pipeline: list) -> list:
         opp_id = f"oport_{osm_id}"
         if opp_id in ids_existentes or osm_id in origens_existentes:
             continue
-        novas.append(_lead_para_oportunidade(lead))
+        origem_info = detectar_origem_handoff(osm_id, handoffs)
+        novas.append(_lead_para_oportunidade(lead, origem_info))
 
     return novas
 
@@ -73,28 +256,33 @@ def importar_oportunidades_novas(leads: list, pipeline: list) -> list:
 def criar_followup_inicial(opp: dict, lead: dict, followups_existentes: list) -> dict:
     """
     Cria o follow-up de primeiro_contato para uma oportunidade recém-importada.
+    A descricao e tipo_acao variam conforme a origem (prospeccao | marketing).
 
-    agente_destino = "agente_executor_contato" — agente futuro que enviará o contato real.
-    status = "pendente_execucao" — aguardando o executor pegar a tarefa.
+    agente_destino = "agente_executor_contato"
+    status = "pendente_execucao"
     """
-    seq = _proxima_seq(opp["id"], followups_existentes)
+    seq   = _proxima_seq(opp["id"], followups_existentes)
     fu_id = f"fu_{opp['id']}_{seq}"
     agora = datetime.now().isoformat(timespec="seconds")
 
+    origem  = opp.get("origem_oportunidade", "prospeccao")
+    ab      = definir_abordagem_inicial_por_origem(origem, lead)
+
     return {
-        "id":              fu_id,
-        "oportunidade_id": opp["id"],
-        "contraparte":     opp["contraparte"],
-        "canal":           opp.get("canal_sugerido", ""),
-        "tipo_acao":       "primeiro_contato",
-        "descricao":       lead.get("proxima_acao_comercial", opp.get("proxima_acao", "")),
-        "prazo_sugerido":  None,
-        "status":          "pendente_execucao",
-        "agente_origem":   "agente_comercial",
-        "agente_destino":  "agente_executor_contato",
-        "depende_de":      None,
-        "registrado_em":   agora,
-        "atualizado_em":   agora,
+        "id":                fu_id,
+        "oportunidade_id":   opp["id"],
+        "contraparte":       opp["contraparte"],
+        "canal":             opp.get("canal_sugerido", ""),
+        "tipo_acao":         ab["tipo_acao"],
+        "descricao":         ab["descricao_base"],
+        "origem_followup":   origem,
+        "prazo_sugerido":    None,
+        "status":            "pendente_execucao",
+        "agente_origem":     "agente_comercial",
+        "agente_destino":    "agente_executor_contato",
+        "depende_de":        None,
+        "registrado_em":     agora,
+        "atualizado_em":     agora,
     }
 
 
@@ -250,9 +438,10 @@ def persistir_arquivos_base() -> None:
 
 # ─── Internos ────────────────────────────────────────────────────────────────
 
-def _lead_para_oportunidade(lead: dict) -> dict:
-    osm_id = str(lead.get("osm_id", ""))
-    agora  = datetime.now().isoformat(timespec="seconds")
+def _lead_para_oportunidade(lead: dict, origem_info: dict | None = None) -> dict:
+    osm_id  = str(lead.get("osm_id", ""))
+    agora   = datetime.now().isoformat(timespec="seconds")
+    ctx     = montar_contexto_comercial_por_origem(lead, origem_info or {})
     return {
         "id":                  f"oport_{osm_id}",
         "contraparte":         lead.get("nome", ""),
@@ -271,6 +460,11 @@ def _lead_para_oportunidade(lead: dict) -> dict:
         "motivo_perda":        None,
         "origem":              "fila_execucao_comercial",
         "origem_id":           osm_id,
+        "origem_oportunidade": ctx["origem_oportunidade"],
+        "tipo_handoff":        ctx["tipo_handoff"],
+        "contexto_origem":     ctx["contexto_origem"],
+        "linha_servico_sugerida": ctx["linha_servico_sugerida"],
+        "abordagem_inicial_tipo": ctx["abordagem_inicial_tipo"],
         "observacoes":         lead.get("observacoes_comerciais", ""),
         "status_operacional":  "aguardando_execucao",
         "depende_de":          None,   # preenchido após criar follow-up
