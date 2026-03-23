@@ -162,8 +162,17 @@ def executar() -> dict:
     log.info(f"  Insumos pendentes para processar: {len(pendentes)}")
 
     for insumo in pendentes:
-        entrega_id = insumo.get("entrega_id", "")
-        entrega    = next((e for e in pipeline_entrega if e["id"] == entrega_id), None)
+        entrega_id  = insumo.get("entrega_id", "")
+        opp_id_ins  = insumo.get("oportunidade_id", "")
+
+        # Buscar entrega por entrega_id; fallback por oportunidade_id
+        entrega = next((e for e in pipeline_entrega if e["id"] == entrega_id), None)
+        if not entrega and opp_id_ins:
+            entrega = next((e for e in pipeline_entrega if e.get("oportunidade_id") == opp_id_ins), None)
+            if entrega:
+                insumo["entrega_id"] = entrega["id"]  # vincular para rastreabilidade
+
+        entrega_id = entrega["id"] if entrega else entrega_id
         checklist  = next((c for c in checklists if c.get("entrega_id") == entrega_id), None)
 
         if not entrega or not checklist:

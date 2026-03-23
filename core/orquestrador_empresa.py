@@ -62,17 +62,18 @@ def executar_ciclo_empresa() -> dict:
     # ── Sequência do ciclo ────────────────────────────────────────────────────
     # Cada tupla: (nome_etapa, importador_fn, label_posicao)
     sequencia = [
-        ("agente_financeiro",        _importar_financeiro,    "1/11"),
-        ("agente_prospeccao",        _importar_prospeccao,    "2/11"),
-        ("agente_marketing",         _importar_marketing,     "3/11"),
-        ("agente_comercial",         _importar_comercial,     "4/11"),
-        ("agente_operacao_entrega",  _importar_entrega,       "5/11"),
-        ("agente_secretario",        _importar_secretario,    "6/11"),
-        ("agente_executor_contato",  _importar_executor,      "7/11"),
-        ("integrador_canais",        _importar_integrador,    "8/11"),
-        ("agente_comercial",         _importar_comercial,     "9/11"),
-        ("agente_operacao_entrega",  _importar_entrega,       "10/11"),
-        ("agente_secretario",        _importar_secretario,    "11/11"),
+        ("agente_financeiro",               _importar_financeiro,    "1/12"),
+        ("agente_prospeccao",               _importar_prospeccao,    "2/12"),
+        ("agente_marketing",                _importar_marketing,     "3/12"),
+        ("agente_comercial",               _importar_comercial,     "4/12"),
+        ("agente_operacao_entrega",         _importar_entrega,       "5/12"),
+        ("agente_secretario",               _importar_secretario,    "6/12"),
+        ("agente_executor_contato",         _importar_executor,      "7/12"),
+        ("integrador_canais",               _importar_integrador,    "8/12"),
+        ("agente_comercial",               _importar_comercial,     "9/12"),
+        ("gerador_insumos_desde_contato",   _importar_gerador,       "10/12"),
+        ("agente_operacao_entrega",         _importar_entrega,       "11/12"),
+        ("agente_secretario",               _importar_secretario,    "12/12"),
     ]
 
     for nome, importador, posicao in sequencia:
@@ -188,6 +189,7 @@ def montar_resumo_final_ciclo(etapas: list) -> dict:
     mkt  = por_agente.get("agente_marketing", {})
     com  = por_agente.get("agente_comercial", {})
     ent  = por_agente.get("agente_operacao_entrega", {})
+    ger  = por_agente.get("gerador_insumos_desde_contato", {})
     exe  = por_agente.get("agente_executor_contato", {})
     intg = por_agente.get("integrador_canais", {})
 
@@ -206,6 +208,8 @@ def montar_resumo_final_ciclo(etapas: list) -> dict:
         "resultados_aplicados":            com.get("resultados_aplicados", 0),
         "entregas_abertas":                ent.get("abertas", 0),
         "entregas_pipeline_total":         ent.get("pipeline_entrega", 0),
+        "insumos_gerados_auto":            ger.get("insumos_gerados", 0),
+        "insumos_aplicados":               ent.get("insumos_aplicados", 0),
         "execucoes_preparadas":            exe.get("preparados", 0),
         "resultados_gerados_integrador":   intg.get("resultados_gerados", 0),
         "erros_no_ciclo":                  sum(1 for e in etapas if e["status"] == "erro"),
@@ -259,6 +263,10 @@ def _importar_marketing():
 
 def _importar_entrega():
     from agentes.operacao_entrega.agente_operacao_entrega import executar
+    return executar
+
+def _importar_gerador():
+    from modulos.entrega.gerador_insumos_desde_contato import executar
     return executar
 
 

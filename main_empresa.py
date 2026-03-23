@@ -64,6 +64,8 @@ def main() -> None:
     print(f"  Execucoes preparadas        : {resumo.get('execucoes_preparadas', 0)}")
     print(f"  Entregas abertas no ciclo   : {resumo.get('entregas_abertas', 0)}")
     print(f"  Pipeline entrega (total)    : {resumo.get('entregas_pipeline_total', 0)}")
+    print(f"  Insumos gerados (auto)      : {resumo.get('insumos_gerados_auto', 0)}")
+    print(f"  Insumos aplicados           : {resumo.get('insumos_aplicados', 0)}")
     print(f"  Erros no ciclo              : {resumo.get('erros_no_ciclo', 0)}")
     print("---")
 
