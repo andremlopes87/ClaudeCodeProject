@@ -1,0 +1,232 @@
+{% extends "base.html" %}
+{% block title %}Entrada Manual — Painel do Conselho{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Entrada Manual de Empresa
+    <span class="badge badge-muted" style="font-size:11px;margin-left:10px;">{{ entradas | length }} registradas</span>
+  </h1>
+  <p>Insira uma empresa diretamente sem depender do fluxo de prospecção.</p>
+</div>
+
+<!-- Mensagem de retorno -->
+{% if resultado %}
+<div class="card" style="margin-bottom:16px;border-left:3px solid {% if resultado.status == 'ok' %}var(--success){% elif resultado.status == 'duplicata' %}var(--warning){% else %}var(--danger){% endif %};">
+  <div style="font-size:12px;font-weight:bold;margin-bottom:4px;">
+    {% if resultado.status == 'ok' %}✓ Processado com sucesso
+    {% elif resultado.status == 'duplicata' %}⚠ Duplicata detectada
+    {% else %}✗ Erro no processamento{% endif %}
+  </div>
+  <div style="font-size:11px;color:var(--text);">{{ resultado.mensagem }}</div>
+  {% if resultado.status == 'ok' and resultado.avaliacao %}
+  <div style="margin-top:8px;display:flex;gap:12px;flex-wrap:wrap;font-size:11px;">
+    <span>Score presença: <b>{{ resultado.avaliacao.score_presenca }}/100</b></span>
+    <span>Prioridade: <b>{{ resultado.avaliacao.prioridade_abordagem }}</b></span>
+    <span>Canal: <b>{{ resultado.avaliacao.canal_abordagem_sugerido or '—' }}</b></span>
+    <span>Contato: <b>{{ resultado.avaliacao.contato_principal or '—' }}</b></span>
+  </div>
+  {% if resultado.avaliacao.proxima_acao_comercial %}
+  <div style="margin-top:6px;font-size:11px;color:var(--muted);">→ {{ resultado.avaliacao.proxima_acao_comercial }}</div>
+  {% endif %}
+  {% endif %}
+  {% if resultado.status == 'duplicata' %}
+  <form method="post" action="/entrada-manual" style="margin-top:8px;">
+    <input type="hidden" name="forcar_insercao" value="1">
+    {% for campo in ['nome','categoria','cidade','estado','telefone','email','site','instagram','whatsapp','facebook','modo','observacoes','valor_venda','servico_vendido'] %}
+    {% if form_data and form_data.get(campo) %}<input type="hidden" name="{{ campo }}" value="{{ form_data[campo] }}">{% endif %}
+    {% endfor %}
+    <button type="submit" class="badge badge-warning" style="cursor:pointer;border:none;padding:4px 10px;font-size:11px;">Inserir mesmo assim</button>
+  </form>
+  {% endif %}
+</div>
+{% endif %}
+
+<div class="row">
+  <!-- Formulário de entrada -->
+  <div class="col">
+    <h2>Nova Entrada</h2>
+    <div class="card">
+      <form method="post" action="/entrada-manual">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+          <div style="grid-column:1/-1;">
+            <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Nome da Empresa *</label>
+            <input type="text" name="nome" required
+              value="{{ form_data.get('nome','') if form_data else '' }}"
+              style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 8px;font-family:inherit;font-size:12px;margin-top:3px;">
+          </div>
+          <div>
+            <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Categoria</label>
+            <input type="text" name="categoria" placeholder="ex: barbearia, restaurante"
+              value="{{ form_data.get('categoria','') if form_data else '' }}"
+              style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 8px;font-family:inherit;font-size:12px;margin-top:3px;">
+          </div>
+          <div>
+            <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Cidade</label>
+            <input type="text" name="cidade"
+              value="{{ form_data.get('cidade','') if form_data else '' }}"
+              style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 8px;font-family:inherit;font-size:12px;margin-top:3px;">
+          </div>
+          <div>
+            <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Estado (UF)</label>
+            <input type="text" name="estado" maxlength="2" placeholder="SP"
+              value="{{ form_data.get('estado','') if form_data else '' }}"
+              style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 8px;font-family:inherit;font-size:12px;margin-top:3px;">
+          </div>
+          <div>
+            <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Telefone</label>
+            <input type="text" name="telefone" placeholder="11 99999-9999"
+              value="{{ form_data.get('telefone','') if form_data else '' }}"
+              style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 8px;font-family:inherit;font-size:12px;margin-top:3px;">
+          </div>
+          <div>
+            <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">WhatsApp</label>
+            <input type="text" name="whatsapp" placeholder="11 99999-9999"
+              value="{{ form_data.get('whatsapp','') if form_data else '' }}"
+              style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 8px;font-family:inherit;font-size:12px;margin-top:3px;">
+          </div>
+          <div>
+            <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">E-mail</label>
+            <input type="email" name="email"
+              value="{{ form_data.get('email','') if form_data else '' }}"
+              style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 8px;font-family:inherit;font-size:12px;margin-top:3px;">
+          </div>
+          <div>
+            <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Site</label>
+            <input type="text" name="site" placeholder="https://..."
+              value="{{ form_data.get('site','') if form_data else '' }}"
+              style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 8px;font-family:inherit;font-size:12px;margin-top:3px;">
+          </div>
+          <div>
+            <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Instagram</label>
+            <input type="text" name="instagram" placeholder="@usuario"
+              value="{{ form_data.get('instagram','') if form_data else '' }}"
+              style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 8px;font-family:inherit;font-size:12px;margin-top:3px;">
+          </div>
+          <div>
+            <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Facebook</label>
+            <input type="text" name="facebook" placeholder="pagina ou @"
+              value="{{ form_data.get('facebook','') if form_data else '' }}"
+              style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 8px;font-family:inherit;font-size:12px;margin-top:3px;">
+          </div>
+        </div>
+
+        <!-- Modo de processamento -->
+        <div style="margin-bottom:12px;">
+          <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Modo de Processamento</label>
+          <div style="margin-top:6px;display:flex;gap:10px;flex-wrap:wrap;">
+            <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;">
+              <input type="radio" name="modo" value="avaliacao_manual" {% if not form_data or form_data.get('modo','avaliacao_manual') == 'avaliacao_manual' %}checked{% endif %}>
+              Avaliar apenas
+            </label>
+            <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;">
+              <input type="radio" name="modo" value="injetar_no_fluxo" {% if form_data and form_data.get('modo') == 'injetar_no_fluxo' %}checked{% endif %}>
+              Injetar no fluxo comercial
+            </label>
+            <label style="display:flex;align-items:center;gap=5px;font-size:12px;cursor:pointer;">
+              <input type="radio" name="modo" value="venda_manual" {% if form_data and form_data.get('modo') == 'venda_manual' %}checked{% endif %}>
+              Registrar venda direta
+            </label>
+          </div>
+          <div style="margin-top:4px;font-size:10px;color:var(--muted);">
+            <b>Avaliar:</b> gera análise sem injetar | <b>Injetar:</b> entra na fila do agente comercial | <b>Venda:</b> negócio já fechado → vai direto para entrega
+          </div>
+        </div>
+
+        <!-- Campos de venda (condicionais) -->
+        <div id="campos-venda" style="display:none;margin-bottom:12px;border-top:1px solid var(--border);padding-top:10px;">
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Detalhes da Venda</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div>
+              <label style="font-size:10px;color:var(--muted);">Serviço Vendido</label>
+              <input type="text" name="servico_vendido" placeholder="ex: site + WhatsApp"
+                value="{{ form_data.get('servico_vendido','') if form_data else '' }}"
+                style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 8px;font-family:inherit;font-size:12px;margin-top:3px;">
+            </div>
+            <div>
+              <label style="font-size:10px;color:var(--muted);">Valor (R$)</label>
+              <input type="number" name="valor_venda" step="0.01" min="0"
+                value="{{ form_data.get('valor_venda','') if form_data else '' }}"
+                style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 8px;font-family:inherit;font-size:12px;margin-top:3px;">
+            </div>
+          </div>
+        </div>
+
+        <!-- Observações -->
+        <div style="margin-bottom:14px;">
+          <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Observações do Conselho</label>
+          <textarea name="observacoes" rows="2" placeholder="Contexto, fonte da indicação, restrições..."
+            style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 8px;font-family:inherit;font-size:12px;margin-top:3px;resize:vertical;">{{ form_data.get('observacoes','') if form_data else '' }}</textarea>
+        </div>
+
+        <button type="submit"
+          style="background:var(--accent);color:#000;border:none;padding:8px 20px;font-family:inherit;font-size:12px;font-weight:bold;cursor:pointer;">
+          Processar Empresa
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Lista de entradas recentes -->
+  <div class="col">
+    <h2>Entradas Recentes</h2>
+    {% if entradas %}
+    {% for e in entradas %}
+    <div class="card" style="margin-bottom:8px;padding:10px 14px;border-left:3px solid
+      {% if e.status == 'venda_registrada' %}var(--success)
+      {% elif e.status == 'injetado_comercial' %}var(--accent)
+      {% elif e.status == 'duplicata_detectada' %}var(--warning)
+      {% elif e.status == 'avaliado' %}var(--muted)
+      {% else %}var(--border){% endif %};">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <div style="flex:1;">
+          <div style="font-size:12px;font-weight:bold;">{{ e.nome[:50] }}</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px;">
+            {{ e.categoria or '—' }}
+            {% if e.cidade %} · {{ e.cidade }}{% endif %}
+            {% if e.estado %}/{{ e.estado }}{% endif %}
+          </div>
+          <div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap;">
+            <span class="badge {% if e.status == 'venda_registrada' %}badge-success{% elif e.status == 'injetado_comercial' %}badge-accent{% elif e.status == 'duplicata_detectada' %}badge-warning{% else %}badge-muted{% endif %}">{{ e.status }}</span>
+            <span class="badge badge-muted">{{ e.modo or 'avaliacao_manual' }}</span>
+            {% if e.telefone %}<span class="badge badge-muted">☏ {{ e.telefone[:15] }}</span>{% endif %}
+          </div>
+        </div>
+        <div style="font-size:10px;color:var(--muted);text-align:right;margin-left:8px;">
+          {{ e.submetido_em[:16].replace('T',' ') if e.submetido_em else '—' }}
+        </div>
+      </div>
+      {% set aval = avaliacoes_por_entrada.get(e.id) %}
+      {% if aval %}
+      <div style="margin-top:6px;display:flex;gap:10px;font-size:10px;color:var(--muted);border-top:1px solid var(--border);padding-top:5px;">
+        <span>Score: <b style="color:var(--text);">{{ aval.score_presenca }}</b></span>
+        <span>Prio: <b style="color:var(--text);">{{ aval.prioridade_abordagem }}</b></span>
+        <span>Canal: <b style="color:var(--text);">{{ aval.canal_abordagem_sugerido or '—' }}</b></span>
+      </div>
+      {% if aval.proxima_acao_comercial %}
+      <div style="margin-top:4px;font-size:10px;color:var(--muted);">→ {{ aval.proxima_acao_comercial[:80] }}</div>
+      {% endif %}
+      {% endif %}
+      {% if e.observacoes %}
+      <div style="margin-top:4px;font-size:10px;color:var(--muted);font-style:italic;">{{ e.observacoes[:80] }}</div>
+      {% endif %}
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="card"><div class="empty">Nenhuma entrada manual registrada ainda.</div></div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Mostrar campos de venda quando modo=venda_manual
+const radios = document.querySelectorAll('input[name="modo"]');
+const camposVenda = document.getElementById('campos-venda');
+function atualizarCamposVenda() {
+  const modo = document.querySelector('input[name="modo"]:checked');
+  camposVenda.style.display = (modo && modo.value === 'venda_manual') ? 'block' : 'none';
+}
+radios.forEach(r => r.addEventListener('change', atualizarCamposVenda));
+atualizarCamposVenda();
+</script>
+{% endblock %}

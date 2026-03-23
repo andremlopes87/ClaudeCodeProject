@@ -287,6 +287,70 @@ async def api_status():
 
 # ─── Página de governança ─────────────────────────────────────────────────────
 
+@app.get("/entrada-manual", response_class=HTMLResponse)
+async def pagina_entrada_manual(request: Request):
+    from modulos.entrada_manual.processador_entrada_manual import (
+        carregar_todas_entradas_manuais, carregar_avaliacao_por_entrada,
+    )
+    entradas   = carregar_todas_entradas_manuais()
+    avals      = {e["id"]: carregar_avaliacao_por_entrada(e["id"]) for e in entradas if carregar_avaliacao_por_entrada(e["id"])}
+    return templates.TemplateResponse("entrada_manual.html", {
+        "request":              request,
+        "page":                 "entrada_manual",
+        "entradas":             entradas,
+        "avaliacoes_por_entrada": avals,
+        "resultado":            None,
+        "form_data":            None,
+    })
+
+
+@app.post("/entrada-manual", response_class=HTMLResponse)
+async def processar_entrada_manual(
+    request: Request,
+    nome:             str = Form(...),
+    categoria:        str = Form(""),
+    cidade:           str = Form(""),
+    estado:           str = Form(""),
+    telefone:         str = Form(""),
+    email:            str = Form(""),
+    site:             str = Form(""),
+    instagram:        str = Form(""),
+    whatsapp:         str = Form(""),
+    facebook:         str = Form(""),
+    modo:             str = Form("avaliacao_manual"),
+    observacoes:      str = Form(""),
+    valor_venda:      str = Form(""),
+    servico_vendido:  str = Form(""),
+    forcar_insercao:  str = Form(""),
+):
+    from modulos.entrada_manual.processador_entrada_manual import (
+        processar_entrada_manual as _processar,
+        carregar_todas_entradas_manuais,
+        carregar_avaliacao_por_entrada,
+    )
+    dados = {
+        "nome": nome, "categoria": categoria, "cidade": cidade,
+        "estado": estado, "telefone": telefone, "email": email,
+        "site": site, "instagram": instagram, "whatsapp": whatsapp,
+        "facebook": facebook, "modo": modo, "observacoes": observacoes,
+        "valor_venda": valor_venda, "servico_vendido": servico_vendido,
+        "forcar_insercao": forcar_insercao == "1",
+    }
+    resultado = _processar(dados)
+    _atualizar_observabilidade()
+
+    entradas = carregar_todas_entradas_manuais()
+    avals    = {e["id"]: carregar_avaliacao_por_entrada(e["id"]) for e in entradas if carregar_avaliacao_por_entrada(e["id"])}
+    return templates.TemplateResponse("entrada_manual.html", {
+        "request":              request,
+        "page":                 "entrada_manual",
+        "entradas":             entradas,
+        "avaliacoes_por_entrada": avals,
+        "resultado":            resultado,
+        "form_data":            dados,
+    })
+
+
 @app.get("/saude", response_class=HTMLResponse)
 async def pagina_saude(request: Request):
     from core.confiabilidade_empresa import resumir_confiabilidade_para_painel
