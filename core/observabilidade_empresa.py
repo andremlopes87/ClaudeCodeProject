@@ -40,7 +40,7 @@ _AGENTES_CONHECIDOS = [
 
 def executar_observabilidade() -> dict:
     """
-    Gera todos os arquivos de observabilidade.
+    Gera todos os arquivos de observabilidade + saúde da empresa.
     Retorna resumo de quantos arquivos foram gerados.
     """
     agora = datetime.now().isoformat(timespec="seconds")
@@ -57,6 +57,13 @@ def executar_observabilidade() -> dict:
     _salvar("metricas_areas.json",         metricas_ar)
     _salvar("feed_eventos_empresa.json",   feed)
     _salvar("painel_conselho.json",        painel)
+
+    # Atualizar saúde da empresa após consolidar métricas
+    try:
+        from core.confiabilidade_empresa import calcular_saude_empresa
+        calcular_saude_empresa()
+    except Exception as exc:
+        logger.warning(f"[observabilidade] saude nao calculada: {exc}")
 
     logger.info(
         f"[observabilidade] concluido — "
@@ -99,6 +106,16 @@ def consolidar_painel_conselho(
     # Proximas acoes relevantes
     proximas = _extrair_proximas_acoes(delibs, gargalos, riscos)
 
+    # Saúde da empresa (ler do arquivo se disponível)
+    saude = {}
+    try:
+        saude_arq = config.PASTA_DADOS / "saude_empresa.json"
+        if saude_arq.exists():
+            with open(saude_arq, "r", encoding="utf-8") as _f:
+                saude = json.load(_f)
+    except Exception:
+        pass
+
     return {
         "atualizado_em":    datetime.now().isoformat(timespec="seconds"),
         "status_empresa":   estado.get("status_empresa", "desconhecido"),
@@ -114,6 +131,7 @@ def consolidar_painel_conselho(
         "operacao_financeira": metricas_ar.get("financeiro", {}),
         "proximas_acoes_relevantes": proximas,
         "metricas":         metricas_emp,
+        "saude":            saude,
     }
 
 
@@ -228,6 +246,27 @@ def gerar_feed_eventos_empresa() -> dict:
             severidade=_sev_urgencia(ri.get("urgencia", "")),
             timestamp="",
         ))
+
+    # Incidentes operacionais recentes
+    try:
+        incidentes_arq = config.PASTA_DADOS / "incidentes_operacionais.json"
+        if incidentes_arq.exists():
+            with open(incidentes_arq, "r", encoding="utf-8") as _f:
+                incidentes_lista = json.load(_f)
+            for inc in incidentes_lista[-20:]:  # últimos 20
+                sev_map = {"critica": "critico", "alta": "alto", "media": "medio", "baixa": "info"}
+                eventos.append(_evento(
+                    tipo="incidente_operacional",
+                    agente=inc.get("agente", "orquestrador"),
+                    area=inc.get("area", "operacao"),
+                    ref=inc.get("id", ""),
+                    titulo=f"[{inc.get('severidade','?').upper()}] {inc.get('titulo','incidente')}",
+                    descricao=inc.get("descricao", "")[:150],
+                    severidade=sev_map.get(inc.get("severidade","baixa"), "info"),
+                    timestamp=inc.get("detectado_em", ""),
+                ))
+    except Exception:
+        pass
 
     # Ordenar por timestamp desc, limitar 100
     eventos_ordenados = sorted(

@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+{% block title %}Saúde Operacional — Painel do Conselho{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Saúde Operacional
+    {% if saude %}
+    <span class="badge {% if saude.status_geral == 'saudavel' %}badge-success{% elif saude.status_geral == 'atencao' %}badge-warning{% elif saude.status_geral == 'degradada' %}badge-danger{% else %}badge-danger{% endif %}" style="font-size:11px;margin-left:10px;">
+      {{ saude.status_geral }}
+    </span>
+    {% endif %}
+  </h1>
+  <p>Confiabilidade, incidentes, checkpoints e recovery do sistema operacional.</p>
+</div>
+
+<!-- Score e KPIs de saúde -->
+{% if saude %}
+<div class="kpi-grid">
+  <div class="kpi {% if saude.score_saude >= 80 %}success{% elif saude.score_saude >= 60 %}{% elif saude.score_saude >= 40 %}warning{% else %}danger{% endif %}">
+    <div class="label">Score de Saúde</div>
+    <div class="value">{{ saude.score_saude }}</div>
+    <div class="sub">/ 100</div>
+  </div>
+  <div class="kpi {% if saude.incidentes_abertos.total > 0 %}warning{% endif %}">
+    <div class="label">Incidentes Abertos</div>
+    <div class="value">{{ saude.incidentes_abertos.total }}</div>
+    <div class="sub">
+      {% if saude.incidentes_abertos.critica > 0 %}<span class="text-danger">{{ saude.incidentes_abertos.critica }} crítico(s)</span>{% endif %}
+      {% if saude.incidentes_abertos.alta > 0 %}<span class="text-warning"> {{ saude.incidentes_abertos.alta }} alto(s)</span>{% endif %}
+    </div>
+  </div>
+  <div class="kpi {% if saude.agentes_degradados %}warning{% endif %}">
+    <div class="label">Agentes Degradados</div>
+    <div class="value">{{ saude.agentes_degradados | length }}</div>
+    <div class="sub">{% for ag in saude.agentes_degradados %}{{ ag[:15] }} {% endfor %}</div>
+  </div>
+  <div class="kpi {% if saude.areas_degradadas %}warning{% endif %}">
+    <div class="label">Áreas Degradadas</div>
+    <div class="value">{{ saude.areas_degradadas | length }}</div>
+    <div class="sub">{% for ar in saude.areas_degradadas %}{{ ar }} {% endfor %}</div>
+  </div>
+  <div class="kpi {% if saude.ultimo_ciclo_status not in ('concluido', 'concluido_com_pausas') %}warning{% endif %}">
+    <div class="label">Último Ciclo</div>
+    <div class="value" style="font-size:11px;">{{ saude.ultimo_ciclo_status }}</div>
+    <div class="sub">{{ saude.ultimo_ciclo_id[:30] if saude.ultimo_ciclo_id else '—' }}</div>
+  </div>
+  <div class="kpi">
+    <div class="label">Atualizado em</div>
+    <div class="value" style="font-size:11px;">{{ saude.atualizado_em[:16].replace('T',' ') if saude.atualizado_em else '—' }}</div>
+    <div class="sub">saude_empresa.json</div>
+  </div>
+</div>
+
+<!-- Alertas ativos -->
+{% if saude.alertas %}
+<h2>Alertas Ativos</h2>
+<div class="card">
+  {% for alerta in saude.alertas %}
+  <div style="padding:5px 0;border-bottom:1px solid var(--border);font-size:12px;">
+    <span class="badge badge-warning" style="margin-right:6px;">!</span>{{ alerta }}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- Observações -->
+{% if saude.observacoes %}
+<div class="card" style="margin-top:8px;font-size:11px;color:var(--muted);">{{ saude.observacoes }}</div>
+{% endif %}
+{% endif %}
+
+<div class="row">
+  <!-- Coluna esquerda: Lock + Recovery + Checkpoints -->
+  <div class="col">
+
+    <!-- Lock de ciclo -->
+    <h2>Lock de Ciclo</h2>
+    <div class="card">
+      {% if lock and lock.ativo %}
+      <div style="color:var(--warning);font-size:12px;margin-bottom:6px;">
+        <b>Lock ativo</b> — ciclo em execução
+      </div>
+      <div class="drill-row"><span>Ciclo ID</span><b>{{ lock.ciclo_id or '—' }}</b></div>
+      <div class="drill-row"><span>Etapa atual</span><b>{{ lock.etapa or '—' }}</b></div>
+      <div class="drill-row"><span>Iniciado em</span><b class="text-muted">{{ lock.iniciado_em[:16].replace('T',' ') if lock.iniciado_em else '—' }}</b></div>
+      {% else %}
+      <div class="empty" style="color:var(--success);">Sem lock ativo — sistema livre para novo ciclo</div>
+      {% endif %}
+    </div>
+
+    <!-- Recovery -->
+    <h2>Recovery</h2>
+    <div class="card">
+      {% if recovery and recovery.ultimo_ciclo_interrompido %}
+      <div class="drill-row"><span>Ciclo interrompido</span><b>{{ recovery.ultimo_ciclo_interrompido }}</b></div>
+      <div class="drill-row"><span>Etapa</span><b>{{ recovery.etapa_interrompida or '—' }}</b></div>
+      <div class="drill-row"><span>Motivo</span><b class="text-muted">{{ recovery.motivo or '—' }}</b></div>
+      <div class="drill-row"><span>Detectado em</span><b class="text-muted">{{ recovery.detectado_em[:16].replace('T',' ') if recovery.detectado_em else '—' }}</b></div>
+      <div class="drill-row"><span>Status</span>
+        <span class="badge {% if recovery.status == 'executado' %}badge-success{% else %}badge-warning{% endif %}">{{ recovery.status }}</span>
+      </div>
+      {% if recovery.recovery_executado_em %}
+      <div class="drill-row"><span>Recovery em</span><b class="text-muted">{{ recovery.recovery_executado_em[:16].replace('T',' ') }}</b></div>
+      {% endif %}
+      <div style="margin-top:8px;font-size:11px;color:var(--muted);">{{ recovery.acao_sugerida or '' }}</div>
+      {% else %}
+      <div class="empty">Nenhum recovery registrado</div>
+      {% endif %}
+    </div>
+
+    <!-- Checkpoints do último ciclo -->
+    <h2>Checkpoints do Último Ciclo</h2>
+    <div class="card">
+      {% if checkpoints and checkpoints.etapas %}
+      <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">
+        Ciclo: <b>{{ checkpoints.ciclo_id }}</b> — atualizado {{ checkpoints.atualizado_em[:16].replace('T',' ') if checkpoints.atualizado_em else '—' }}
+      </div>
+      <table style="width:100%;font-size:11px;border-collapse:collapse;">
+        <thead><tr>
+          <th style="text-align:left;padding:3px 6px;border-bottom:1px solid var(--border);">Etapa</th>
+          <th style="text-align:left;padding:3px 6px;border-bottom:1px solid var(--border);">Pos.</th>
+          <th style="text-align:left;padding:3px 6px;border-bottom:1px solid var(--border);">Status</th>
+          <th style="text-align:left;padding:3px 6px;border-bottom:1px solid var(--border);">Início</th>
+          <th style="text-align:left;padding:3px 6px;border-bottom:1px solid var(--border);">Fim</th>
+        </tr></thead>
+        <tbody>
+        {% for ck in checkpoints.etapas %}
+        <tr style="border-bottom:1px solid var(--border);">
+          <td style="padding:3px 6px;"><b>{{ ck.nome[:25] }}</b></td>
+          <td style="padding:3px 6px;" class="text-muted">{{ ck.posicao }}</td>
+          <td style="padding:3px 6px;">
+            <span class="badge {% if ck.status == 'concluida' %}badge-success{% elif ck.status == 'falhou' %}badge-danger{% elif ck.status == 'em_execucao' %}badge-warning{% elif ck.status == 'pulada' %}badge-muted{% else %}badge-muted{% endif %}">{{ ck.status }}</span>
+          </td>
+          <td style="padding:3px 6px;" class="text-muted">{{ ck.iniciado_em[11:16] if ck.iniciado_em else '—' }}</td>
+          <td style="padding:3px 6px;" class="text-muted">{{ ck.finalizado_em[11:16] if ck.finalizado_em else '—' }}</td>
+        </tr>
+        {% if ck.erro %}
+        <tr>
+          <td colspan="5" style="padding:2px 6px 6px 20px;font-size:10px;color:var(--danger);">{{ ck.erro[:120] }}</td>
+        </tr>
+        {% endif %}
+        {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty">Nenhum checkpoint disponível</div>
+      {% endif %}
+    </div>
+
+  </div>
+
+  <!-- Coluna direita: Incidentes -->
+  <div class="col">
+
+    <!-- Incidentes abertos -->
+    <h2>Incidentes Abertos ({{ incidentes_abertos | length }})</h2>
+    {% if incidentes_abertos %}
+    {% for inc in incidentes_abertos %}
+    <div class="card" style="margin-bottom:8px;padding:10px 14px;border-left:3px solid {% if inc.severidade == 'critica' %}var(--danger){% elif inc.severidade == 'alta' %}var(--warning){% elif inc.severidade == 'media' %}var(--accent){% else %}var(--border){% endif %};">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <div style="flex:1;">
+          <div style="font-size:12px;font-weight:bold;margin-bottom:3px;">{{ inc.titulo[:80] }}</div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">{{ inc.descricao[:120] }}</div>
+          <span class="badge {% if inc.severidade == 'critica' %}badge-danger{% elif inc.severidade == 'alta' %}badge-warning{% elif inc.severidade == 'media' %}badge-accent{% else %}badge-muted{% endif %}">{{ inc.severidade }}</span>
+          <span class="badge badge-muted" style="margin-left:4px;">{{ inc.tipo_incidente }}</span>
+          <span class="badge badge-muted" style="margin-left:4px;">{{ inc.area }}</span>
+          <span class="text-muted" style="font-size:10px;margin-left:6px;">{{ inc.detectado_em[:16].replace('T',' ') if inc.detectado_em else '—' }}</span>
+        </div>
+      </div>
+      {% if inc.acao_tomada %}
+      <div style="margin-top:5px;font-size:10px;color:var(--muted);">↳ {{ inc.acao_tomada[:80] }}</div>
+      {% endif %}
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="card"><div class="empty" style="color:var(--success);">Nenhum incidente aberto</div></div>
+    {% endif %}
+
+    <!-- Histórico de incidentes -->
+    <h2>Histórico de Incidentes</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Título</th><th>Sev.</th><th>Tipo</th><th>Status</th><th>Detectado</th></tr></thead>
+        <tbody>
+          {% for inc in todos_incidentes %}
+          <tr>
+            <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ inc.titulo[:50] }}</td>
+            <td><span class="badge {% if inc.severidade == 'critica' %}badge-danger{% elif inc.severidade == 'alta' %}badge-warning{% elif inc.severidade == 'media' %}badge-accent{% else %}badge-muted{% endif %}">{{ inc.severidade }}</span></td>
+            <td class="text-muted" style="font-size:10px;">{{ inc.tipo_incidente[:20] }}</td>
+            <td><span class="badge {% if inc.status == 'resolvido' %}badge-success{% elif inc.status == 'aberto' %}badge-warning{% else %}badge-muted{% endif %}">{{ inc.status }}</span></td>
+            <td class="text-muted">{{ inc.detectado_em[:16].replace('T',' ') if inc.detectado_em else '—' }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5" class="empty">Nenhum incidente registrado</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

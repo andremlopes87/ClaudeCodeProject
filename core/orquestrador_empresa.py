@@ -33,13 +33,31 @@ def executar_ciclo_empresa() -> dict:
     """
     Executa um ciclo operacional completo da empresa.
     Retorna o dict do ciclo com todas as etapas e resumo.
+
+    Confiabilidade:
+      - Lock exclusivo: impede dois ciclos simultâneos
+      - Checkpoints por etapa: rastreabilidade e diagnóstico
+      - Incidentes automáticos em falhas relevantes
+      - Saúde calculada ao fim de cada ciclo
+      - Lock sempre liberado em finally
     """
+    from core.confiabilidade_empresa import (
+        adquirir_lock_ciclo,
+        liberar_lock_ciclo,
+        registrar_checkpoint_etapa,
+        finalizar_checkpoint_etapa,
+        registrar_incidente_operacional,
+        calcular_saude_empresa,
+        marcar_recovery_executado,
+        etapa_ja_concluida_neste_ciclo,
+    )
+
     _PASTA_CICLOS.mkdir(parents=True, exist_ok=True)
     config.PASTA_DADOS.mkdir(parents=True, exist_ok=True)
 
-    agora    = datetime.now()
-    ts       = agora.strftime("%Y-%m-%d_%H-%M-%S")
-    ciclo_id = f"ciclo_{ts}"
+    agora     = datetime.now()
+    ts        = agora.strftime("%Y-%m-%d_%H-%M-%S")
+    ciclo_id  = f"ciclo_{ts}"
     inicio_ts = agora.isoformat(timespec="seconds")
 
     log = _configurar_log_ciclo(ciclo_id, ts)
@@ -47,115 +65,215 @@ def executar_ciclo_empresa() -> dict:
     log.info(f"CICLO EMPRESA — {ciclo_id}")
     log.info("=" * 64)
 
-    # Falha estrutural: abortar antes de qualquer etapa
-    falha = detectar_falha_estrutural()
-    if falha:
-        log.error(f"FALHA ESTRUTURAL: {falha}")
-        ciclo = _montar_ciclo_vazio(ciclo_id, inicio_ts, "falha_estrutural", falha)
+    # ── Lock de ciclo ─────────────────────────────────────────────────────────
+    lock_adquirido = adquirir_lock_ciclo(ciclo_id)
+    if not lock_adquirido:
+        msg = "Lock de ciclo ativo — outro ciclo em execução. Abortando."
+        log.warning(msg)
+        registrar_incidente_operacional(
+            tipo_incidente="reprocessamento_bloqueado",
+            severidade="media",
+            area="operacao",
+            agente="orquestrador",
+            titulo="Ciclo bloqueado por lock ativo",
+            descricao=msg,
+            ciclo_id=ciclo_id,
+            acao_tomada="ciclo_abortado",
+        )
+        ciclo = _montar_ciclo_vazio(ciclo_id, inicio_ts, "bloqueado_lock", msg)
         _salvar_ciclo(ciclo)
         return ciclo
 
-    # Derivar políticas operacionais a partir da governança ativa (início do ciclo)
+    # Marcar recovery como executado se havia recovery pendente
+    marcar_recovery_executado(ciclo_id)
+
     try:
-        from core.politicas_empresa import derivar_e_salvar_politicas
-        politicas = derivar_e_salvar_politicas()
-        log.info(f"Politicas operacionais derivadas: modo={politicas.get('modo_empresa','?')} | score_ganho={politicas.get('fechamento_comercial',{}).get('score_ganho','?')}")
-    except Exception as _e:
-        log.warning(f"Falha ao derivar politicas operacionais: {_e}")
+        # ── Falha estrutural ──────────────────────────────────────────────────
+        falha = detectar_falha_estrutural()
+        if falha:
+            log.error(f"FALHA ESTRUTURAL: {falha}")
+            registrar_incidente_operacional(
+                tipo_incidente="falha_etapa",
+                severidade="critica",
+                area="operacao",
+                agente="orquestrador",
+                titulo="Falha estrutural antes de iniciar ciclo",
+                descricao=falha,
+                ciclo_id=ciclo_id,
+                acao_tomada="ciclo_abortado",
+            )
+            ciclo = _montar_ciclo_vazio(ciclo_id, inicio_ts, "falha_estrutural", falha)
+            _salvar_ciclo(ciclo)
+            return ciclo
 
-    estado = carregar_estado_empresa()
-    etapas = []
-    erros  = []
+        # ── Políticas operacionais ────────────────────────────────────────────
+        try:
+            from core.politicas_empresa import derivar_e_salvar_politicas
+            politicas = derivar_e_salvar_politicas()
+            log.info(
+                f"Politicas derivadas: modo={politicas.get('modo_empresa','?')} "
+                f"| score_ganho={politicas.get('fechamento_comercial',{}).get('score_ganho','?')}"
+            )
+        except Exception as _e:
+            log.warning(f"Falha ao derivar politicas: {_e}")
+            registrar_incidente_operacional(
+                tipo_incidente="politicas_inconsistentes",
+                severidade="baixa",
+                area="operacao",
+                agente="orquestrador",
+                titulo="Falha ao derivar políticas operacionais",
+                descricao=str(_e),
+                ciclo_id=ciclo_id,
+            )
 
-    # Carregar estado de governança antes do ciclo
-    governanca = _carregar_estado_governanca_seguro()
-    agentes_pausados = set(governanca.get("agentes_pausados", []))
-    areas_pausadas   = set(governanca.get("areas_pausadas", []))
-    modo_empresa     = governanca.get("modo_empresa", "normal")
-    if agentes_pausados or areas_pausadas or modo_empresa != "normal":
-        log.info(f"GOVERNANCA ATIVA: modo={modo_empresa} | pausados={agentes_pausados} | areas={areas_pausadas}")
+        estado = carregar_estado_empresa()
+        etapas = []
+        erros  = []
 
-    # ── Sequência do ciclo ────────────────────────────────────────────────────
-    # Cada tupla: (nome_etapa, importador_fn, label_posicao)
-    sequencia = [
-        ("agente_financeiro",               _importar_financeiro,    "1/13"),
-        ("agente_prospeccao",               _importar_prospeccao,    "2/13"),
-        ("agente_marketing",                _importar_marketing,     "3/13"),
-        ("agente_comercial",               _importar_comercial,     "4/13"),
-        ("agente_operacao_entrega",         _importar_entrega,       "5/13"),
-        ("agente_secretario",               _importar_secretario,    "6/13"),
-        ("agente_executor_contato",         _importar_executor,      "7/13"),
-        ("integrador_canais",               _importar_integrador,    "8/13"),
-        ("agente_comercial",               _importar_comercial,     "9/13"),
-        ("gerador_insumos_desde_contato",   _importar_gerador,       "10/13"),
-        ("avaliador_fechamento_comercial",  _importar_avaliador,     "11/13"),
-        ("agente_operacao_entrega",         _importar_entrega,       "12/13"),
-        ("agente_secretario",               _importar_secretario,    "13/13"),
-    ]
+        # ── Governança ────────────────────────────────────────────────────────
+        governanca       = _carregar_estado_governanca_seguro()
+        agentes_pausados = set(governanca.get("agentes_pausados", []))
+        areas_pausadas   = set(governanca.get("areas_pausadas", []))
+        modo_empresa     = governanca.get("modo_empresa", "normal")
+        if agentes_pausados or areas_pausadas or modo_empresa != "normal":
+            log.info(
+                f"GOVERNANCA ATIVA: modo={modo_empresa} | "
+                f"pausados={agentes_pausados} | areas={areas_pausadas}"
+            )
 
-    for nome, importador, posicao in sequencia:
-        # Verificar pausa por governança do conselho
-        area = _AREA_DO_AGENTE.get(nome, "operacao")
-        if nome in agentes_pausados:
-            log.info(f"[{posicao}] {nome} PAUSADO (comando do conselho) — pulando")
-            etapas.append(_etapa_pausada(nome, posicao, "pausado_conselho"))
-            continue
-        if area in areas_pausadas:
-            log.info(f"[{posicao}] {nome} (area '{area}' pausada) — pulando")
-            etapas.append(_etapa_pausada(nome, posicao, f"area_{area}_pausada"))
-            continue
+        # ── Sequência do ciclo ────────────────────────────────────────────────
+        sequencia = [
+            ("agente_financeiro",               _importar_financeiro,    "1/13"),
+            ("agente_prospeccao",               _importar_prospeccao,    "2/13"),
+            ("agente_marketing",                _importar_marketing,     "3/13"),
+            ("agente_comercial",                _importar_comercial,     "4/13"),
+            ("agente_operacao_entrega",         _importar_entrega,       "5/13"),
+            ("agente_secretario",               _importar_secretario,    "6/13"),
+            ("agente_executor_contato",         _importar_executor,      "7/13"),
+            ("integrador_canais",               _importar_integrador,    "8/13"),
+            ("agente_comercial",                _importar_comercial,     "9/13"),
+            ("gerador_insumos_desde_contato",   _importar_gerador,       "10/13"),
+            ("avaliador_fechamento_comercial",  _importar_avaliador,     "11/13"),
+            ("agente_operacao_entrega",         _importar_entrega,       "12/13"),
+            ("agente_secretario",               _importar_secretario,    "13/13"),
+        ]
 
-        log.info(f"[{posicao}] Iniciando {nome}...")
-        etapa = executar_etapa_agente(nome, importador, log)
-        etapas.append(etapa)
-        if etapa["status"] == "erro":
-            erros.append({
-                "etapa":   nome,
-                "posicao": posicao,
-                "erro":    etapa["erro"],
-            })
-        log.info(
-            f"[{posicao}] {nome} → {etapa['status']} "
-            f"({etapa['duracao_ms']}ms)"
-        )
+        for nome, importador, posicao in sequencia:
+            area = _AREA_DO_AGENTE.get(nome, "operacao")
 
-    # ── Resumo e persistência ─────────────────────────────────────────────────
-    status_geral = _calcular_status_geral(etapas)
-    resumo       = montar_resumo_final_ciclo(etapas)
+            # Verificar pausa por governança
+            if nome in agentes_pausados:
+                log.info(f"[{posicao}] {nome} PAUSADO — pulando")
+                etapa = _etapa_pausada(nome, posicao, "pausado_conselho")
+                etapas.append(etapa)
+                finalizar_checkpoint_etapa(ciclo_id, nome, posicao, "pulada", resumo={"motivo": "pausado_conselho"})
+                continue
+            if area in areas_pausadas:
+                log.info(f"[{posicao}] {nome} (area '{area}' pausada) — pulando")
+                etapa = _etapa_pausada(nome, posicao, f"area_{area}_pausada")
+                etapas.append(etapa)
+                finalizar_checkpoint_etapa(ciclo_id, nome, posicao, "pulada", resumo={"motivo": f"area_{area}_pausada"})
+                continue
 
-    ciclo = {
-        "ciclo_id":      ciclo_id,
-        "iniciado_em":   inicio_ts,
-        "finalizado_em": datetime.now().isoformat(timespec="seconds"),
-        "status_geral":  status_geral,
-        "etapas":        etapas,
-        "resumo_final":  resumo,
-        "erros":         erros,
-        "observacoes":   f"{len(erros)} erro(s) em {len(etapas)} etapas",
-    }
+            # Proteção contra reprocessamento indevido na mesma posição
+            if etapa_ja_concluida_neste_ciclo(ciclo_id, nome, posicao):
+                log.warning(f"[{posicao}] {nome} já concluído neste ciclo — bloqueando reprocessamento")
+                registrar_incidente_operacional(
+                    tipo_incidente="reprocessamento_bloqueado",
+                    severidade="baixa",
+                    area=area,
+                    agente=nome,
+                    titulo=f"Reprocessamento bloqueado: {nome} [{posicao}]",
+                    descricao=f"Etapa já concluída no ciclo {ciclo_id}",
+                    ciclo_id=ciclo_id,
+                )
+                continue
 
-    _salvar_ciclo(ciclo)
-    estado = _atualizar_estado_empresa(estado, ciclo)
-    salvar_estado_empresa(estado)
+            # Registrar checkpoint: inicio
+            registrar_checkpoint_etapa(ciclo_id, nome, posicao)
+            log.info(f"[{posicao}] Iniciando {nome}...")
 
-    # Atualizar camada de observabilidade ao final de cada ciclo
-    try:
-        from core.observabilidade_empresa import executar_observabilidade
-        executar_observabilidade()
-    except Exception as exc:
-        log.warning(f"Observabilidade nao atualizada: {exc}")
+            etapa = executar_etapa_agente(nome, importador, log)
+            etapas.append(etapa)
 
-    log.info("=" * 64)
-    log.info(f"CICLO CONCLUIDO — {status_geral}")
-    log.info(f"  deliberacoes pendentes     : {resumo.get('deliberacoes_pendentes', '?')}")
-    log.info(f"  handoffs pendentes         : {resumo.get('handoffs_pendentes', '?')}")
-    log.info(f"  pipeline (oportunidades)   : {resumo.get('pipeline_total', '?')}")
-    log.info(f"  follow-ups para integracao : {resumo.get('followups_aguardando_integracao', '?')}")
-    log.info(f"  riscos financeiros         : {resumo.get('riscos_financeiros', '?')}")
-    log.info(f"  erros no ciclo             : {len(erros)}")
-    log.info("=" * 64)
+            if etapa["status"] == "erro":
+                erros.append({"etapa": nome, "posicao": posicao, "erro": etapa["erro"]})
+                finalizar_checkpoint_etapa(
+                    ciclo_id, nome, posicao, "falhou",
+                    resumo=etapa.get("resumo", {}),
+                    erro=etapa.get("erro"),
+                )
+                # Registrar incidente para falhas de agente
+                registrar_incidente_operacional(
+                    tipo_incidente="falha_etapa",
+                    severidade="alta",
+                    area=area,
+                    agente=nome,
+                    titulo=f"Falha no agente {nome} [{posicao}]",
+                    descricao=str(etapa.get("erro", ""))[:300],
+                    ciclo_id=ciclo_id,
+                    referencia_id=posicao,
+                    acao_tomada="ciclo_continuou_sem_agente",
+                )
+            else:
+                finalizar_checkpoint_etapa(
+                    ciclo_id, nome, posicao, "concluida",
+                    resumo=etapa.get("resumo", {}),
+                )
 
-    return ciclo
+            log.info(f"[{posicao}] {nome} → {etapa['status']} ({etapa['duracao_ms']}ms)")
+
+        # ── Resumo e persistência ─────────────────────────────────────────────
+        status_geral = _calcular_status_geral(etapas)
+        resumo       = montar_resumo_final_ciclo(etapas)
+
+        ciclo = {
+            "ciclo_id":      ciclo_id,
+            "iniciado_em":   inicio_ts,
+            "finalizado_em": datetime.now().isoformat(timespec="seconds"),
+            "status_geral":  status_geral,
+            "etapas":        etapas,
+            "resumo_final":  resumo,
+            "erros":         erros,
+            "observacoes":   f"{len(erros)} erro(s) em {len(etapas)} etapas",
+        }
+
+        _salvar_ciclo(ciclo)
+        estado = _atualizar_estado_empresa(estado, ciclo)
+        salvar_estado_empresa(estado)
+
+        # ── Observabilidade ───────────────────────────────────────────────────
+        try:
+            from core.observabilidade_empresa import executar_observabilidade
+            executar_observabilidade()
+        except Exception as exc:
+            log.warning(f"Observabilidade nao atualizada: {exc}")
+
+        # ── Saúde da empresa ──────────────────────────────────────────────────
+        try:
+            saude = calcular_saude_empresa()
+            log.info(
+                f"Saude calculada: {saude['status_geral']} "
+                f"(score={saude['score_saude']}) | alertas={len(saude['alertas'])}"
+            )
+        except Exception as exc:
+            log.warning(f"Saude nao calculada: {exc}")
+
+        log.info("=" * 64)
+        log.info(f"CICLO CONCLUIDO — {status_geral}")
+        log.info(f"  deliberacoes pendentes     : {resumo.get('deliberacoes_pendentes', '?')}")
+        log.info(f"  handoffs pendentes         : {resumo.get('handoffs_pendentes', '?')}")
+        log.info(f"  pipeline (oportunidades)   : {resumo.get('pipeline_total', '?')}")
+        log.info(f"  follow-ups para integracao : {resumo.get('followups_aguardando_integracao', '?')}")
+        log.info(f"  riscos financeiros         : {resumo.get('riscos_financeiros', '?')}")
+        log.info(f"  erros no ciclo             : {len(erros)}")
+        log.info("=" * 64)
+
+        return ciclo
+
+    finally:
+        # Sempre liberar o lock, mesmo em exceção inesperada
+        liberar_lock_ciclo(ciclo_id)
 
 
 def executar_etapa_agente(nome: str, importador, log) -> dict:

@@ -53,6 +53,46 @@
   </div>
 </div>
 
+<!-- Card de saúde da empresa -->
+{% if saude %}
+<div class="card" style="margin-bottom:16px;display:flex;gap:20px;align-items:center;flex-wrap:wrap;">
+  <div>
+    <div class="label" style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Saúde Operacional</div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <span style="font-size:28px;font-weight:bold;color:{% if saude.score_saude >= 80 %}var(--success){% elif saude.score_saude >= 60 %}var(--text){% elif saude.score_saude >= 40 %}var(--warning){% else %}var(--danger){% endif %};">{{ saude.score_saude }}</span>
+      <span class="badge {% if saude.status_geral == 'saudavel' %}badge-success{% elif saude.status_geral == 'atencao' %}badge-warning{% else %}badge-danger{% endif %}" style="font-size:11px;padding:4px 10px;">{{ saude.status_geral }}</span>
+    </div>
+  </div>
+  {% if saude.incidentes_abertos and saude.incidentes_abertos.total > 0 %}
+  <div>
+    <div class="label" style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Incidentes</div>
+    <div style="font-size:13px;">
+      {% if saude.incidentes_abertos.critica > 0 %}<span class="badge badge-danger">{{ saude.incidentes_abertos.critica }} crítico</span>{% endif %}
+      {% if saude.incidentes_abertos.alta > 0 %}<span class="badge badge-warning" style="margin-left:4px;">{{ saude.incidentes_abertos.alta }} alto</span>{% endif %}
+      {% if saude.incidentes_abertos.media > 0 %}<span class="badge badge-accent" style="margin-left:4px;">{{ saude.incidentes_abertos.media }} médio</span>{% endif %}
+    </div>
+  </div>
+  {% endif %}
+  {% if saude.ultimo_incidente %}
+  <div style="flex:1;">
+    <div class="label" style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Último Incidente</div>
+    <div style="font-size:11px;">{{ saude.ultimo_incidente.titulo[:70] }}</div>
+    <div style="font-size:10px;color:var(--muted);">{{ saude.ultimo_incidente.detectado_em[:16].replace('T',' ') if saude.ultimo_incidente.detectado_em else '—' }}</div>
+  </div>
+  {% endif %}
+  {% if saude.ultimo_recovery %}
+  <div>
+    <div class="label" style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Último Recovery</div>
+    <div style="font-size:11px;">{{ saude.ultimo_recovery.ciclo_interrompido[:30] if saude.ultimo_recovery.ciclo_interrompido else '—' }}</div>
+    <span class="badge {% if saude.ultimo_recovery.status == 'executado' %}badge-success{% else %}badge-warning{% endif %}">{{ saude.ultimo_recovery.status }}</span>
+  </div>
+  {% endif %}
+  <div style="margin-left:auto;">
+    <a href="/saude" class="badge badge-muted" style="text-decoration:none;padding:5px 10px;">→ Ver detalhes</a>
+  </div>
+</div>
+{% endif %}
+
 {% if gov and (gov.modo_empresa != 'normal' or gov.agentes_pausados or gov.areas_pausadas or gov.diretrizes_ativas) %}
 <h2>Estado da Governança</h2>
 <div class="card" style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start;">

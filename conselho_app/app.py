@@ -77,6 +77,7 @@ async def pagina_index(request: Request):
     painel   = _painel()
     metricas = _metricas()
     from core.governanca_conselho import resumir_governanca_ativa
+    saude = painel.get("saude", _ler("saude_empresa.json", {}))
     return templates.TemplateResponse("index.html", {
         "request":        request,
         "page":           "index",
@@ -88,6 +89,7 @@ async def pagina_index(request: Request):
         "proximas_acoes": painel.get("proximas_acoes_relevantes", []),
         "metricas":       metricas,
         "gov":            resumir_governanca_ativa(),
+        "saude":          saude,
     })
 
 
@@ -284,6 +286,23 @@ async def api_status():
 
 
 # ─── Página de governança ─────────────────────────────────────────────────────
+
+@app.get("/saude", response_class=HTMLResponse)
+async def pagina_saude(request: Request):
+    from core.confiabilidade_empresa import resumir_confiabilidade_para_painel
+    dados = resumir_confiabilidade_para_painel()
+    return templates.TemplateResponse("saude.html", {
+        "request":    request,
+        "page":       "saude",
+        "saude":      dados["saude"],
+        "lock":       {"ativo": dados["lock_ativo"], "ciclo_id": dados["lock_ciclo_id"],
+                       "etapa": dados["lock_etapa"], "iniciado_em": dados["lock_iniciado_em"]},
+        "recovery":   dados["recovery"],
+        "checkpoints": dados["checkpoints_ultimo_ciclo"],
+        "incidentes_abertos":  dados["incidentes_abertos"],
+        "todos_incidentes":    dados["todos_incidentes"],
+    })
+
 
 @app.get("/governanca", response_class=HTMLResponse)
 async def pagina_governanca(request: Request):
