@@ -46,7 +46,7 @@ from modulos.entrega.processador_insumos_entrega import (
 NOME_AGENTE = "agente_operacao_entrega"
 
 _ESTAGIOS_APTOS = {"ganho"}
-_STATUS_APTOS   = {"onboarding", "aprovado", "pronto_para_implantacao"}
+_STATUS_APTOS   = {"onboarding", "aprovado", "pronto_para_implantacao", "pronto_para_entrega"}
 
 
 # ─── Ponto de entrada ─────────────────────────────────────────────────────────
