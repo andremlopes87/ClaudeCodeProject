@@ -30,27 +30,50 @@
 </div>
 
 <h2>Pendentes / Em Análise</h2>
-<div class="table-wrap">
-  <table>
-    <thead>
-      <tr><th>ID</th><th>Título</th><th>Tipo</th><th>Urgência</th><th>Impacto</th><th>Criado em</th></tr>
-    </thead>
-    <tbody>
-      {% for d in deliberacoes_pendentes %}
-      <tr>
-        <td class="text-muted" style="font-size:10px;">{{ d.get('id','—')[:30] }}</td>
-        <td><a href="/drill/deliberacao/{{ d.get('id','') }}">{{ d.get('titulo','—')[:70] }}</a></td>
-        <td><span class="badge badge-accent">{{ d.get('tipo','?') }}</span></td>
-        <td><span class="badge {% if d.get('urgencia') == 'imediata' %}badge-danger{% elif d.get('urgencia') == 'alta' %}badge-warning{% else %}badge-muted{% endif %}">{{ d.get('urgencia','?') }}</span></td>
-        <td>{{ d.get('impacto','?') }}</td>
-        <td class="text-muted">{{ d.get('criado_em','—')[:10] }}</td>
-      </tr>
-      {% else %}
-      <tr><td colspan="6" class="empty">Nenhuma deliberação pendente</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
+{% for d in deliberacoes_pendentes %}
+<div class="card" style="margin-bottom:12px;">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;">
+    <div style="flex:1;">
+      <div style="font-size:13px;font-weight:bold;margin-bottom:4px;">
+        <a href="/drill/deliberacao/{{ d.get('id','') }}">{{ d.get('titulo','—') }}</a>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">{{ d.get('contexto_resumido', d.get('descricao',''))[:150] }}</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <span class="badge badge-accent">{{ d.get('tipo','?') }}</span>
+        <span class="badge {% if d.get('urgencia') == 'imediata' %}badge-danger{% elif d.get('urgencia') == 'alta' %}badge-warning{% else %}badge-muted{% endif %}">urgência: {{ d.get('urgencia','?') }}</span>
+        <span class="badge badge-muted">impacto: {{ d.get('impacto','?') }}</span>
+        <span class="text-muted" style="font-size:10px;padding-top:3px;">{{ d.get('criado_em','')[:10] }}</span>
+      </div>
+      {% if d.get('recomendacao_agente') %}
+      <div style="margin-top:6px;font-size:11px;color:var(--info);">↳ Recomendação: {{ d.get('recomendacao_agente','')[:100] }}</div>
+      {% endif %}
+    </div>
+    <div style="flex-shrink:0;">
+      <form method="POST" action="/acao/deliberar/{{ d.get('id','') }}" style="display:flex;flex-direction:column;gap:6px;min-width:220px;">
+        <input type="text" name="justificativa" placeholder="Justificativa (opcional)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:3px;font-size:11px;font-family:inherit;width:100%;">
+        <div style="display:flex;gap:6px;">
+          <button type="submit" name="acao" value="aprovar"
+            onclick="return confirm('Aprovar esta deliberação?')"
+            style="flex:1;background:#1a3626;border:1px solid var(--success);color:var(--success);padding:5px 8px;border-radius:3px;cursor:pointer;font-size:11px;font-family:inherit;">
+            ✓ Aprovar
+          </button>
+          <button type="submit" name="acao" value="rejeitar"
+            onclick="return confirm('Rejeitar esta deliberação?')"
+            style="flex:1;background:#2d1116;border:1px solid var(--danger);color:var(--danger);padding:5px 8px;border-radius:3px;cursor:pointer;font-size:11px;font-family:inherit;">
+            ✗ Rejeitar
+          </button>
+          <button type="submit" name="acao" value="adiar"
+            style="flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--muted);padding:5px 8px;border-radius:3px;cursor:pointer;font-size:11px;font-family:inherit;">
+            ⏱ Adiar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
 </div>
+{% else %}
+<div class="card"><div class="empty">Nenhuma deliberação pendente</div></div>
+{% endfor %}
 
 <h2>Histórico Completo</h2>
 <div class="table-wrap">

@@ -53,6 +53,34 @@
   </div>
 </div>
 
+{% if gov and (gov.modo_empresa != 'normal' or gov.agentes_pausados or gov.areas_pausadas or gov.diretrizes_ativas) %}
+<h2>Estado da Governança</h2>
+<div class="card" style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start;">
+  <div>
+    <div class="label" style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Modo da Empresa</div>
+    <span class="badge {% if gov.modo_empresa == 'normal' %}badge-success{% elif gov.modo_empresa == 'foco_caixa' %}badge-danger{% elif gov.modo_empresa == 'conservador' %}badge-warning{% else %}badge-info{% endif %}" style="font-size:12px;padding:4px 12px;">{{ gov.modo_empresa }}</span>
+  </div>
+  {% if gov.agentes_pausados %}
+  <div>
+    <div class="label" style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Agentes Pausados</div>
+    {% for ag in gov.agentes_pausados %}<span class="badge badge-warning" style="margin-right:4px;">{{ ag }}</span>{% endfor %}
+  </div>
+  {% endif %}
+  {% if gov.areas_pausadas %}
+  <div>
+    <div class="label" style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Áreas Pausadas</div>
+    {% for area in gov.areas_pausadas %}<span class="badge badge-warning" style="margin-right:4px;">{{ area }}</span>{% endfor %}
+  </div>
+  {% endif %}
+  {% if gov.diretrizes_ativas %}
+  <div>
+    <div class="label" style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Diretrizes Ativas</div>
+    {% for d in gov.diretrizes_ativas[:3] %}<div style="font-size:11px;color:var(--text);margin-bottom:2px;">▸ {{ d.titulo[:60] }}</div>{% endfor %}
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
 {% if gargalos %}
 <h2>Gargalos Críticos</h2>
 <div class="gargalo-list">

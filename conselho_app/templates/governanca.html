@@ -1,0 +1,282 @@
+{% extends "base.html" %}
+{% block title %}Governança — Painel do Conselho{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Governança do Conselho</h1>
+  <p>Comandos estratégicos de alto nível. Não opera o dia a dia — orienta e governa.</p>
+</div>
+
+<!-- Estado atual -->
+<div class="kpi-grid">
+  <div class="kpi {% if gov.modo_empresa != 'normal' %}warning{% else %}success{% endif %}">
+    <div class="label">Modo da Empresa</div>
+    <div class="value" style="font-size:15px;">{{ gov.modo_empresa }}</div>
+    <div class="sub"><a href="#modo">alterar</a></div>
+  </div>
+  <div class="kpi {% if gov.agentes_pausados %}warning{% endif %}">
+    <div class="label">Agentes Pausados</div>
+    <div class="value">{{ gov.agentes_pausados | length }}</div>
+    <div class="sub">{% for ag in gov.agentes_pausados %}{{ ag[:15] }} {% endfor %}</div>
+  </div>
+  <div class="kpi {% if gov.areas_pausadas %}warning{% endif %}">
+    <div class="label">Áreas Pausadas</div>
+    <div class="value">{{ gov.areas_pausadas | length }}</div>
+    <div class="sub">{% for area in gov.areas_pausadas %}{{ area }} {% endfor %}</div>
+  </div>
+  <div class="kpi">
+    <div class="label">Diretrizes Ativas</div>
+    <div class="value">{{ gov.diretrizes_ativas | length }}</div>
+    <div class="sub"><a href="#diretrizes">ver</a></div>
+  </div>
+  <div class="kpi">
+    <div class="label">Linhas Priorizadas</div>
+    <div class="value">{{ gov.linhas_priorizadas | length }}</div>
+    <div class="sub">{% for l in gov.linhas_priorizadas %}{{ l[:20] }} {% endfor %}</div>
+  </div>
+  <div class="kpi">
+    <div class="label">Total Comandos</div>
+    <div class="value">{{ gov.total_comandos }}</div>
+    <div class="sub">histórico</div>
+  </div>
+</div>
+
+<div class="row">
+  <!-- Coluna esquerda: Ações -->
+  <div class="col">
+
+    <!-- Modo da empresa -->
+    <h2 id="modo">Definir Modo da Empresa</h2>
+    <div class="card">
+      <p style="font-size:11px;color:var(--muted);margin-bottom:12px;">
+        Define o comportamento geral da operação. Modo atual: <b>{{ gov.modo_empresa }}</b>
+      </p>
+      <form method="POST" action="/acao/governanca">
+        <input type="hidden" name="tipo_comando" value="definir_modo_empresa">
+        <input type="hidden" name="alvo_id" value="empresa">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+          {% for modo in modos_validos %}
+          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;">
+            <input type="radio" name="valor" value="{{ modo }}" {% if modo == gov.modo_empresa %}checked{% endif %}>
+            <span class="badge {% if modo == gov.modo_empresa %}badge-success{% elif modo == 'foco_caixa' %}badge-danger{% elif modo == 'conservador' %}badge-warning{% elif modo == 'manutencao' %}badge-muted{% else %}badge-info{% endif %}">{{ modo }}</span>
+          </label>
+          {% endfor %}
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="text" name="justificativa" placeholder="Justificativa (obrigatória)" required
+            style="flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:3px;font-size:12px;font-family:inherit;">
+          <button type="submit" onclick="return confirm('Confirmar alteração do modo da empresa?')"
+            style="background:#0e2039;border:1px solid var(--accent);color:var(--accent);padding:6px 14px;border-radius:3px;cursor:pointer;font-family:inherit;font-size:12px;">
+            Aplicar Modo
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Pausar / retomar agente -->
+    <h2>Pausar / Retomar Agente</h2>
+    <div class="card">
+      {% if gov.agentes_pausados %}
+      <div style="margin-bottom:10px;">
+        <div style="font-size:11px;color:var(--warning);margin-bottom:6px;">Agentes atualmente pausados:</div>
+        {% for ag in gov.agentes_pausados %}
+        <form method="POST" action="/acao/governanca" style="display:inline;">
+          <input type="hidden" name="tipo_comando" value="retomar_agente">
+          <input type="hidden" name="alvo_id" value="{{ ag }}">
+          <input type="hidden" name="justificativa" value="Retomado via painel do conselho">
+          <button type="submit"
+            style="background:#2d2108;border:1px solid var(--warning);color:var(--warning);padding:3px 10px;border-radius:3px;cursor:pointer;font-size:11px;font-family:inherit;margin-right:6px;margin-bottom:4px;">
+            ▶ retomar {{ ag }}
+          </button>
+        </form>
+        {% endfor %}
+      </div>
+      {% endif %}
+      <form method="POST" action="/acao/governanca">
+        <input type="hidden" name="tipo_comando" value="pausar_agente">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <select name="alvo_id" required style="flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:3px;font-size:12px;font-family:inherit;">
+            <option value="">-- selecionar agente --</option>
+            {% for ag in agentes_conhecidos %}
+            <option value="{{ ag }}" {% if ag in gov.agentes_pausados %}disabled style="color:var(--muted)"{% endif %}>{{ ag }}{% if ag in gov.agentes_pausados %} (já pausado){% endif %}</option>
+            {% endfor %}
+          </select>
+          <input type="text" name="justificativa" placeholder="Justificativa" required
+            style="flex:2;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:3px;font-size:12px;font-family:inherit;">
+          <button type="submit" onclick="return confirm('Pausar este agente?')"
+            style="background:#2d2108;border:1px solid var(--warning);color:var(--warning);padding:6px 14px;border-radius:3px;cursor:pointer;font-family:inherit;font-size:12px;">
+            ⏸ Pausar
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Pausar / retomar área -->
+    <h2>Pausar / Retomar Área</h2>
+    <div class="card">
+      {% if gov.areas_pausadas %}
+      <div style="margin-bottom:10px;">
+        <div style="font-size:11px;color:var(--warning);margin-bottom:6px;">Áreas atualmente pausadas:</div>
+        {% for area in gov.areas_pausadas %}
+        <form method="POST" action="/acao/governanca" style="display:inline;">
+          <input type="hidden" name="tipo_comando" value="retomar_area">
+          <input type="hidden" name="alvo_id" value="{{ area }}">
+          <input type="hidden" name="justificativa" value="Retomada via painel do conselho">
+          <button type="submit"
+            style="background:#2d2108;border:1px solid var(--warning);color:var(--warning);padding:3px 10px;border-radius:3px;cursor:pointer;font-size:11px;font-family:inherit;margin-right:6px;margin-bottom:4px;">
+            ▶ retomar {{ area }}
+          </button>
+        </form>
+        {% endfor %}
+      </div>
+      {% endif %}
+      <form method="POST" action="/acao/governanca">
+        <input type="hidden" name="tipo_comando" value="pausar_area">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <select name="alvo_id" required style="flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:3px;font-size:12px;font-family:inherit;">
+            <option value="">-- selecionar área --</option>
+            {% for area in areas_conhecidas %}
+            <option value="{{ area }}" {% if area in gov.areas_pausadas %}disabled{% endif %}>{{ area }}</option>
+            {% endfor %}
+          </select>
+          <input type="text" name="justificativa" placeholder="Justificativa" required
+            style="flex:2;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:3px;font-size:12px;font-family:inherit;">
+          <button type="submit" onclick="return confirm('Pausar esta área?')"
+            style="background:#2d2108;border:1px solid var(--warning);color:var(--warning);padding:6px 14px;border-radius:3px;cursor:pointer;font-family:inherit;font-size:12px;">
+            ⏸ Pausar Área
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Priorizar linha de serviço -->
+    <h2>Priorizar Linha de Serviço</h2>
+    <div class="card">
+      {% if gov.linhas_priorizadas %}
+      <div style="margin-bottom:10px;font-size:11px;color:var(--muted);">
+        Priorizadas: {% for l in gov.linhas_priorizadas %}<span class="badge badge-accent" style="margin-right:4px;">{{ l }}</span>{% endfor %}
+      </div>
+      {% endif %}
+      <form method="POST" action="/acao/governanca">
+        <input type="hidden" name="tipo_comando" value="priorizar_linha_servico">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <select name="alvo_id" required style="flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:3px;font-size:12px;font-family:inherit;">
+            <option value="">-- linha --</option>
+            {% for linha in linhas_servico %}
+            <option value="{{ linha }}">{{ linha }}</option>
+            {% endfor %}
+          </select>
+          <select name="valor" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:3px;font-size:12px;font-family:inherit;">
+            <option value="priorizada">priorizar</option>
+            <option value="remover">remover</option>
+          </select>
+          <input type="text" name="justificativa" placeholder="Justificativa"
+            style="flex:2;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:3px;font-size:12px;font-family:inherit;">
+          <button type="submit"
+            style="background:#0e2039;border:1px solid var(--accent);color:var(--accent);padding:6px 14px;border-radius:3px;cursor:pointer;font-family:inherit;font-size:12px;">
+            Aplicar
+          </button>
+        </div>
+      </form>
+    </div>
+
+  </div>
+
+  <!-- Coluna direita: Diretrizes + Histórico -->
+  <div class="col">
+
+    <!-- Registrar diretriz -->
+    <h2 id="diretrizes">Registrar Diretriz do Conselho</h2>
+    <div class="card">
+      <form method="POST" action="/acao/governanca">
+        <input type="hidden" name="tipo_comando" value="registrar_diretriz">
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <div style="display:flex;gap:8px;">
+            <select name="alvo_id" required style="flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:3px;font-size:12px;font-family:inherit;">
+              <option value="comercial">comercial</option>
+              <option value="entrega">entrega</option>
+              <option value="financeiro">financeiro</option>
+              <option value="prospeccao">prospeccao</option>
+              <option value="marketing">marketing</option>
+              <option value="estrategia">estrategia</option>
+              <option value="geral">geral</option>
+            </select>
+            <input type="text" name="valor" placeholder="Título da diretriz" required
+              style="flex:3;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:3px;font-size:12px;font-family:inherit;">
+          </div>
+          <textarea name="justificativa" placeholder="Descrição detalhada da diretriz" rows="3"
+            style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:8px 10px;border-radius:3px;font-size:12px;font-family:inherit;resize:vertical;"></textarea>
+          <button type="submit"
+            style="background:#1a3626;border:1px solid var(--success);color:var(--success);padding:6px 14px;border-radius:3px;cursor:pointer;font-family:inherit;font-size:12px;align-self:flex-end;">
+            ✦ Registrar Diretriz
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Diretrizes ativas -->
+    {% if gov.diretrizes_ativas %}
+    <h2>Diretrizes Ativas ({{ gov.diretrizes_ativas | length }})</h2>
+    {% for d in gov.diretrizes_ativas %}
+    <div class="card" style="margin-bottom:8px;padding:12px 14px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <div style="flex:1;">
+          <div style="font-size:12px;font-weight:bold;margin-bottom:3px;">{{ d.titulo }}</div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">{{ d.descricao[:100] }}</div>
+          <span class="badge badge-accent">{{ d.categoria }}</span>
+          <span class="badge badge-muted" style="margin-left:4px;">{{ d.prioridade }}</span>
+          <span class="text-muted" style="font-size:10px;margin-left:6px;">{{ d.criado_em[:10] }}</span>
+        </div>
+        <form method="POST" action="/acao/desativar_diretriz/{{ d.id }}" style="margin-left:10px;">
+          <button type="submit" onclick="return confirm('Desativar esta diretriz?')"
+            style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:3px 8px;border-radius:3px;cursor:pointer;font-size:10px;font-family:inherit;">
+            desativar
+          </button>
+        </form>
+      </div>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    <!-- Histórico de comandos -->
+    <h2>Histórico de Comandos</h2>
+    <div class="card">
+      {% if historico %}
+      {% for h in historico %}
+      <div class="feed-item">
+        <div class="feed-dot info"></div>
+        <div class="feed-content">
+          <div class="title">{{ h.evento }}</div>
+          <div class="desc">{{ h.descricao[:100] }}</div>
+          <div class="meta">{{ h.get('origem','?') }} · {{ h.registrado_em[:16].replace('T',' ') }}</div>
+        </div>
+      </div>
+      {% endfor %}
+      {% else %}
+      <div class="empty">Nenhum comando registrado ainda</div>
+      {% endif %}
+    </div>
+
+    <!-- Comandos recentes do conselho -->
+    {% if gov.comandos_recentes %}
+    <h2>Comandos Aplicados Recentes</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Tipo</th><th>Alvo</th><th>Valor</th><th>Justificativa</th><th>Criado em</th></tr></thead>
+        <tbody>
+          {% for c in gov.comandos_recentes %}
+          <tr>
+            <td><span class="badge badge-accent">{{ c.tipo_comando }}</span></td>
+            <td class="text-muted">{{ c.alvo_id[:30] }}</td>
+            <td>{{ c.valor[:30] }}</td>
+            <td class="text-muted">{{ c.justificativa[:50] }}</td>
+            <td class="text-muted">{{ c.criado_em[:16].replace('T',' ') }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+{% endblock %}

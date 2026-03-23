@@ -3,7 +3,11 @@
 {% block content %}
 <div class="page-header">
   <h1>Agentes</h1>
-  <p>Status de cada agente no último ciclo executado.</p>
+  <p>Status de cada agente no último ciclo executado.
+    {% if gov and gov.agentes_pausados %}
+      <span class="badge badge-warning" style="margin-left:8px;">{{ gov.agentes_pausados|length }} pausado(s) pelo conselho</span>
+    {% endif %}
+  </p>
 </div>
 
 <div class="table-wrap">
@@ -26,8 +30,13 @@
         <td><b>{{ ag.agente }}</b></td>
         <td><span class="badge badge-accent">{{ ag.area }}</span></td>
         <td>
-          {% if ag.status == 'ok' %}
+          {% set pausado = gov and ag.agente in gov.agentes_pausados %}
+          {% if pausado %}
+            <span class="badge badge-warning">pausado</span>
+          {% elif ag.status == 'ok' %}
             <span class="badge badge-success">ok</span>
+          {% elif ag.status == 'pausado' %}
+            <span class="badge badge-warning">pausado</span>
           {% elif ag.status == 'erro' %}
             <span class="badge badge-danger">erro</span>
           {% else %}

@@ -59,6 +59,14 @@ def executar_ciclo_empresa() -> dict:
     etapas = []
     erros  = []
 
+    # Carregar estado de governança antes do ciclo
+    governanca = _carregar_estado_governanca_seguro()
+    agentes_pausados = set(governanca.get("agentes_pausados", []))
+    areas_pausadas   = set(governanca.get("areas_pausadas", []))
+    modo_empresa     = governanca.get("modo_empresa", "normal")
+    if agentes_pausados or areas_pausadas or modo_empresa != "normal":
+        log.info(f"GOVERNANCA ATIVA: modo={modo_empresa} | pausados={agentes_pausados} | areas={areas_pausadas}")
+
     # ── Sequência do ciclo ────────────────────────────────────────────────────
     # Cada tupla: (nome_etapa, importador_fn, label_posicao)
     sequencia = [
@@ -78,6 +86,17 @@ def executar_ciclo_empresa() -> dict:
     ]
 
     for nome, importador, posicao in sequencia:
+        # Verificar pausa por governança do conselho
+        area = _AREA_DO_AGENTE.get(nome, "operacao")
+        if nome in agentes_pausados:
+            log.info(f"[{posicao}] {nome} PAUSADO (comando do conselho) — pulando")
+            etapas.append(_etapa_pausada(nome, posicao, "pausado_conselho"))
+            continue
+        if area in areas_pausadas:
+            log.info(f"[{posicao}] {nome} (area '{area}' pausada) — pulando")
+            etapas.append(_etapa_pausada(nome, posicao, f"area_{area}_pausada"))
+            continue
+
         log.info(f"[{posicao}] Iniciando {nome}...")
         etapa = executar_etapa_agente(nome, importador, log)
         etapas.append(etapa)
@@ -315,12 +334,15 @@ def _contar_followups_aguardando_integracao() -> int:
 # ─── Status e persistência ────────────────────────────────────────────────────
 
 def _calcular_status_geral(etapas: list) -> str:
-    n_erros = sum(1 for e in etapas if e["status"] == "erro")
+    executadas = [e for e in etapas if e["status"] != "pausado"]
+    n_erros = sum(1 for e in executadas if e["status"] == "erro")
+    n_pausados = sum(1 for e in etapas if e["status"] == "pausado")
+    base = len(executadas) if executadas else 1
     if n_erros == 0:
-        return "concluido"
-    if n_erros < len(etapas) // 2:
+        return "concluido_com_pausas" if n_pausados else "concluido"
+    if n_erros < base // 2:
         return "concluido_com_alertas"
-    if n_erros < len(etapas):
+    if n_erros < base:
         return "falha_parcial"
     return "falha_estrutural"
 
@@ -367,6 +389,44 @@ def _atualizar_estado_empresa(estado: dict, ciclo: dict) -> dict:
     }
     estado["ultimo_resumo"] = resumo
     return estado
+
+
+# ─── Governança ───────────────────────────────────────────────────────────────
+
+_AREA_DO_AGENTE = {
+    "agente_financeiro":              "financeiro",
+    "agente_prospeccao":              "prospeccao",
+    "agente_marketing":               "marketing",
+    "agente_comercial":               "comercial",
+    "agente_secretario":              "operacao",
+    "agente_executor_contato":        "comercial",
+    "integrador_canais":              "comercial",
+    "agente_operacao_entrega":        "entrega",
+    "gerador_insumos_desde_contato":  "entrega",
+    "avaliador_fechamento_comercial": "comercial",
+}
+
+
+def _carregar_estado_governanca_seguro() -> dict:
+    try:
+        from core.governanca_conselho import carregar_estado_governanca
+        return carregar_estado_governanca()
+    except Exception:
+        return {}
+
+
+def _etapa_pausada(nome: str, posicao: str, motivo: str) -> dict:
+    agora = datetime.now().isoformat(timespec="seconds")
+    return {
+        "nome_agente":   nome,
+        "iniciado_em":   agora,
+        "finalizado_em": agora,
+        "status":        "pausado",
+        "resumo":        {},
+        "erro":          None,
+        "duracao_ms":    0,
+        "motivo_pausa":  motivo,
+    }
 
 
 def _estado_empresa_inicial() -> dict:

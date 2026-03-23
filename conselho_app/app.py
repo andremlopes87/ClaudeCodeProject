@@ -19,8 +19,8 @@ _ROOT = Path(__file__).parent.parent
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
-from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi import FastAPI, Form, Request
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -76,6 +76,7 @@ def _feed():
 async def pagina_index(request: Request):
     painel   = _painel()
     metricas = _metricas()
+    from core.governanca_conselho import resumir_governanca_ativa
     return templates.TemplateResponse("index.html", {
         "request":        request,
         "page":           "index",
@@ -86,15 +87,18 @@ async def pagina_index(request: Request):
         "deliberacoes":   painel.get("deliberacoes", {}),
         "proximas_acoes": painel.get("proximas_acoes_relevantes", []),
         "metricas":       metricas,
+        "gov":            resumir_governanca_ativa(),
     })
 
 
 @app.get("/agentes", response_class=HTMLResponse)
 async def pagina_agentes(request: Request):
+    from core.governanca_conselho import resumir_governanca_ativa
     return templates.TemplateResponse("agentes.html", {
         "request": request,
         "page":    "agentes",
         "agentes": _agentes(),
+        "gov":     resumir_governanca_ativa(),
     })
 
 
@@ -277,3 +281,162 @@ async def api_status():
         "atualizado_em": painel.get("atualizado_em", "—"),
         "ok":            True,
     })
+
+
+# ─── Página de governança ─────────────────────────────────────────────────────
+
+@app.get("/governanca", response_class=HTMLResponse)
+async def pagina_governanca(request: Request):
+    from core.governanca_conselho import resumir_governanca_ativa
+    gov     = resumir_governanca_ativa()
+    historico = _ler("historico_comandos_conselho.json", [])
+    historico_recente = sorted(historico, key=lambda x: x.get("registrado_em",""), reverse=True)[:20]
+    return templates.TemplateResponse("governanca.html", {
+        "request":    request,
+        "page":       "governanca",
+        "gov":        gov,
+        "historico":  historico_recente,
+        "agentes_conhecidos": [
+            "agente_financeiro", "agente_prospeccao", "agente_marketing",
+            "agente_comercial", "agente_secretario", "agente_executor_contato",
+            "integrador_canais", "agente_operacao_entrega",
+            "gerador_insumos_desde_contato", "avaliador_fechamento_comercial",
+        ],
+        "areas_conhecidas": ["financeiro", "prospeccao", "marketing", "comercial", "entrega", "operacao"],
+        "modos_validos":    ["normal", "conservador", "foco_caixa", "foco_crescimento", "manutencao"],
+        "linhas_servico":   ["marketing_presenca_digital", "automacao_atendimento", "outras"],
+    })
+
+
+# ─── Ações de deliberação (form POST → redirect) ──────────────────────────────
+
+@app.post("/acao/deliberar/{delib_id}")
+async def acao_deliberar(
+    delib_id:     str,
+    acao:         str  = Form(...),
+    justificativa: str = Form(""),
+):
+    from core.governanca_conselho import registrar_comando_conselho
+    valor_map = {"aprovar": "aprovado", "rejeitar": "rejeitado", "adiar": "adiado"}
+    valor = valor_map.get(acao, acao)
+    registrar_comando_conselho(
+        tipo_comando="deliberacao",
+        alvo_tipo="deliberacao",
+        alvo_id=delib_id,
+        valor=valor,
+        justificativa=justificativa or f"Ação '{acao}' via painel do conselho",
+    )
+    _atualizar_observabilidade()
+    return RedirectResponse("/deliberacoes", status_code=303)
+
+
+# ─── Ações de governança (form POST → redirect) ───────────────────────────────
+
+@app.post("/acao/governanca")
+async def acao_governanca(
+    tipo_comando:  str = Form(...),
+    alvo_id:       str = Form(""),
+    valor:         str = Form(""),
+    justificativa: str = Form(""),
+):
+    from core.governanca_conselho import registrar_comando_conselho, registrar_diretriz_conselho
+    if tipo_comando == "registrar_diretriz":
+        # alvo_id=categoria, valor=titulo, justificativa=descricao
+        categoria  = alvo_id or "geral"
+        titulo     = valor or "Diretriz do conselho"
+        prioridade = "media"
+        registrar_diretriz_conselho(categoria, titulo, justificativa or titulo)
+    else:
+        registrar_comando_conselho(
+            tipo_comando=tipo_comando,
+            alvo_tipo=_inferir_alvo_tipo(tipo_comando),
+            alvo_id=alvo_id,
+            valor=valor,
+            justificativa=justificativa or f"Comando '{tipo_comando}' via painel",
+        )
+    _atualizar_observabilidade()
+    return RedirectResponse("/governanca", status_code=303)
+
+
+@app.post("/acao/desativar_diretriz/{dir_id}")
+async def acao_desativar_diretriz(dir_id: str):
+    from core.governanca_conselho import desativar_diretriz_conselho
+    desativar_diretriz_conselho(dir_id)
+    _atualizar_observabilidade()
+    return RedirectResponse("/governanca", status_code=303)
+
+
+# ─── API de governança (JSON) ─────────────────────────────────────────────────
+
+@app.post("/api/deliberacoes/{delib_id}/aprovar")
+async def api_aprovar(delib_id: str, request: Request):
+    body = await request.json() if request.headers.get("content-type","").startswith("application/json") else {}
+    return _api_deliberar(delib_id, "aprovado", body.get("justificativa",""))
+
+
+@app.post("/api/deliberacoes/{delib_id}/rejeitar")
+async def api_rejeitar(delib_id: str, request: Request):
+    body = await request.json() if request.headers.get("content-type","").startswith("application/json") else {}
+    return _api_deliberar(delib_id, "rejeitado", body.get("justificativa",""))
+
+
+@app.post("/api/deliberacoes/{delib_id}/adiar")
+async def api_adiar(delib_id: str, request: Request):
+    body = await request.json() if request.headers.get("content-type","").startswith("application/json") else {}
+    return _api_deliberar(delib_id, "adiado", body.get("justificativa",""))
+
+
+def _api_deliberar(delib_id: str, valor: str, justificativa: str):
+    from core.governanca_conselho import registrar_comando_conselho
+    cmd = registrar_comando_conselho("deliberacao", "deliberacao", delib_id, valor, justificativa)
+    _atualizar_observabilidade()
+    return JSONResponse({"status": cmd["status"], "comando_id": cmd["id"], "mensagem": cmd["observacoes"]})
+
+
+@app.post("/api/governanca/comando")
+async def api_governanca_comando(request: Request):
+    try:
+        body = await request.json()
+        from core.governanca_conselho import registrar_comando_conselho
+        cmd = registrar_comando_conselho(
+            tipo_comando=body["tipo_comando"],
+            alvo_tipo=body.get("alvo_tipo", _inferir_alvo_tipo(body["tipo_comando"])),
+            alvo_id=body.get("alvo_id",""),
+            valor=body.get("valor",""),
+            justificativa=body.get("justificativa",""),
+            origem=body.get("origem","api"),
+        )
+        _atualizar_observabilidade()
+        return JSONResponse({"status": cmd["status"], "comando_id": cmd["id"]})
+    except Exception as exc:
+        return JSONResponse({"status": "erro", "mensagem": str(exc)}, status_code=400)
+
+
+@app.get("/api/governanca/resumo")
+async def api_governanca_resumo():
+    from core.governanca_conselho import resumir_governanca_ativa
+    return JSONResponse(resumir_governanca_ativa())
+
+
+# ─── Auxiliares internos app ──────────────────────────────────────────────────
+
+def _inferir_alvo_tipo(tipo_comando: str) -> str:
+    if "agente" in tipo_comando:
+        return "agente"
+    if "area" in tipo_comando:
+        return "area"
+    if "modo" in tipo_comando:
+        return "empresa"
+    if "linha" in tipo_comando or "prioridade" in tipo_comando:
+        return "linha_servico"
+    if "threshold" in tipo_comando:
+        return "threshold"
+    return "empresa"
+
+
+def _atualizar_observabilidade():
+    try:
+        from core.observabilidade_empresa import executar_observabilidade
+        executar_observabilidade()
+    except Exception:
+        pass
