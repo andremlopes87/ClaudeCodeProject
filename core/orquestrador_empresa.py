@@ -62,15 +62,17 @@ def executar_ciclo_empresa() -> dict:
     # ── Sequência do ciclo ────────────────────────────────────────────────────
     # Cada tupla: (nome_etapa, importador_fn, label_posicao)
     sequencia = [
-        ("agente_financeiro",        _importar_financeiro,    "1/9"),
-        ("agente_prospeccao",        _importar_prospeccao,    "2/9"),
-        ("agente_marketing",         _importar_marketing,     "3/9"),
-        ("agente_comercial",         _importar_comercial,     "4/9"),
-        ("agente_secretario",        _importar_secretario,    "5/9"),
-        ("agente_executor_contato",  _importar_executor,      "6/9"),
-        ("integrador_canais",        _importar_integrador,    "7/9"),
-        ("agente_comercial",         _importar_comercial,     "8/9"),
-        ("agente_secretario",        _importar_secretario,    "9/9"),
+        ("agente_financeiro",        _importar_financeiro,    "1/11"),
+        ("agente_prospeccao",        _importar_prospeccao,    "2/11"),
+        ("agente_marketing",         _importar_marketing,     "3/11"),
+        ("agente_comercial",         _importar_comercial,     "4/11"),
+        ("agente_operacao_entrega",  _importar_entrega,       "5/11"),
+        ("agente_secretario",        _importar_secretario,    "6/11"),
+        ("agente_executor_contato",  _importar_executor,      "7/11"),
+        ("integrador_canais",        _importar_integrador,    "8/11"),
+        ("agente_comercial",         _importar_comercial,     "9/11"),
+        ("agente_operacao_entrega",  _importar_entrega,       "10/11"),
+        ("agente_secretario",        _importar_secretario,    "11/11"),
     ]
 
     for nome, importador, posicao in sequencia:
@@ -185,6 +187,7 @@ def montar_resumo_final_ciclo(etapas: list) -> dict:
     prs  = por_agente.get("agente_prospeccao", {})
     mkt  = por_agente.get("agente_marketing", {})
     com  = por_agente.get("agente_comercial", {})
+    ent  = por_agente.get("agente_operacao_entrega", {})
     exe  = por_agente.get("agente_executor_contato", {})
     intg = por_agente.get("integrador_canais", {})
 
@@ -201,6 +204,8 @@ def montar_resumo_final_ciclo(etapas: list) -> dict:
         "mkt_importadas":                  mkt.get("importadas", 0),
         "oportunidades_novas_no_ciclo":    com.get("oportunidades_novas", 0),
         "resultados_aplicados":            com.get("resultados_aplicados", 0),
+        "entregas_abertas":                ent.get("abertas", 0),
+        "entregas_pipeline_total":         ent.get("pipeline_entrega", 0),
         "execucoes_preparadas":            exe.get("preparados", 0),
         "resultados_gerados_integrador":   intg.get("resultados_gerados", 0),
         "erros_no_ciclo":                  sum(1 for e in etapas if e["status"] == "erro"),
@@ -250,6 +255,10 @@ def _importar_prospeccao():
 
 def _importar_marketing():
     from agentes.marketing.agente_marketing import executar
+    return executar
+
+def _importar_entrega():
+    from agentes.operacao_entrega.agente_operacao_entrega import executar
     return executar
 
 
