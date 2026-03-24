@@ -117,6 +117,31 @@
 </div>
 {% endif %}
 
+{% if propostas_resumo and propostas_resumo.total > 0 %}
+<div class="card" style="margin-bottom:16px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;">
+  <div>
+    <div class="label" style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Propostas Comerciais</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+      {% if propostas_resumo.rascunho + propostas_resumo.pronta_para_revisao > 0 %}
+        <span class="badge badge-muted">{{ propostas_resumo.rascunho + propostas_resumo.pronta_para_revisao }} em revisão</span>
+      {% endif %}
+      {% if propostas_resumo.aguardando_conselho > 0 %}
+        <span class="badge badge-warn">{{ propostas_resumo.aguardando_conselho }} aguard. conselho</span>
+      {% endif %}
+      {% if propostas_resumo.aprovadas > 0 %}
+        <span class="badge badge-ok">{{ propostas_resumo.aprovadas }} aprovadas</span>
+      {% endif %}
+      {% if propostas_resumo.aceitas > 0 %}
+        <span class="badge badge-success">{{ propostas_resumo.aceitas }} aceitas</span>
+      {% endif %}
+    </div>
+  </div>
+  <div style="margin-left:auto;">
+    <a href="/propostas" class="badge badge-muted" style="text-decoration:none;padding:5px 10px;">→ Ver propostas</a>
+  </div>
+</div>
+{% endif %}
+
 {% if ofertas_resumo and ofertas_resumo.total_ofertas %}
 <div class="card" style="margin-bottom:16px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;">
   <div>

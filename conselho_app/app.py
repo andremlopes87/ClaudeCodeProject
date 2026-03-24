@@ -96,6 +96,12 @@ async def pagina_index(request: Request):
         ofertas_resumo = _resumir_ofertas()
     except Exception:
         ofertas_resumo = {}
+    # Resumo de propostas para card da homepage
+    try:
+        from core.propostas_empresa import resumir_para_painel as _resumir_propostas
+        propostas_resumo = _resumir_propostas()
+    except Exception:
+        propostas_resumo = {}
     return templates.TemplateResponse("index.html", {
         "request":        request,
         "page":           "index",
@@ -108,8 +114,9 @@ async def pagina_index(request: Request):
         "metricas":       metricas,
         "gov":            resumir_governanca_ativa(),
         "saude":          saude,
-        "prov_email":     prov_resumo,
-        "ofertas_resumo": ofertas_resumo,
+        "prov_email":       prov_resumo,
+        "ofertas_resumo":   ofertas_resumo,
+        "propostas_resumo": propostas_resumo,
     })
 
 
@@ -460,6 +467,49 @@ async def salvar_identidade(
             "institucional": obter_assinatura("institucional"),
         },
     })
+
+
+@app.get("/propostas", response_class=HTMLResponse)
+async def pagina_propostas(request: Request):
+    from core.propostas_empresa import resumir_para_painel
+    return templates.TemplateResponse("propostas.html", {
+        "request": request,
+        "page":    "propostas",
+        "resumo":  resumir_para_painel(),
+    })
+
+
+@app.post("/propostas/{proposta_id}/aprovar", response_class=RedirectResponse)
+async def aprovar_proposta_action(proposta_id: str):
+    from core.propostas_empresa import aprovar_proposta
+    aprovar_proposta(proposta_id, origem="conselho_painel")
+    return RedirectResponse("/propostas", status_code=303)
+
+
+@app.post("/propostas/{proposta_id}/rejeitar", response_class=RedirectResponse)
+async def rejeitar_proposta_action(proposta_id: str):
+    from core.propostas_empresa import rejeitar_proposta
+    rejeitar_proposta(proposta_id, motivo="Rejeitada pelo conselho via painel", origem="conselho_painel")
+    return RedirectResponse("/propostas", status_code=303)
+
+
+@app.post("/propostas/{proposta_id}/arquivar", response_class=RedirectResponse)
+async def arquivar_proposta_action(proposta_id: str):
+    from core.propostas_empresa import arquivar_proposta
+    arquivar_proposta(proposta_id, origem="conselho_painel")
+    return RedirectResponse("/propostas", status_code=303)
+
+
+@app.post("/propostas/{proposta_id}/aceite", response_class=RedirectResponse)
+async def aceite_proposta_action(proposta_id: str):
+    from core.propostas_empresa import registrar_aceite_proposta
+    registrar_aceite_proposta(
+        proposta_id,
+        tipo_aceite="aceite_manual_conselho",
+        descricao="Aceite registrado manualmente pelo conselho via painel",
+        origem="conselho_painel",
+    )
+    return RedirectResponse("/propostas", status_code=303)
 
 
 @app.get("/ofertas", response_class=HTMLResponse)

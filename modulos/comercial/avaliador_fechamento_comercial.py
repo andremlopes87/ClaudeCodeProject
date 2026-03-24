@@ -194,6 +194,22 @@ def avaliar_sinais_de_fechamento(opp: dict, resultados_opp: list, insumos_opp: l
         score += 1
         sinais.append("objetivo_confirmado")
 
+    # Sinais de proposta formal (melhor esforço — não bloqueia se módulo ausente)
+    try:
+        from core.propostas_empresa import sinais_proposta_para_opp
+        sinais_prop = sinais_proposta_para_opp(opp.get("id", ""))
+        if "proposta_aceita" in sinais_prop:
+            score += 4
+            sinais.append("proposta_aceita")
+        elif "proposta_aprovada" in sinais_prop:
+            score += 3
+            sinais.append("proposta_aprovada")
+        elif "proposta_gerada" in sinais_prop:
+            score += 2
+            sinais.append("proposta_gerada")
+    except Exception:
+        pass
+
     return score, sinais
 
 

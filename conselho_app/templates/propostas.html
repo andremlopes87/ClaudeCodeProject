@@ -1,0 +1,237 @@
+{% extends "base.html" %}
+{% block title %}Propostas Comerciais — Painel do Conselho{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1>✦ Propostas Comerciais</h1>
+  <div class="subtitle">Camada formal de propostas — cada oportunidade mapeada tem uma proposta oficial.</div>
+</div>
+
+<!-- ═══ KPIs ══════════════════════════════════════════════════════════════════ -->
+<div class="kpi-grid" style="margin-bottom:20px;">
+  <div class="kpi">
+    <div class="label">Total</div>
+    <div class="value">{{ resumo.total }}</div>
+    <div class="sub">propostas</div>
+  </div>
+  <div class="kpi {% if resumo.rascunho > 0 %}warning{% endif %}">
+    <div class="label">Rascunho</div>
+    <div class="value">{{ resumo.rascunho }}</div>
+    <div class="sub">+ {{ resumo.pronta_para_revisao }} p/ revisão</div>
+  </div>
+  <div class="kpi {% if resumo.aguardando_conselho > 0 %}danger{% endif %}">
+    <div class="label">Aguard. Conselho</div>
+    <div class="value">{{ resumo.aguardando_conselho }}</div>
+    <div class="sub">requerem deliberação</div>
+  </div>
+  <div class="kpi {% if resumo.aprovadas > 0 %}warning{% endif %}">
+    <div class="label">Aprovadas</div>
+    <div class="value">{{ resumo.aprovadas }}</div>
+    <div class="sub">para envio</div>
+  </div>
+  <div class="kpi {% if resumo.aceitas > 0 %}success{% endif %}">
+    <div class="label">Aceitas</div>
+    <div class="value">{{ resumo.aceitas }}</div>
+    <div class="sub">pelo cliente</div>
+  </div>
+</div>
+
+<!-- ═══ ALERTAS ═══════════════════════════════════════════════════════════════ -->
+{% if resumo.aguardando_conselho > 0 %}
+<div class="notice-box notice-warn" style="margin-bottom:16px;">
+  <strong>{{ resumo.aguardando_conselho }} proposta(s) aguardando deliberação do conselho.</strong>
+  Revise abaixo e aprove, rejeite ou arquive conforme necessário.
+</div>
+{% endif %}
+
+<!-- ═══ LISTA DE PROPOSTAS ════════════════════════════════════════════════════ -->
+{% set status_cores = {
+  'rascunho': 'badge-muted',
+  'pronta_para_revisao': 'badge-info',
+  'aguardando_conselho': 'badge-warn',
+  'aprovada_para_envio': 'badge-ok',
+  'enviada': 'badge-ok',
+  'aceita': 'badge-success',
+  'rejeitada': 'badge-danger',
+  'arquivada': 'badge-muted',
+} %}
+
+{% if resumo.lista %}
+<section class="section">
+  <h2>Todas as Propostas ({{ resumo.lista | length }})</h2>
+
+  <!-- Filtros simples por status -->
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+    <a href="#todas" onclick="filtrarStatus('todas')" class="badge badge-muted" style="cursor:pointer;padding:4px 10px;">Todas</a>
+    <a href="#aguardando" onclick="filtrarStatus('aguardando_conselho')" class="badge badge-warn" style="cursor:pointer;padding:4px 10px;">Aguardando Conselho</a>
+    <a href="#aprovadas" onclick="filtrarStatus('aprovada_para_envio')" class="badge badge-ok" style="cursor:pointer;padding:4px 10px;">Aprovadas</a>
+    <a href="#aceitas" onclick="filtrarStatus('aceita')" class="badge badge-success" style="cursor:pointer;padding:4px 10px;">Aceitas</a>
+    <a href="#rascunho" onclick="filtrarStatus('rascunho')" class="badge badge-muted" style="cursor:pointer;padding:4px 10px;">Rascunho</a>
+  </div>
+
+  {% for prop in resumo.lista | sort(attribute='gerada_em', reverse=True) %}
+  <div class="card proposta-card" data-status="{{ prop.status }}" style="margin-bottom:12px;">
+    <!-- Cabeçalho da proposta -->
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+      <div>
+        <div style="font-size:11px;color:var(--muted);font-family:monospace;margin-bottom:2px;">{{ prop.id }}</div>
+        <div style="font-size:16px;font-weight:700;">{{ prop.contraparte }}</div>
+        <div style="font-size:11px;color:var(--muted);">{{ prop.cidade or '' }}{% if prop.categoria %} · {{ prop.categoria }}{% endif %}</div>
+      </div>
+      <div style="text-align:right;">
+        <span class="badge {{ status_cores.get(prop.status, 'badge-muted') }}" style="font-size:12px;padding:4px 12px;">{{ prop.status }}</span>
+        {% if prop.requer_deliberacao %}
+        <div style="margin-top:4px;"><span class="badge badge-warn" style="font-size:10px;">⚠ requer deliberação</span></div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Detalhes da proposta -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;margin-bottom:10px;">
+      <div>
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Oferta</div>
+        <div style="font-size:12px;">{{ prop.oferta_nome or prop.oferta_id or '—' }}</div>
+        <div style="font-size:10px;color:var(--muted);">Pacote: {{ prop.pacote_nome or prop.pacote_id or '—' }}</div>
+      </div>
+      <div>
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Valor</div>
+        <div style="font-size:16px;font-weight:700;color:var(--success);">
+          {% if prop.proposta_valor %}R${{ "%.0f"|format(prop.proposta_valor) }}{% else %}—{% endif %}
+        </div>
+        <div style="font-size:10px;color:var(--muted);">{{ prop.prazo_referencia or '—' }} dias</div>
+      </div>
+      <div>
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Linha</div>
+        <div style="font-size:11px;">{{ prop.linha_servico or '—' }}</div>
+        <div style="font-size:10px;color:var(--muted);">{{ prop.origem_oportunidade or '—' }}</div>
+      </div>
+      <div>
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Gerada em</div>
+        <div style="font-size:11px;">{{ prop.gerada_em[:16].replace('T',' ') if prop.gerada_em else '—' }}</div>
+        {% if prop.aprovada_em %}
+        <div style="font-size:10px;color:var(--success);">Aprovada: {{ prop.aprovada_em[:10] }}</div>
+        {% endif %}
+        {% if prop.aceita_em %}
+        <div style="font-size:10px;color:var(--success);font-weight:700;">Aceita: {{ prop.aceita_em[:10] }}</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Preview expansível -->
+    <details>
+      <summary style="font-size:11px;color:var(--muted);cursor:pointer;margin-bottom:6px;">▸ ver proposta completa</summary>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px;">
+        <div>
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Resumo do Problema</div>
+          <div style="font-size:11px;background:var(--bg);padding:8px;border-radius:4px;">{{ prop.resumo_problema or '—' }}</div>
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Escopo</div>
+          <div style="font-size:11px;background:var(--bg);padding:8px;border-radius:4px;">{{ prop.escopo or '—' }}</div>
+        </div>
+      </div>
+      {% if prop.entregaveis %}
+      <div style="margin-top:8px;">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Entregáveis</div>
+        <ul style="margin:0;padding-left:16px;font-size:11px;">
+          {% for e in prop.entregaveis %}<li>{{ e }}</li>{% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+      {% if prop.premissas %}
+      <div style="margin-top:8px;">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Premissas</div>
+        <ul style="margin:0;padding-left:16px;font-size:11px;color:var(--muted);">
+          {% for p in prop.premissas %}<li>{{ p }}</li>{% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+      {% if prop.fora_do_escopo %}
+      <div style="margin-top:8px;">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Fora do Escopo</div>
+        <ul style="margin:0;padding-left:16px;font-size:11px;color:var(--muted);">
+          {% for f in prop.fora_do_escopo %}<li>{{ f }}</li>{% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+      {% if prop.motivo_deliberacao %}
+      <div style="margin-top:8px;padding:6px 10px;background:var(--bg);border-left:3px solid var(--warning);font-size:11px;">
+        <strong>Motivo da deliberação:</strong> {{ prop.motivo_deliberacao }}
+      </div>
+      {% endif %}
+    </details>
+
+    <!-- Ações -->
+    {% if prop.status not in ['aceita', 'rejeitada', 'arquivada'] %}
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;padding-top:8px;border-top:1px solid var(--border);">
+      {% if prop.status in ['pronta_para_revisao', 'aguardando_conselho', 'rascunho'] %}
+      <form method="post" action="/propostas/{{ prop.id }}/aprovar" style="display:inline;">
+        <button type="submit" class="badge badge-ok" style="border:none;cursor:pointer;padding:5px 12px;">✓ Aprovar</button>
+      </form>
+      {% endif %}
+      {% if prop.status in ['aprovada_para_envio', 'enviada', 'pronta_para_revisao', 'aguardando_conselho'] %}
+      <form method="post" action="/propostas/{{ prop.id }}/aceite" style="display:inline;">
+        <button type="submit" class="badge badge-success" style="border:none;cursor:pointer;padding:5px 12px;">★ Registrar Aceite</button>
+      </form>
+      {% endif %}
+      <form method="post" action="/propostas/{{ prop.id }}/rejeitar" style="display:inline;">
+        <button type="submit" class="badge badge-danger" style="border:none;cursor:pointer;padding:5px 12px;">✗ Rejeitar</button>
+      </form>
+      <form method="post" action="/propostas/{{ prop.id }}/arquivar" style="display:inline;">
+        <button type="submit" class="badge badge-muted" style="border:none;cursor:pointer;padding:5px 12px;">⊘ Arquivar</button>
+      </form>
+    </div>
+    {% endif %}
+
+  </div>
+  {% else %}
+  <div class="card empty" style="text-align:center;padding:24px;">
+    Nenhuma proposta gerada ainda.<br>
+    <span style="font-size:11px;color:var(--muted);">Propostas são geradas automaticamente quando oportunidades têm oferta definida.</span>
+  </div>
+  {% endfor %}
+</section>
+{% else %}
+<div class="card empty" style="text-align:center;padding:32px;">
+  Nenhuma proposta gerada ainda.<br>
+  <span style="font-size:11px;color:var(--muted);">Rode um ciclo completo para que o agente comercial gere propostas para as oportunidades qualificadas.</span>
+</div>
+{% endif %}
+
+<!-- ═══ HISTÓRICO RECENTE ═══════════════════════════════════════════════════ -->
+{% if resumo.historico_recente %}
+<section class="section">
+  <h2>Histórico Recente</h2>
+  <table class="data-table">
+    <thead><tr><th>Proposta</th><th>Evento</th><th>Descrição</th><th>Origem</th><th>Registrado em</th></tr></thead>
+    <tbody>
+      {% for ev in resumo.historico_recente | reverse %}
+      <tr>
+        <td><code style="font-size:10px;">{{ ev.proposta_id }}</code></td>
+        <td><code style="font-size:10px;">{{ ev.evento }}</code></td>
+        <td style="font-size:11px;">{{ ev.descricao[:70] if ev.descricao else '—' }}{% if ev.descricao and ev.descricao|length > 70 %}…{% endif %}</td>
+        <td class="text-muted" style="font-size:11px;">{{ ev.origem or '—' }}</td>
+        <td class="text-muted" style="font-size:11px;">{{ ev.registrado_em or '—' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function filtrarStatus(status) {
+  const cards = document.querySelectorAll('.proposta-card');
+  cards.forEach(c => {
+    if (status === 'todas' || c.dataset.status === status) {
+      c.style.display = '';
+    } else {
+      c.style.display = 'none';
+    }
+  });
+}
+</script>
+{% endblock %}

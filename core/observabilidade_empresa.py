@@ -361,10 +361,28 @@ def gerar_metricas_empresa() -> dict:
         "etapas_ciclo_atual":               len(etapas_ciclo),
         "erros_ciclo_atual":                erros_ciclo,
         "atualizado_em":                    datetime.now().isoformat(timespec="seconds"),
+        # Métricas de propostas (melhor esforço)
+        **_metricas_propostas(),
     }
 
 
 # ─── Metricas por agente ──────────────────────────────────────────────────────
+
+def _metricas_propostas() -> dict:
+    """Contagens de propostas por status para métricas da empresa."""
+    try:
+        from core.propostas_empresa import resumir_para_painel as _rp
+        r = _rp()
+        return {
+            "propostas_total":             r["total"],
+            "propostas_rascunho":          r["rascunho"] + r["pronta_para_revisao"],
+            "propostas_aguardando_conselho": r["aguardando_conselho"],
+            "propostas_aprovadas":         r["aprovadas"],
+            "propostas_aceitas":           r["aceitas"],
+        }
+    except Exception:
+        return {}
+
 
 def gerar_metricas_agentes() -> list:
     ciclo   = _ler("ciclo_operacional.json", {})

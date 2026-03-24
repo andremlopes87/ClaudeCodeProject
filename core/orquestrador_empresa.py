@@ -381,6 +381,8 @@ def montar_resumo_final_ciclo(etapas: list) -> dict:
         "promovidos_ganho":                aval.get("promovidos_ganho", 0),
         "promovidos_pronto_para_entrega":  aval.get("promovidos_pronto", 0),
         "escalados_fechamento":            aval.get("escalados", 0),
+        "propostas_geradas_no_ciclo":      com.get("propostas_geradas", 0),
+        "propostas_aguardando_conselho":   _contar_propostas_aguardando_conselho(),
         "erros_no_ciclo":                  sum(1 for e in etapas if e["status"] == "erro"),
     }
 
@@ -463,6 +465,17 @@ def _contar_deliberacoes_pendentes() -> int:
         return 0
     with open(arq, "r", encoding="utf-8") as f:
         return sum(1 for d in json.load(f) if d.get("status") in ("pendente", "em_analise"))
+
+
+def _contar_propostas_aguardando_conselho() -> int:
+    arq = config.PASTA_DADOS / "propostas_comerciais.json"
+    if not arq.exists():
+        return 0
+    try:
+        with open(arq, "r", encoding="utf-8") as f:
+            return sum(1 for p in json.load(f) if p.get("status") == "aguardando_conselho")
+    except Exception:
+        return 0
 
 
 def _contar_followups_aguardando_integracao() -> int:

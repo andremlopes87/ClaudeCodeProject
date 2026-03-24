@@ -102,12 +102,34 @@ def executar() -> dict:
         # Checklist: criar se ainda nao existe para esta entrega
         sem_checklist = not any(c.get("entrega_id") == entrega["id"] for c in checklists)
         if sem_checklist:
+            # Preferir proposta aprovada/aceita como origem do escopo
+            _prop_aprovada = None
+            try:
+                from core.propostas_empresa import buscar_proposta_aprovada_ou_aceita
+                _prop_aprovada = buscar_proposta_aprovada_ou_aceita(opp.get("id", ""))
+            except Exception:
+                pass
+
+            if _prop_aprovada:
+                entrega["proposta_id"]     = _prop_aprovada["id"]
+                entrega["proposta_status"] = _prop_aprovada["status"]
+                entrega["origem_escopo"]   = "proposta_aprovada"
+                _oferta_id = _prop_aprovada.get("oferta_id", "") or opp.get("oferta_id", "")
+                _pacote_id = _prop_aprovada.get("pacote_id", "") or opp.get("pacote_id", "")
+            else:
+                entrega["origem_escopo"] = "oferta_catalogo"
+                _oferta_id = opp.get("oferta_id", "")
+                _pacote_id = opp.get("pacote_id", "")
+
             checklist = criar_checklist_inicial_por_linha_servico(
                 entrega["id"],
                 opp.get("linha_servico_sugerida", ""),
-                oferta_id=opp.get("oferta_id", ""),
-                pacote_id=opp.get("pacote_id", ""),
+                oferta_id=_oferta_id,
+                pacote_id=_pacote_id,
             )
+            if _prop_aprovada:
+                checklist["proposta_id"]   = _prop_aprovada["id"]
+                checklist["origem_escopo"] = "proposta_aprovada"
             checklists.append(checklist)
             entrega["checklist_id"] = checklist["id"]
             n_checklists += 1

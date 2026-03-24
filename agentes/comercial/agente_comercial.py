@@ -281,6 +281,36 @@ def executar() -> dict:
         if urgentes:
             atualizar_agenda(urgentes)
 
+    # ── ETAPA 8b: Gerar propostas formais para oportunidades qualificadas ──
+    n_propostas_geradas = 0
+    try:
+        from core.propostas_empresa import (
+            gerar_proposta_comercial, vincular_proposta_ao_pipeline
+        )
+        for opp in pipeline:
+            if opp.get("estagio") in {"ganho", "perdido", "encerrado"}:
+                continue
+            if opp.get("proposta_id"):
+                continue  # já vinculada
+            if not opp.get("oferta_id"):
+                continue  # sem oferta — não gerar ainda
+            proposta = gerar_proposta_comercial(opp, origem="agente_comercial")
+            if proposta:
+                vincular_proposta_ao_pipeline(opp, proposta)
+                n_propostas_geradas += 1
+                novos_eventos.append(criar_evento_historico(
+                    opp["id"], opp["contraparte"],
+                    "proposta_gerada",
+                    f"Proposta {proposta['id']} gerada | status={proposta['status']} | "
+                    f"valor=R${proposta.get('proposta_valor')} | oferta={proposta['oferta_id']}",
+                ))
+                log.info(f"  [proposta] {proposta['id']} para {opp['contraparte']} status={proposta['status']}")
+    except Exception as _exc_prop:
+        log.warning(f"  [propostas] geração parcial falhou: {_exc_prop}")
+
+    if n_propostas_geradas:
+        log.info(f"  [propostas] {n_propostas_geradas} propostas geradas neste ciclo")
+
     # ── ETAPA 9: Persistir arquivos ────────────────────────────────────────
     salvar_pipeline(pipeline)
     salvar_followups(followups)
@@ -316,6 +346,7 @@ def executar() -> dict:
         "enriquecidas_marketing": n_enriquecidas,
         "casos_revisao":         len(revisoes),
         "escalados_conselho":    len(itens_para_consolidada),
+        "propostas_geradas":     n_propostas_geradas,
         "aprovados_nesta_exec":  aprovados_agora,
         "resultados_aplicados":  res_stats["aplicados"],
         "followups_de_resultado": res_stats["novos_followups"],
