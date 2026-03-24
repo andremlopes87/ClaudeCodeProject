@@ -1,0 +1,222 @@
+{% extends "base.html" %}
+{% block title %}Contratos — Painel do Conselho{% endblock %}
+{% block content %}
+
+{% if modo == 'detalhe' %}
+{# ── MODO DETALHE ──────────────────────────────────────────────────────────── #}
+<div class="page-header" style="display:flex;align-items:center;gap:12px;">
+  <a href="/contratos" class="badge badge-muted" style="text-decoration:none;">← lista</a>
+  <h1>Contrato {{ contrato.id }}</h1>
+  <span class="badge {% if contrato.status == 'ativo' %}badge-success{% elif contrato.status == 'cancelado' %}badge-danger{% elif contrato.status == 'pausado' %}badge-warning{% else %}badge-muted{% endif %}">{{ contrato.status }}</span>
+</div>
+
+<div class="row">
+  <div class="col">
+
+    <!-- Dados do contrato -->
+    <div class="card" style="margin-bottom:16px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:12px;">
+        <div><span class="text-muted">Contraparte:</span><br><strong>{{ contrato.contraparte }}</strong></div>
+        <div><span class="text-muted">Oferta:</span><br>{{ contrato.oferta_nome or contrato.oferta_id or '—' }}</div>
+        <div><span class="text-muted">Linha de serviço:</span><br>{{ contrato.linha_servico or '—' }}</div>
+        <div><span class="text-muted">Modelo:</span><br><span class="badge badge-accent" style="font-size:10px;">{{ contrato.modelo_cobranca }}</span></div>
+        <div><span class="text-muted">Valor total:</span><br><strong style="color:var(--success);">R$ {{ "%.2f"|format(contrato.valor_total) }}</strong></div>
+        <div><span class="text-muted">Parcelas:</span><br>{{ contrato.numero_parcelas }}x {{ contrato.periodicidade }}</div>
+        <div><span class="text-muted">Início:</span><br>{{ contrato.data_inicio }}</div>
+        <div><span class="text-muted">Primeiro vencimento:</span><br>{{ contrato.data_primeiro_vencimento }}</div>
+        <div><span class="text-muted">Proposta:</span><br>{{ contrato.proposta_id[:16] if contrato.proposta_id else '—' }}</div>
+        <div><span class="text-muted">Gerado em:</span><br>{{ (contrato.gerado_em or '')[:10] }}</div>
+      </div>
+      {% if contrato.escopo_resumido %}
+      <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-size:11px;color:var(--muted);">
+        {{ contrato.escopo_resumido }}
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Plano de faturamento -->
+    {% if plano %}
+    <h2>Plano de Faturamento</h2>
+    <div class="card" style="margin-bottom:16px;">
+      <div style="display:flex;gap:12px;align-items:center;margin-bottom:10px;font-size:12px;">
+        <span class="badge {% if plano.status == 'totalmente_gerado' %}badge-success{% elif plano.status == 'em_recebimento' %}badge-ok{% elif plano.status == 'concluido' %}badge-success{% else %}badge-muted{% endif %}">{{ plano.status }}</span>
+        <span class="text-muted">{{ plano.tipo_plano }}</span>
+        <span style="font-weight:bold;">R$ {{ "%.2f"|format(plano.valor_total) }}</span>
+        <span class="text-muted" style="font-size:10px;">{{ plano.parcelas|length }} parcela(s)</span>
+      </div>
+      <table>
+        <thead><tr><th>#</th><th>Descrição</th><th>Valor</th><th>Vencimento</th><th>Status</th><th>Recebível</th></tr></thead>
+        <tbody>
+          {% for parc in plano.parcelas %}
+          <tr>
+            <td class="text-muted" style="font-size:10px;">{{ parc.numero }}</td>
+            <td style="font-size:11px;">{{ parc.descricao[:50] }}</td>
+            <td style="font-weight:bold;">R$ {{ "%.2f"|format(parc.valor) }}</td>
+            <td style="font-size:11px;">{{ parc.vencimento }}</td>
+            <td>
+              <span class="badge {% if parc.status == 'recebida' %}badge-success{% elif parc.status == 'gerada_no_financeiro' %}badge-ok{% elif parc.status == 'vencida' %}badge-danger{% else %}badge-muted{% endif %}" style="font-size:10px;">{{ parc.status }}</span>
+            </td>
+            <td class="text-muted" style="font-size:10px;">{{ parc.conta_receber_id[:12] if parc.conta_receber_id else '—' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="card" style="margin-bottom:16px;">
+      <span class="badge badge-warning">Sem plano de faturamento gerado</span>
+      <span class="text-muted" style="font-size:11px;margin-left:8px;">Será criado no próximo ciclo do agente_financeiro</span>
+    </div>
+    {% endif %}
+
+  </div>
+
+  <div class="col">
+
+    <!-- Recebíveis -->
+    {% if recebiveis %}
+    <h2>Contas a Receber ({{ recebiveis|length }})</h2>
+    <div class="card" style="margin-bottom:16px;">
+      {% for r in recebiveis %}
+      <div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;display:flex;align-items:center;gap:8px;">
+        <span class="badge {% if r.status == 'recebida' %}badge-success{% elif r.status == 'vencida' %}badge-danger{% elif r.status == 'parcial' %}badge-warning{% else %}badge-muted{% endif %}" style="font-size:10px;">{{ r.status }}</span>
+        <span style="flex:1;">R$ {{ "%.2f"|format(r.valor_total) }}</span>
+        <span class="text-muted" style="font-size:10px;">venc. {{ r.data_vencimento }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Histórico -->
+    {% if historico %}
+    <h2>Histórico</h2>
+    <div class="card">
+      {% for h in historico %}
+      <div style="padding:5px 0;border-bottom:1px solid var(--border);font-size:11px;">
+        <div style="display:flex;gap:6px;align-items:center;">
+          <span class="badge badge-muted" style="font-size:9px;">{{ h.evento }}</span>
+          <span class="text-muted" style="font-size:10px;">{{ (h.registrado_em or '')[:16] }}</span>
+        </div>
+        <div class="text-muted" style="font-size:10px;margin-top:2px;">{{ h.descricao[:90] }}</div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+
+{% else %}
+{# ── MODO LISTA ────────────────────────────────────────────────────────────── #}
+<div class="page-header">
+  <h1>Contratos</h1>
+  <p>{{ resumo.total_contratos }} contrato(s) cadastrado(s)</p>
+</div>
+
+<!-- KPIs -->
+<div class="kpi-grid">
+  <div class="kpi {% if resumo.contratos_ativos > 0 %}ok{% endif %}">
+    <div class="label">Ativos</div>
+    <div class="value">{{ resumo.contratos_ativos or 0 }}</div>
+    <div class="sub">contratos vigentes</div>
+  </div>
+  <div class="kpi {% if resumo.valor_fechado_total > 0 %}ok{% endif %}">
+    <div class="label">Valor Fechado</div>
+    <div class="value" style="font-size:18px;">R$ {{ "%.0f"|format(resumo.valor_fechado_total or 0) }}</div>
+    <div class="sub">contratos ativos</div>
+  </div>
+  <div class="kpi {% if resumo.faturamento_previsto_30d > 0 %}ok{% endif %}">
+    <div class="label">Previsto 30d</div>
+    <div class="value" style="font-size:18px;">R$ {{ "%.0f"|format(resumo.faturamento_previsto_30d or 0) }}</div>
+    <div class="sub">a faturar</div>
+  </div>
+  <div class="kpi {% if resumo.recebiveis_contrato_abertos > 0 %}ok{% endif %}">
+    <div class="label">Recebíveis Abertos</div>
+    <div class="value">{{ resumo.recebiveis_contrato_abertos or 0 }}</div>
+    <div class="sub">de contratos</div>
+  </div>
+  <div class="kpi {% if (resumo.contratos_sem_plano or 0) > 0 %}danger{% endif %}">
+    <div class="label">Sem Plano</div>
+    <div class="value">{{ resumo.contratos_sem_plano or 0 }}</div>
+    <div class="sub">pendentes</div>
+  </div>
+</div>
+
+<!-- Filtros -->
+<div style="margin-bottom:16px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+  <form method="get" action="/contratos" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+    <select name="filtro" style="padding:4px 8px;font-size:12px;border:1px solid var(--border);background:var(--bg2);color:var(--text);border-radius:3px;">
+      <option value="" {% if not filtro %}selected{% endif %}>Todos os status</option>
+      <option value="ativo" {% if filtro=='ativo' %}selected{% endif %}>Ativo</option>
+      <option value="aguardando_ativacao" {% if filtro=='aguardando_ativacao' %}selected{% endif %}>Aguardando ativação</option>
+      <option value="pausado" {% if filtro=='pausado' %}selected{% endif %}>Pausado</option>
+      <option value="concluido" {% if filtro=='concluido' %}selected{% endif %}>Concluído</option>
+      <option value="cancelado" {% if filtro=='cancelado' %}selected{% endif %}>Cancelado</option>
+    </select>
+    <input type="text" name="busca" value="{{ busca }}" placeholder="Buscar conta ou oferta..." style="padding:4px 8px;font-size:12px;border:1px solid var(--border);background:var(--bg2);color:var(--text);border-radius:3px;width:180px;">
+    <button type="submit" style="padding:4px 10px;font-size:12px;background:var(--accent);color:#000;border:none;border-radius:3px;cursor:pointer;">Filtrar</button>
+    {% if filtro or busca %}<a href="/contratos" style="font-size:11px;color:var(--muted);">✕ limpar</a>{% endif %}
+  </form>
+</div>
+
+<!-- Tabela de contratos -->
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Conta</th>
+        <th>Oferta</th>
+        <th>Valor</th>
+        <th>Modelo</th>
+        <th>Status</th>
+        <th>Plano</th>
+        <th>Recebíveis</th>
+        <th>Gerado em</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for c in contratos %}
+      <tr>
+        <td style="font-weight:500;font-size:12px;">{{ c.contraparte }}</td>
+        <td style="font-size:11px;" class="text-muted">{{ c.oferta_nome or c.linha_servico or '—' }}</td>
+        <td style="font-weight:bold;color:var(--success);">R$ {{ "%.2f"|format(c.valor_total) }}</td>
+        <td><span class="badge badge-accent" style="font-size:10px;">{{ c.modelo_cobranca }}</span></td>
+        <td>
+          <span class="badge {% if c.status == 'ativo' %}badge-success{% elif c.status == 'cancelado' %}badge-danger{% elif c.status == 'pausado' %}badge-warning{% elif c.status == 'aguardando_ativacao' %}badge-info{% else %}badge-muted{% endif %}" style="font-size:10px;">{{ c.status }}</span>
+        </td>
+        <td style="font-size:10px;">
+          {% if c._plano %}
+            <span class="badge {% if c._plano.status == 'totalmente_gerado' %}badge-success{% elif c._plano.status == 'parcialmente_gerado' %}badge-ok{% else %}badge-muted{% endif %}" style="font-size:9px;">{{ c._plano.status }}</span>
+          {% else %}
+            <span class="badge badge-danger" style="font-size:9px;">sem plano</span>
+          {% endif %}
+        </td>
+        <td style="font-size:11px;">
+          {% if c._recebiveis %}
+            <span class="badge badge-muted" style="font-size:9px;">{{ c._recebiveis|length }}</span>
+            {% set abertos = c._recebiveis|selectattr('status', 'in', ['aberta', 'parcial', 'vencida'])|list %}
+            {% if abertos|length > 0 %}<span class="badge {% if abertos|selectattr('status', 'equalto', 'vencida')|list %}badge-danger{% else %}badge-ok{% endif %}" style="font-size:9px;">{{ abertos|length }} aberto{% if abertos|length != 1 %}s{% endif %}</span>{% endif %}
+          {% else %}
+            <span class="text-muted" style="font-size:10px;">—</span>
+          {% endif %}
+        </td>
+        <td class="text-muted" style="font-size:10px;">{{ (c.gerado_em or '')[:10] }}</td>
+        <td><a href="/contratos/{{ c.id }}" class="badge badge-muted" style="text-decoration:none;font-size:10px;">→</a></td>
+      </tr>
+      {% else %}
+      <tr><td colspan="9" class="empty">Nenhum contrato encontrado — execute um ciclo operacional para gerar contratos de propostas aceitas</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if resumo.planos_com_inconsistencia > 0 %}
+<div class="card" style="margin-top:16px;border-left:3px solid var(--warning);padding:10px 14px;">
+  <span class="badge badge-warning">{{ resumo.planos_com_inconsistencia }} plano(s) com inconsistência</span>
+  <span class="text-muted" style="font-size:11px;margin-left:8px;">Planos planejados há mais de 1 dia sem recebíveis gerados — verificar ciclo do agente_financeiro</span>
+</div>
+{% endif %}
+
+{% endif %}
+{% endblock %}

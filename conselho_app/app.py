@@ -116,6 +116,12 @@ async def pagina_index(request: Request):
         acomp_resumo = _resumir_acomp()
     except Exception:
         acomp_resumo = {}
+    # Resumo de contratos/faturamento
+    try:
+        from core.contratos_empresa import resumir_para_painel as _resumir_ct
+        contratos_resumo = _resumir_ct()
+    except Exception:
+        contratos_resumo = {}
     return templates.TemplateResponse("index.html", {
         "request":        request,
         "page":           "index",
@@ -133,6 +139,7 @@ async def pagina_index(request: Request):
         "propostas_resumo": propostas_resumo,
         "contas_resumo":    contas_resumo,
         "acomp_resumo":     acomp_resumo,
+        "contratos_resumo": contratos_resumo,
     })
 
 
@@ -987,6 +994,73 @@ async def api_governanca_comando(request: Request):
         return JSONResponse({"status": cmd["status"], "comando_id": cmd["id"]})
     except Exception as exc:
         return JSONResponse({"status": "erro", "mensagem": str(exc)}, status_code=400)
+
+
+@app.get("/contratos", response_class=HTMLResponse)
+async def pagina_contratos(request: Request,
+                            filtro: str = "",
+                            busca: str = ""):
+    from core.contratos_empresa import (
+        carregar_contratos, carregar_planos, resumir_para_painel as _rct
+    )
+    contratos = carregar_contratos()
+    planos    = carregar_planos()
+    resumo    = _rct()
+
+    # Índice plano por contrato
+    plano_por_ct = {p["contrato_id"]: p for p in planos}
+
+    # Recebíveis por contrato
+    recebiveis_raw = _ler("contas_a_receber.json", [])
+    rcv_por_ct: dict = {}
+    for r in recebiveis_raw:
+        cid = r.get("contrato_id", "")
+        if cid:
+            rcv_por_ct.setdefault(cid, []).append(r)
+
+    # Filtros
+    if filtro:
+        contratos = [c for c in contratos if c.get("status") == filtro]
+    if busca:
+        busca_l = busca.lower()
+        contratos = [c for c in contratos
+                     if busca_l in c.get("contraparte", "").lower()
+                     or busca_l in c.get("oferta_nome", "").lower()]
+
+    # Enriquecer para exibição
+    for c in contratos:
+        c["_plano"]      = plano_por_ct.get(c["id"])
+        c["_recebiveis"] = rcv_por_ct.get(c["id"], [])
+
+    contratos_sorted = sorted(contratos, key=lambda c: c.get("gerado_em", ""), reverse=True)
+
+    return templates.TemplateResponse("contratos.html", {
+        "request":   request,
+        "page":      "contratos",
+        "contratos": contratos_sorted,
+        "resumo":    resumo,
+        "filtro":    filtro,
+        "busca":     busca,
+        "total":     len(contratos_sorted),
+    })
+
+
+@app.get("/contratos/{contrato_id}", response_class=HTMLResponse)
+async def pagina_contrato_detalhe(request: Request, contrato_id: str):
+    from core.contratos_empresa import obter_detalhe_contrato
+    detalhe = obter_detalhe_contrato(contrato_id)
+    if not detalhe:
+        return HTMLResponse("<h2>Contrato não encontrado</h2>", status_code=404)
+    return templates.TemplateResponse("contratos.html", {
+        "request":   request,
+        "page":      "contratos",
+        "modo":      "detalhe",
+        "detalhe":   detalhe,
+        "contrato":  detalhe["contrato"],
+        "plano":     detalhe["plano"],
+        "recebiveis": detalhe["recebiveis"],
+        "historico": detalhe["historico"],
+    })
 
 
 @app.get("/api/governanca/resumo")

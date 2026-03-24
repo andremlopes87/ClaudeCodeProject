@@ -193,6 +193,20 @@ def executar() -> dict:
     except Exception:
         pass
 
+    # ── ETAPA 8c: Gerar recebíveis de contratos/planos pendentes ─────────
+    n_recebiveis_contratos = 0
+    try:
+        from core.contratos_empresa import (
+            gerar_recebiveis_pendentes, enriquecer_contas_com_contratos
+        )
+        _res_rcv = gerar_recebiveis_pendentes(origem=NOME_AGENTE)
+        n_recebiveis_contratos = _res_rcv.get("recebiveis_gerados", 0)
+        if n_recebiveis_contratos:
+            log.info(f"[contratos] {n_recebiveis_contratos} recebivel(is) gerado(s) de contratos")
+        enriquecer_contas_com_contratos()
+    except Exception as _exc_ct:
+        log.warning(f"[contratos] geracao recebiveis parcial: {_exc_ct}")
+
     # ── ETAPA 9: Resumo final ─────────────────────────────────────────────
     resumo_execucao = {
         "agente":             NOME_AGENTE,
@@ -205,6 +219,7 @@ def executar() -> dict:
         "autonomos":          len(itens_autonomos),
         "escalados":          len(itens_escalados),
         "aprovados_nesta_exec": aprovados_agora,
+        "recebiveis_contratos_gerados": n_recebiveis_contratos,
         "modo_empresa":       modo_empresa,
         "urgencias_escalar":  sorted(urgencias_escalar),
         "caminho_log":        str(caminho_log),

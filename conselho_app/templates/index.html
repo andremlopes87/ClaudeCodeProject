@@ -207,6 +207,24 @@
 </div>
 {% endif %}
 
+{% if contratos_resumo and contratos_resumo.contratos_ativos is defined %}
+<div class="card" style="margin-bottom:16px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;">
+  <div>
+    <div class="label" style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Contratos / Faturamento</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+      <span class="badge badge-muted">{{ contratos_resumo.contratos_ativos }} ativo{% if contratos_resumo.contratos_ativos != 1 %}s{% endif %}</span>
+      {% if contratos_resumo.valor_fechado_total > 0 %}<span class="badge badge-ok">R$ {{ "%.0f"|format(contratos_resumo.valor_fechado_total) }} fechado</span>{% endif %}
+      {% if contratos_resumo.faturamento_previsto_30d > 0 %}<span class="badge badge-accent">R$ {{ "%.0f"|format(contratos_resumo.faturamento_previsto_30d) }} prev. 30d</span>{% endif %}
+      {% if contratos_resumo.recebiveis_contrato_abertos > 0 %}<span class="badge badge-info">{{ contratos_resumo.recebiveis_contrato_abertos }} recebível{% if contratos_resumo.recebiveis_contrato_abertos != 1 %}s{% endif %} aberto{% if contratos_resumo.recebiveis_contrato_abertos != 1 %}s{% endif %}</span>{% endif %}
+      {% if contratos_resumo.contratos_sem_plano > 0 %}<span class="badge badge-warning">{{ contratos_resumo.contratos_sem_plano }} sem plano</span>{% endif %}
+    </div>
+  </div>
+  <div style="margin-left:auto;">
+    <a href="/contratos" class="badge badge-muted" style="text-decoration:none;padding:5px 10px;">→ Ver contratos</a>
+  </div>
+</div>
+{% endif %}
+
 {% if gov and (gov.modo_empresa != 'normal' or gov.agentes_pausados or gov.areas_pausadas or gov.diretrizes_ativas) %}
 <h2>Estado da Governança</h2>
 <div class="card" style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start;">

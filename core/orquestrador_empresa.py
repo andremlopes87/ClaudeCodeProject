@@ -386,6 +386,8 @@ def montar_resumo_final_ciclo(etapas: list) -> dict:
         "respostas_prop_aplicadas_no_ciclo": com.get("respostas_prop_aplicadas", 0),
         "contas_vinculadas_no_ciclo":        com.get("contas_vinculadas", 0),
         "total_contas":                      _contar_contas(),
+        "contratos_gerados_no_ciclo":        com.get("contratos_gerados", 0),
+        "recebiveis_contratos_gerados":      fin.get("recebiveis_contratos_gerados", 0),
         "acompanhamentos_abertos":           ent.get("acompanhamentos_criados", 0),
         "expansoes_sugeridas_no_ciclo":      ent.get("expansoes_sugeridas", 0),
         "expansoes_convertidas_no_ciclo":    com.get("expansoes_convertidas", 0),

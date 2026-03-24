@@ -393,6 +393,8 @@ def gerar_metricas_empresa() -> dict:
         **_metricas_contas(),
         # Métricas de acompanhamento pós-entrega (melhor esforço)
         **_metricas_acompanhamento(),
+        # Métricas de contratos/faturamento (melhor esforço)
+        **_metricas_contratos(),
     }
 
 
@@ -440,6 +442,23 @@ def _metricas_acompanhamento() -> dict:
             "contas_com_potencial_expansao":    r["contas_com_potencial_expansao"],
             "oportunidades_expansao_sugeridas": r["oportunidades_expansao_sugeridas"],
             "oportunidades_expansao_convertidas": r["oportunidades_expansao_convertidas"],
+        }
+    except Exception:
+        return {}
+
+
+def _metricas_contratos() -> dict:
+    """Contagens de contratos e faturamento para métricas da empresa."""
+    try:
+        from core.contratos_empresa import resumir_para_painel as _rct
+        r = _rct()
+        return {
+            "total_contratos_ativos":        r["contratos_ativos"],
+            "valor_fechado_total":            r["valor_fechado_total"],
+            "faturamento_previsto_30d":       r["faturamento_previsto_30d"],
+            "recebiveis_contrato_abertos":    r["recebiveis_contrato_abertos"],
+            "contratos_sem_plano":            r["contratos_sem_plano"],
+            "planos_com_inconsistencia":      r["planos_com_inconsistencia"],
         }
     except Exception:
         return {}

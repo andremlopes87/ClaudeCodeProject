@@ -74,6 +74,8 @@
     <div class="label" style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Financeiro</div>
     <div class="drill-row"><span>Propostas (total)</span><b>R$ {{ "%.0f"|format(c.valor_total_propostas or 0) }}</b></div>
     <div class="drill-row"><span>Fechado</span><b>R$ {{ "%.0f"|format(c.valor_total_fechado or 0) }}</b></div>
+    {% if c.faturamento_previsto %}<div class="drill-row"><span>Fat. previsto</span><b style="color:var(--accent);">R$ {{ "%.0f"|format(c.faturamento_previsto) }}</b></div>{% endif %}
+    {% if c.contratos_ativos %}<div class="drill-row"><span>Contratos</span><b>{{ c.contratos_ativos|length }}</b> <a href="/contratos?busca={{ c.nome_empresa }}" class="badge badge-muted" style="text-decoration:none;font-size:9px;">ver</a></div>{% endif %}
     <div class="drill-row"><span>Entregas ativas</span><b>{{ c.entregas_ativas or 0 }}</b></div>
   </div>
   <div class="card" style="flex:1;min-width:200px;">

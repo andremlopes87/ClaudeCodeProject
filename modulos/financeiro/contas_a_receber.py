@@ -166,6 +166,12 @@ def _construir_conta(conta: dict) -> dict:
         "registrado_em":        datetime.now().isoformat(),
         "atualizado_em":        datetime.now().isoformat(),
     }
+    # Rastreabilidade de contrato (campos opcionais, passados quando originados de contratos)
+    for _campo in ("contrato_id", "proposta_id", "conta_id",
+                   "plano_faturamento_id", "parcela_id",
+                   "origem_recebivel", "descricao_origem"):
+        if conta.get(_campo) is not None:
+            conta_completa[_campo] = conta[_campo]
     conta_completa["prioridade_financeira"] = _calcular_prioridade(conta_completa)
     return conta_completa
 

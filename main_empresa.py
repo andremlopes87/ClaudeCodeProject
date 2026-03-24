@@ -81,6 +81,8 @@ def main() -> None:
     print(f"  Respostas prop. aplicadas   : {resumo.get('respostas_prop_aplicadas_no_ciclo', 0)}")
     print(f"  Contas vinculadas no ciclo  : {resumo.get('contas_vinculadas_no_ciclo', 0)}")
     print(f"  Total de contas cadastradas : {resumo.get('total_contas', 0)}")
+    print(f"  Contratos gerados no ciclo  : {resumo.get('contratos_gerados_no_ciclo', 0)}")
+    print(f"  Recebiveis de contratos     : {resumo.get('recebiveis_contratos_gerados', 0)}")
     print(f"  Acomp. criados no ciclo     : {resumo.get('acompanhamentos_abertos', 0)}")
     print(f"  Expansões sugeridas         : {resumo.get('expansoes_sugeridas_no_ciclo', 0)}")
     print(f"  Expansões convertidas       : {resumo.get('expansoes_convertidas_no_ciclo', 0)}")

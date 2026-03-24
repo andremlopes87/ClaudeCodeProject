@@ -365,6 +365,19 @@ def executar() -> dict:
     if n_propostas_geradas:
         log.info(f"  [propostas] {n_propostas_geradas} propostas geradas neste ciclo")
 
+    # ── ETAPA 8c: Gerar contratos para propostas aceitas ──────────────────
+    n_contratos_gerados = 0
+    n_planos_gerados    = 0
+    try:
+        from core.contratos_empresa import processar_contratos_pendentes
+        _res_ct = processar_contratos_pendentes(origem=NOME_AGENTE)
+        n_contratos_gerados = _res_ct.get("contratos_gerados", 0)
+        n_planos_gerados    = _res_ct.get("planos_gerados", 0)
+        if n_contratos_gerados:
+            log.info(f"  [contratos] {n_contratos_gerados} contrato(s) | {n_planos_gerados} plano(s)")
+    except Exception as _exc_ct:
+        log.warning(f"  [contratos] geracao parcial: {_exc_ct}")
+
     # ── ETAPA 9: Persistir arquivos ────────────────────────────────────────
     salvar_pipeline(pipeline)
     salvar_followups(followups)
@@ -407,6 +420,8 @@ def executar() -> dict:
         "followups_de_resultado": res_stats["novos_followups"],
         "contas_vinculadas":       sum(1 for o in novas_opps if o.get("conta_id")),
         "expansoes_convertidas":   n_expansoes_convertidas,
+        "contratos_gerados":       n_contratos_gerados,
+        "planos_gerados":          n_planos_gerados,
         "caminho_log":             str(caminho_log),
     }
 
