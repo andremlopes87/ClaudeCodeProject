@@ -220,13 +220,34 @@ async def pagina_financeiro(request: Request):
     caixa    = _ler("posicao_caixa.json", {})
     previsao = _ler("previsao_caixa.json", {})
     riscos   = _ler("fila_riscos_financeiros.json", [])
+    # Dados de contratos para o painel financeiro
+    try:
+        from core.contratos_empresa import resumir_para_painel as _rct
+        from modulos.financeiro.reconciliador_contratos_faturamento import (
+            resumir_para_painel as _rrecon
+        )
+        ct_resumo    = _rct()
+        recon_resumo = _rrecon()
+    except Exception:
+        ct_resumo    = {}
+        recon_resumo = {}
+    # Recebíveis de contratos (abertos + risco)
+    try:
+        rcv_contratos = [r for r in _ler("contas_a_receber.json", [])
+                         if r.get("origem_recebivel") == "contrato_vetor"
+                         and r.get("status") in ("aberta", "parcial", "vencida")]
+    except Exception:
+        rcv_contratos = []
     return templates.TemplateResponse("financeiro.html", {
-        "request":  request,
-        "page":     "financeiro",
-        "fin":      areas.get("financeiro", {}),
-        "caixa":    caixa,
-        "previsao": previsao,
-        "riscos":   riscos,
+        "request":       request,
+        "page":          "financeiro",
+        "fin":           areas.get("financeiro", {}),
+        "caixa":         caixa,
+        "previsao":      previsao,
+        "riscos":        riscos,
+        "ct_resumo":     ct_resumo,
+        "recon_resumo":  recon_resumo,
+        "rcv_contratos": rcv_contratos,
     })
 
 
@@ -1006,6 +1027,13 @@ async def pagina_contratos(request: Request,
     contratos = carregar_contratos()
     planos    = carregar_planos()
     resumo    = _rct()
+    try:
+        from modulos.financeiro.reconciliador_contratos_faturamento import (
+            resumir_para_painel as _rrecon
+        )
+        recon_resumo = _rrecon()
+    except Exception:
+        recon_resumo = {}
 
     # Índice plano por contrato
     plano_por_ct = {p["contrato_id"]: p for p in planos}
@@ -1035,13 +1063,14 @@ async def pagina_contratos(request: Request,
     contratos_sorted = sorted(contratos, key=lambda c: c.get("gerado_em", ""), reverse=True)
 
     return templates.TemplateResponse("contratos.html", {
-        "request":   request,
-        "page":      "contratos",
-        "contratos": contratos_sorted,
-        "resumo":    resumo,
-        "filtro":    filtro,
-        "busca":     busca,
-        "total":     len(contratos_sorted),
+        "request":      request,
+        "page":         "contratos",
+        "contratos":    contratos_sorted,
+        "resumo":       resumo,
+        "recon_resumo": recon_resumo,
+        "filtro":       filtro,
+        "busca":        busca,
+        "total":        len(contratos_sorted),
     })
 
 

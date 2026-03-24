@@ -452,13 +452,21 @@ def _metricas_contratos() -> dict:
     try:
         from core.contratos_empresa import resumir_para_painel as _rct
         r = _rct()
+        from modulos.financeiro.reconciliador_contratos_faturamento import (
+            resumir_para_painel as _rrecon
+        )
+        rr = _rrecon()
         return {
             "total_contratos_ativos":        r["contratos_ativos"],
+            "contratos_concluidos":          rr["contratos_concluidos"],
             "valor_fechado_total":            r["valor_fechado_total"],
             "faturamento_previsto_30d":       r["faturamento_previsto_30d"],
+            "faturamento_recebido_total":     rr["faturamento_recebido_total"],
             "recebiveis_contrato_abertos":    r["recebiveis_contrato_abertos"],
+            "planos_em_recebimento":          rr["planos_em_recebimento"],
+            "parcelas_vencidas_contrato":     rr["parcelas_vencidas"],
             "contratos_sem_plano":            r["contratos_sem_plano"],
-            "planos_com_inconsistencia":      r["planos_com_inconsistencia"],
+            "inconsistencias_contrato_plano": rr["inconsistencias"],
         }
     except Exception:
         return {}

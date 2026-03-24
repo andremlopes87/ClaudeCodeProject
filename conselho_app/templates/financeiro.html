@@ -92,6 +92,50 @@
       <div class="empty">Dados de caixa não disponíveis</div>
       {% endif %}
     </div>
+
+    {% if previsao.total_previsto_conservador is defined or previsao.total_previsto_expandido is defined %}
+    <h2>Previsão: Contratos</h2>
+    <div class="card">
+      <div class="drill-row"><span>Conservador (recebiveis gerados 30d)</span><b class="text-success">R${{ "%.2f"|format(previsao.total_previsto_conservador or 0) }}</b></div>
+      <div class="drill-row"><span>Expandido (+ parcelas planejadas 30d)</span><b style="color:var(--accent);">R${{ "%.2f"|format(previsao.total_previsto_expandido or 0) }}</b></div>
+      {% set plan_ct = previsao.get('entradas_planejadas_contratos_por_janela', {}) %}
+      {% if plan_ct %}
+      {% for jan_k, jan_v in plan_ct.items() %}{% if jan_v > 0 %}
+      <div class="drill-row"><span style="font-size:10px;">Planejado {{ jan_k }}</span><span class="text-muted" style="font-size:11px;">R${{ "%.2f"|format(jan_v) }}</span></div>
+      {% endif %}{% endfor %}
+      {% endif %}
+      <div class="drill-row" style="font-size:10px;"><span class="text-muted">Conservador = apenas recebíveis já gerados no financeiro</span></div>
+    </div>
+    {% endif %}
   </div>
 </div>
+
+{% if rcv_contratos %}
+<h2>Recebíveis de Contratos em Aberto ({{ rcv_contratos|length }})</h2>
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>Contraparte</th><th>Descrição</th><th>Valor</th><th>Vencimento</th><th>Status</th><th>Contrato</th></tr></thead>
+    <tbody>
+      {% for r in rcv_contratos %}
+      <tr>
+        <td style="font-size:12px;font-weight:500;">{{ r.contraparte }}</td>
+        <td class="text-muted" style="font-size:11px;">{{ r.descricao[:50] }}</td>
+        <td style="font-weight:bold;">R${{ "%.2f"|format(r.valor_total) }}</td>
+        <td style="font-size:11px;">{{ r.data_vencimento }}</td>
+        <td><span class="badge {% if r.status == 'vencida' %}badge-danger{% elif r.status == 'parcial' %}badge-warning{% else %}badge-ok{% endif %}" style="font-size:10px;">{{ r.status }}</span></td>
+        <td class="text-muted" style="font-size:10px;"><a href="/contratos/{{ r.get('contrato_id','') }}" style="color:inherit;">{{ (r.get('contrato_id','')[:12]) or '—' }}</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% if recon_resumo and (recon_resumo.get('parcelas_vencidas',0) > 0 or recon_resumo.get('inconsistencias',0) > 0) %}
+<div class="card" style="margin-top:16px;border-left:3px solid var(--warning);padding:10px 14px;font-size:12px;">
+  {% if recon_resumo.parcelas_vencidas > 0 %}<span class="badge badge-danger">{{ recon_resumo.parcelas_vencidas }} parcela(s) vencida(s)</span>{% endif %}
+  {% if recon_resumo.inconsistencias > 0 %}<span class="badge badge-warning" style="margin-left:6px;">{{ recon_resumo.inconsistencias }} inconsistência(s) contrato/plano</span>{% endif %}
+  <a href="/contratos" class="badge badge-muted" style="text-decoration:none;margin-left:8px;">ver contratos →</a>
+</div>
+{% endif %}
 {% endblock %}

@@ -287,6 +287,24 @@ def executar() -> dict:
     except Exception as _exc_acomp:
         log.warning(f"  [acompanhamento] processamento parcial: {_exc_acomp}")
 
+    # ── ETAPA 3d: Refletir status de entrega nos contratos ─────────────────
+    try:
+        from modulos.financeiro.reconciliador_contratos_faturamento import (
+            atualizar_contrato_por_entrega
+        )
+        for ent in pipeline_entrega:
+            _st_ent = ent.get("status_entrega", "")
+            if _st_ent in ("concluida", "aguardando_insumo", "em_execucao", "onboarding"):
+                atualizar_contrato_por_entrega(
+                    entrega_id=ent.get("id", ""),
+                    status_entrega=_st_ent,
+                    conta_id=ent.get("conta_id", ""),
+                    oportunidade_id=ent.get("oportunidade_id", ""),
+                    origem=NOME_AGENTE,
+                )
+    except Exception as _exc_ct:
+        log.debug(f"  [contratos] atualizacao operacional ignorada: {_exc_ct}")
+
     # ── ETAPA 4: Persistir ─────────────────────────────────────────────────
     _salvar_json("pipeline_comercial.json", pipeline)   # persiste conta_id adicionado às opps
     _salvar_json("pipeline_entrega.json",   pipeline_entrega)

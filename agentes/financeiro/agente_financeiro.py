@@ -207,6 +207,24 @@ def executar() -> dict:
     except Exception as _exc_ct:
         log.warning(f"[contratos] geracao recebiveis parcial: {_exc_ct}")
 
+    # ── ETAPA 8d: Reconciliar contratos, planos e previsão de caixa ─────
+    n_parcelas_rec   = 0
+    n_contratos_rec  = 0
+    n_contas_enr     = 0
+    try:
+        from modulos.financeiro.reconciliador_contratos_faturamento import (
+            executar_reconciliacao
+        )
+        _res_recon = executar_reconciliacao(origem=NOME_AGENTE)
+        n_parcelas_rec  = _res_recon.get("parcelas_reconciliadas", 0)
+        n_contratos_rec = _res_recon.get("contratos_atualizados", 0)
+        n_contas_enr    = _res_recon.get("contas_enriquecidas", 0)
+        if n_parcelas_rec or n_contratos_rec:
+            log.info(f"[contratos] reconciliacao: parcelas={n_parcelas_rec} "
+                     f"contratos={n_contratos_rec} contas={n_contas_enr}")
+    except Exception as _exc_recon:
+        log.warning(f"[contratos] reconciliacao parcial: {_exc_recon}")
+
     # ── ETAPA 9: Resumo final ─────────────────────────────────────────────
     resumo_execucao = {
         "agente":             NOME_AGENTE,
@@ -220,6 +238,8 @@ def executar() -> dict:
         "escalados":          len(itens_escalados),
         "aprovados_nesta_exec": aprovados_agora,
         "recebiveis_contratos_gerados": n_recebiveis_contratos,
+        "parcelas_reconciliadas":       n_parcelas_rec,
+        "contratos_reconciliados":      n_contratos_rec,
         "modo_empresa":       modo_empresa,
         "urgencias_escalar":  sorted(urgencias_escalar),
         "caminho_log":        str(caminho_log),

@@ -142,6 +142,17 @@
   </div>
 </div>
 
+<!-- Linha de estado dos contratos (reconciliação) -->
+{% if recon_resumo %}
+<div class="card" style="margin-bottom:16px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;font-size:12px;">
+  <span class="badge badge-success">{{ recon_resumo.contratos_concluidos or 0 }} concluído(s)</span>
+  <span class="badge badge-ok">{{ recon_resumo.planos_em_recebimento or 0 }} em recebimento</span>
+  {% if (recon_resumo.parcelas_vencidas or 0) > 0 %}<span class="badge badge-danger">{{ recon_resumo.parcelas_vencidas }} parcela(s) vencida(s)</span>{% endif %}
+  {% if (recon_resumo.inconsistencias or 0) > 0 %}<span class="badge badge-warning">{{ recon_resumo.inconsistencias }} inconsistência(s)</span>{% endif %}
+  <span class="text-muted" style="font-size:11px;">Recebido total: <b>R$ {{ "%.2f"|format(recon_resumo.faturamento_recebido_total or 0) }}</b></span>
+</div>
+{% endif %}
+
 <!-- Filtros -->
 <div style="margin-bottom:16px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
   <form method="get" action="/contratos" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
@@ -169,8 +180,10 @@
         <th>Valor</th>
         <th>Modelo</th>
         <th>Status</th>
+        <th>Op.</th>
+        <th>Fin.</th>
+        <th>Rec.%</th>
         <th>Plano</th>
-        <th>Recebíveis</th>
         <th>Gerado em</th>
         <th></th>
       </tr>
@@ -183,22 +196,22 @@
         <td style="font-weight:bold;color:var(--success);">R$ {{ "%.2f"|format(c.valor_total) }}</td>
         <td><span class="badge badge-accent" style="font-size:10px;">{{ c.modelo_cobranca }}</span></td>
         <td>
-          <span class="badge {% if c.status == 'ativo' %}badge-success{% elif c.status == 'cancelado' %}badge-danger{% elif c.status == 'pausado' %}badge-warning{% elif c.status == 'aguardando_ativacao' %}badge-info{% else %}badge-muted{% endif %}" style="font-size:10px;">{{ c.status }}</span>
+          <span class="badge {% if c.status == 'ativo' %}badge-success{% elif c.status == 'concluido' %}badge-ok{% elif c.status == 'cancelado' %}badge-danger{% elif c.status == 'pausado' %}badge-warning{% else %}badge-muted{% endif %}" style="font-size:10px;">{{ c.status }}</span>
+        </td>
+        <td style="font-size:10px;">
+          {% if c.status_operacional %}<span class="badge {% if c.status_operacional == 'concluido' %}badge-ok{% elif c.status_operacional == 'bloqueado' %}badge-danger{% else %}badge-muted{% endif %}" style="font-size:9px;">{{ c.status_operacional }}</span>{% else %}<span class="text-muted">—</span>{% endif %}
+        </td>
+        <td style="font-size:10px;">
+          {% if c.status_financeiro %}<span class="badge {% if c.status_financeiro == 'concluido' %}badge-ok{% elif c.status_financeiro == 'em_recebimento' %}badge-success{% else %}badge-muted{% endif %}" style="font-size:9px;">{{ c.status_financeiro }}</span>{% else %}<span class="text-muted">—</span>{% endif %}
+        </td>
+        <td style="font-size:11px;text-align:right;">
+          {% if c.percentual_recebido is defined %}{{ "%.0f"|format(c.percentual_recebido) }}%{% else %}—{% endif %}
         </td>
         <td style="font-size:10px;">
           {% if c._plano %}
-            <span class="badge {% if c._plano.status == 'totalmente_gerado' %}badge-success{% elif c._plano.status == 'parcialmente_gerado' %}badge-ok{% else %}badge-muted{% endif %}" style="font-size:9px;">{{ c._plano.status }}</span>
+            <span class="badge {% if c._plano.status == 'concluido' %}badge-success{% elif c._plano.status == 'em_recebimento' %}badge-ok{% elif c._plano.status in ['totalmente_gerado','parcialmente_gerado'] %}badge-info{% else %}badge-muted{% endif %}" style="font-size:9px;">{{ c._plano.status }}</span>
           {% else %}
             <span class="badge badge-danger" style="font-size:9px;">sem plano</span>
-          {% endif %}
-        </td>
-        <td style="font-size:11px;">
-          {% if c._recebiveis %}
-            <span class="badge badge-muted" style="font-size:9px;">{{ c._recebiveis|length }}</span>
-            {% set abertos = c._recebiveis|selectattr('status', 'in', ['aberta', 'parcial', 'vencida'])|list %}
-            {% if abertos|length > 0 %}<span class="badge {% if abertos|selectattr('status', 'equalto', 'vencida')|list %}badge-danger{% else %}badge-ok{% endif %}" style="font-size:9px;">{{ abertos|length }} aberto{% if abertos|length != 1 %}s{% endif %}</span>{% endif %}
-          {% else %}
-            <span class="text-muted" style="font-size:10px;">—</span>
           {% endif %}
         </td>
         <td class="text-muted" style="font-size:10px;">{{ (c.gerado_em or '')[:10] }}</td>
