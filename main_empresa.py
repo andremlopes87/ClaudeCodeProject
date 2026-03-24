@@ -68,6 +68,8 @@ def main() -> None:
     print(f"  Mkt handoffs criados        : {resumo.get('mkt_handoffs_criados', 0)}")
     print(f"  Oportunidades novas         : {resumo.get('oportunidades_novas_no_ciclo', 0)}")
     print(f"  Resultados gerados (integr.): {resumo.get('resultados_gerados_integrador', 0)}")
+    print(f"  Emails preparados (assistido): {resumo.get('emails_preparados_no_ciclo', 0)}")
+    print(f"  Emails bloqueados (assistido): {resumo.get('emails_bloqueados_no_ciclo', 0)}")
     print(f"  Resultados de contato aplic.: {resumo.get('resultados_aplicados', 0)}")
     print(f"  Execucoes preparadas        : {resumo.get('execucoes_preparadas', 0)}")
     print(f"  Entregas abertas no ciclo   : {resumo.get('entregas_abertas', 0)}")

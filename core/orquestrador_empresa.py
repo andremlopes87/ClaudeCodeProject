@@ -5,13 +5,21 @@ Executa todos os agentes na ordem correta, registra cada etapa e produz
 um ciclo operacional auditável. Não cria agentes novos. Não faz chamadas
 externas. Apenas orquestra os agentes existentes.
 
-Ordem do ciclo:
+Ordem do ciclo (14 etapas):
   1. agente_financeiro
-  2. agente_comercial          (importar + processar resultados)
-  3. agente_secretario         (consolidar + criar handoffs + deliberacoes)
-  4. agente_executor_contato   (preparar execucoes dos handoffs)
-  5. agente_comercial          (reabsorver efeitos gerados pelo executor)
-  6. agente_secretario         (fechar retrato final do ciclo)
+  2. agente_prospeccao
+  3. agente_marketing
+  4. agente_comercial          (importar + processar resultados)
+  5. agente_operacao_entrega
+  6. agente_secretario         (consolidar + criar handoffs + deliberacoes)
+  7. agente_executor_contato   (preparar execucoes dos handoffs)
+  8. integrador_email          (preparar emails assistidos)
+  9. integrador_canais         (processar outros canais dry-run)
+  10. agente_comercial         (reabsorver efeitos gerados pelo executor)
+  11. gerador_insumos_desde_contato
+  12. avaliador_fechamento_comercial
+  13. agente_operacao_entrega
+  14. agente_secretario        (fechar retrato final do ciclo)
 """
 
 import json
@@ -143,19 +151,20 @@ def executar_ciclo_empresa() -> dict:
 
         # ── Sequência do ciclo ────────────────────────────────────────────────
         sequencia = [
-            ("agente_financeiro",               _importar_financeiro,    "1/13"),
-            ("agente_prospeccao",               _importar_prospeccao,    "2/13"),
-            ("agente_marketing",                _importar_marketing,     "3/13"),
-            ("agente_comercial",                _importar_comercial,     "4/13"),
-            ("agente_operacao_entrega",         _importar_entrega,       "5/13"),
-            ("agente_secretario",               _importar_secretario,    "6/13"),
-            ("agente_executor_contato",         _importar_executor,      "7/13"),
-            ("integrador_canais",               _importar_integrador,    "8/13"),
-            ("agente_comercial",                _importar_comercial,     "9/13"),
-            ("gerador_insumos_desde_contato",   _importar_gerador,       "10/13"),
-            ("avaliador_fechamento_comercial",  _importar_avaliador,     "11/13"),
-            ("agente_operacao_entrega",         _importar_entrega,       "12/13"),
-            ("agente_secretario",               _importar_secretario,    "13/13"),
+            ("agente_financeiro",               _importar_financeiro,       "1/14"),
+            ("agente_prospeccao",               _importar_prospeccao,       "2/14"),
+            ("agente_marketing",                _importar_marketing,        "3/14"),
+            ("agente_comercial",                _importar_comercial,        "4/14"),
+            ("agente_operacao_entrega",         _importar_entrega,          "5/14"),
+            ("agente_secretario",               _importar_secretario,       "6/14"),
+            ("agente_executor_contato",         _importar_executor,         "7/14"),
+            ("integrador_email",                _importar_integrador_email, "8/14"),
+            ("integrador_canais",               _importar_integrador,       "9/14"),
+            ("agente_comercial",                _importar_comercial,        "10/14"),
+            ("gerador_insumos_desde_contato",   _importar_gerador,          "11/14"),
+            ("avaliador_fechamento_comercial",  _importar_avaliador,        "12/14"),
+            ("agente_operacao_entrega",         _importar_entrega,          "13/14"),
+            ("agente_secretario",               _importar_secretario,       "14/14"),
         ]
 
         for nome, importador, posicao in sequencia:
@@ -345,6 +354,7 @@ def montar_resumo_final_ciclo(etapas: list) -> dict:
     ger  = por_agente.get("gerador_insumos_desde_contato", {})
     exe  = por_agente.get("agente_executor_contato", {})
     intg = por_agente.get("integrador_canais", {})
+    eml  = por_agente.get("integrador_email", {})
     aval = por_agente.get("avaliador_fechamento_comercial", {})
 
     return {
@@ -366,6 +376,8 @@ def montar_resumo_final_ciclo(etapas: list) -> dict:
         "insumos_aplicados":               ent.get("insumos_aplicados", 0),
         "execucoes_preparadas":            exe.get("preparados", 0),
         "resultados_gerados_integrador":   intg.get("resultados_gerados", 0),
+        "emails_preparados_no_ciclo":      eml.get("preparados", 0),
+        "emails_bloqueados_no_ciclo":      eml.get("bloqueados", 0),
         "promovidos_ganho":                aval.get("promovidos_ganho", 0),
         "promovidos_pronto_para_entrega":  aval.get("promovidos_pronto", 0),
         "escalados_fechamento":            aval.get("escalados", 0),
@@ -408,6 +420,10 @@ def _importar_executor():
 
 def _importar_integrador():
     from core.integrador_canais import executar
+    return executar
+
+def _importar_integrador_email():
+    from core.integrador_email import executar
     return executar
 
 def _importar_prospeccao():
@@ -526,6 +542,7 @@ _AREA_DO_AGENTE = {
     "agente_comercial":               "comercial",
     "agente_secretario":              "operacao",
     "agente_executor_contato":        "comercial",
+    "integrador_email":               "comercial",
     "integrador_canais":              "comercial",
     "agente_operacao_entrega":        "entrega",
     "gerador_insumos_desde_contato":  "entrega",

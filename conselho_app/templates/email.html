@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+{% block title %}Canal Email — Painel do Conselho{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1>✉ Canal Email</h1>
+  <div class="subtitle">Modo assistido — emails preparados para revisão. <strong>Nenhum email real é enviado.</strong></div>
+</div>
+
+<!-- Status do canal -->
+<section class="section">
+  <h2>Status do Canal</h2>
+  <div class="metric-grid">
+    <div class="metric-card {% if config_canal.modo == 'desativado' %}metric-warn{% elif config_canal.modo == 'assistido' %}metric-ok{% endif %}">
+      <div class="metric-label">Modo</div>
+      <div class="metric-value">{{ config_canal.modo or 'desativado' }}</div>
+    </div>
+    <div class="metric-card {% if config_canal.habilitado %}metric-ok{% else %}metric-warn{% endif %}">
+      <div class="metric-label">Habilitado</div>
+      <div class="metric-value">{{ 'Sim' if config_canal.habilitado else 'Não' }}</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Remetente planejado</div>
+      <div class="metric-value" style="font-size:13px;">{{ estado.remetente_planejado or config_canal.email_remetente_planejado or '—' }}</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Última execução</div>
+      <div class="metric-value" style="font-size:12px;">{{ estado.ultima_execucao or '—' }}</div>
+    </div>
+  </div>
+  <div class="notice-box notice-info" style="margin-top:12px;">
+    ⚠ Este canal opera em modo <strong>assistido</strong>. Todos os emails ficam em fila com
+    <code>simulado=true</code> e precisam de aprovação manual antes de qualquer envio futuro.
+    O campo <em>modo=real</em> e envio via SMTP serão implementados em versão posterior.
+  </div>
+</section>
+
+<!-- Contadores -->
+<section class="section">
+  <h2>Fila de Envio</h2>
+  {% set cnt = estado.contadores or {} %}
+  <div class="metric-grid">
+    <div class="metric-card">
+      <div class="metric-label">Total na fila</div>
+      <div class="metric-value">{{ cnt.total_na_fila or fila_email|length }}</div>
+    </div>
+    <div class="metric-card metric-ok">
+      <div class="metric-label">Preparados</div>
+      <div class="metric-value">{{ preparados|length }}</div>
+    </div>
+    <div class="metric-card {% if bloqueados %}metric-warn{% endif %}">
+      <div class="metric-label">Bloqueados</div>
+      <div class="metric-value">{{ bloqueados|length }}</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Aguardando revisão</div>
+      <div class="metric-value">{{ cnt.aguardando_revisao or preparados|length }}</div>
+    </div>
+  </div>
+</section>
+
+<!-- Emails preparados -->
+{% if preparados %}
+<section class="section">
+  <h2>Emails Preparados ({{ preparados|length }})</h2>
+  <p class="text-muted" style="margin-bottom:12px;">Revisão antes de qualquer envio. Status: <code>preparado</code> | <code>simulado=true</code></p>
+
+  {% for email in preparados %}
+  <div class="card" style="margin-bottom:16px;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;">
+      <div>
+        <strong>{{ email.contraparte or '—' }}</strong>
+        <span class="badge badge-ok" style="margin-left:8px;">{{ email.status }}</span>
+        <span class="badge badge-info" style="margin-left:4px;">simulado</span>
+      </div>
+      <div class="text-muted" style="font-size:11px;">{{ email.criado_em or '—' }}</div>
+    </div>
+
+    <div style="margin-top:10px;" class="detail-grid">
+      <div><span class="label">Para:</span> <code>{{ email.email_destino or '—' }}</code></div>
+      <div><span class="label">De:</span> {{ email.remetente_nome or '—' }} &lt;{{ email.remetente_email_planejado or '—' }}&gt;</div>
+      <div><span class="label">Abordagem:</span> {{ email.abordagem_tipo or '—' }}</div>
+      <div><span class="label">Linha:</span> {{ email.linha_servico or '—' }}</div>
+    </div>
+
+    <div style="margin-top:10px;">
+      <div class="label">Assunto:</div>
+      <div style="background:#f7f7f0;padding:8px 12px;border-radius:4px;margin-top:4px;font-weight:600;">
+        {{ email.assunto or '—' }}
+      </div>
+    </div>
+
+    <div style="margin-top:10px;">
+      <div class="label">Corpo (texto):</div>
+      <pre style="background:#f7f7f0;padding:12px;border-radius:4px;margin-top:4px;white-space:pre-wrap;font-size:12px;line-height:1.5;">{{ email.corpo_texto or '—' }}</pre>
+    </div>
+
+    <div style="margin-top:6px;font-size:11px;color:#888;">
+      ID: {{ email.id }} | exec: {{ email.execucao_id }} | oport: {{ email.oportunidade_id or '—' }}
+    </div>
+  </div>
+  {% endfor %}
+</section>
+{% endif %}
+
+<!-- Emails bloqueados -->
+{% if bloqueados %}
+<section class="section">
+  <h2>Emails Bloqueados ({{ bloqueados|length }})</h2>
+  <p class="text-muted" style="margin-bottom:12px;">Não puderam ser preparados. Corrija a identidade ou configuração do canal.</p>
+
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Contraparte</th>
+        <th>Execução</th>
+        <th>Motivo do bloqueio</th>
+        <th>Criado em</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for email in bloqueados %}
+      <tr>
+        <td>{{ email.contraparte or '—' }}</td>
+        <td><code style="font-size:10px;">{{ email.execucao_id }}</code></td>
+        <td><span class="badge badge-warn">{{ email.motivo_bloqueio or '—' }}</span></td>
+        <td class="text-muted" style="font-size:11px;">{{ email.criado_em or '—' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+
+{% if not preparados and not bloqueados %}
+<section class="section">
+  <div class="empty-state">
+    <div style="font-size:32px;margin-bottom:8px;">✉</div>
+    <div>Nenhum email na fila ainda.</div>
+    <div class="text-muted" style="margin-top:6px;font-size:13px;">
+      Rode o ciclo operacional com execuções do tipo <code>canal=email</code> para ver emails preparados aqui.
+    </div>
+  </div>
+</section>
+{% endif %}
+
+<!-- Configuração do canal -->
+<section class="section">
+  <h2>Configuração do Canal (config_canal_email.json)</h2>
+  <table class="data-table">
+    <thead><tr><th>Campo</th><th>Valor</th></tr></thead>
+    <tbody>
+      <tr><td>modo</td><td><code>{{ config_canal.modo or '—' }}</code></td></tr>
+      <tr><td>habilitado</td><td>{{ config_canal.habilitado }}</td></tr>
+      <tr><td>nome_remetente</td><td>{{ config_canal.nome_remetente or '(usa identidade_empresa)' }}</td></tr>
+      <tr><td>email_remetente_planejado</td><td><code>{{ config_canal.email_remetente_planejado or '(usa canais_empresa)' }}</code></td></tr>
+      <tr><td>assunto_prefixo</td><td>{{ config_canal.assunto_prefixo or '—' }}</td></tr>
+      <tr><td>assinatura_tipo_padrao</td><td>{{ config_canal.assinatura_tipo_padrao or '—' }}</td></tr>
+      <tr><td>usar_html</td><td>{{ config_canal.usar_html }}</td></tr>
+      <tr><td>exigir_email_destino</td><td>{{ config_canal.exigir_email_destino }}</td></tr>
+      <tr><td>limite_preparos_por_ciclo</td><td>{{ config_canal.limite_preparos_por_ciclo or '—' }}</td></tr>
+      <tr><td>atualizado_em</td><td class="text-muted" style="font-size:11px;">{{ config_canal.atualizado_em or '—' }}</td></tr>
+    </tbody>
+  </table>
+  <div class="notice-box notice-info" style="margin-top:10px;font-size:12px;">
+    Para habilitar o canal: edite <code>dados/config_canal_email.json</code> e defina
+    <code>habilitado=true</code>, <code>modo=assistido</code>.<br>
+    Configure o remetente em <code>dados/canais_empresa.json</code> (campo <code>email_comercial_planejado</code>)
+    ou em <code>email_remetente_planejado</code> aqui.
+  </div>
+</section>
+
+<!-- Histórico recente -->
+{% if historico_recente %}
+<section class="section">
+  <h2>Histórico Recente (últimos 30 eventos)</h2>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Evento</th>
+        <th>Contraparte / Execução</th>
+        <th>Status</th>
+        <th>Registrado em</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for ev in historico_recente %}
+      <tr>
+        <td><code style="font-size:11px;">{{ ev.tipo_evento }}</code></td>
+        <td style="font-size:11px;">{{ ev.descricao[:60] if ev.descricao else '—' }}{% if ev.descricao and ev.descricao|length > 60 %}…{% endif %}</td>
+        <td>
+          {% if ev.status == 'preparado' %}
+            <span class="badge badge-ok">{{ ev.status }}</span>
+          {% elif ev.status == 'bloqueado' %}
+            <span class="badge badge-warn">{{ ev.status }}</span>
+          {% else %}
+            <span class="badge">{{ ev.status }}</span>
+          {% endif %}
+        </td>
+        <td class="text-muted" style="font-size:11px;">{{ ev.registrado_em or '—' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+
+{% endblock %}

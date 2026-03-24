@@ -438,6 +438,28 @@ async def salvar_identidade(
     })
 
 
+@app.get("/email", response_class=HTMLResponse)
+async def pagina_email(request: Request):
+    from core.integrador_email import carregar_config_canal_email, gerar_fila_envio_email
+    config_canal = carregar_config_canal_email()
+    fila         = gerar_fila_envio_email()
+    estado       = _ler("estado_canal_email.json", {})
+    historico    = _ler("historico_email.json", [])
+    historico_recente = sorted(historico, key=lambda x: x.get("registrado_em",""), reverse=True)[:30]
+    preparados   = [e for e in fila if e.get("status") == "preparado"]
+    bloqueados   = [e for e in fila if e.get("status") == "bloqueado"]
+    return templates.TemplateResponse("email.html", {
+        "request":           request,
+        "page":              "email",
+        "config_canal":      config_canal,
+        "estado":            estado,
+        "fila_email":        fila,
+        "preparados":        preparados,
+        "bloqueados":        bloqueados,
+        "historico_recente": historico_recente,
+    })
+
+
 @app.get("/entrada-manual", response_class=HTMLResponse)
 async def pagina_entrada_manual(request: Request):
     from modulos.entrada_manual.processador_entrada_manual import (
@@ -536,7 +558,7 @@ async def pagina_governanca(request: Request):
         "agentes_conhecidos": [
             "agente_financeiro", "agente_prospeccao", "agente_marketing",
             "agente_comercial", "agente_secretario", "agente_executor_contato",
-            "integrador_canais", "agente_operacao_entrega",
+            "integrador_email", "integrador_canais", "agente_operacao_entrega",
             "gerador_insumos_desde_contato", "avaliador_fechamento_comercial",
         ],
         "areas_conhecidas": ["financeiro", "prospeccao", "marketing", "comercial", "entrega", "operacao"],
