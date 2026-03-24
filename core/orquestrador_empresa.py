@@ -384,6 +384,8 @@ def montar_resumo_final_ciclo(etapas: list) -> dict:
         "propostas_geradas_no_ciclo":        com.get("propostas_geradas", 0),
         "propostas_aguardando_conselho":     _contar_propostas_aguardando_conselho(),
         "respostas_prop_aplicadas_no_ciclo": com.get("respostas_prop_aplicadas", 0),
+        "contas_vinculadas_no_ciclo":        com.get("contas_vinculadas", 0),
+        "total_contas":                      _contar_contas(),
         "erros_no_ciclo":                  sum(1 for e in etapas if e["status"] == "erro"),
     }
 
@@ -475,6 +477,17 @@ def _contar_propostas_aguardando_conselho() -> int:
     try:
         with open(arq, "r", encoding="utf-8") as f:
             return sum(1 for p in json.load(f) if p.get("status") == "aguardando_conselho")
+    except Exception:
+        return 0
+
+
+def _contar_contas() -> int:
+    arq = config.PASTA_DADOS / "contas_clientes.json"
+    if not arq.exists():
+        return 0
+    try:
+        with open(arq, "r", encoding="utf-8") as f:
+            return len(json.load(f))
     except Exception:
         return 0
 

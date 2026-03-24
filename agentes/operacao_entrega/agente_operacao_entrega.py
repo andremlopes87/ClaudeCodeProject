@@ -87,7 +87,39 @@ def executar() -> dict:
         opp_id      = opp.get("id", "")
         entrega_key = f"entrega_{opp_id}"
 
+        # Garantir conta_id na opp (cria/encontra conta se não tiver)
+        _conta_id = opp.get("conta_id", "")
+        if not _conta_id:
+            try:
+                from core.contas_empresa import encontrar_ou_criar_conta, vincular_oportunidade_a_conta
+                _ct = encontrar_ou_criar_conta({
+                    "nome_empresa":       opp.get("contraparte", ""),
+                    "email_principal":    opp.get("email", ""),
+                    "telefone_principal": opp.get("telefone", ""),
+                    "whatsapp":           opp.get("whatsapp", ""),
+                    "cidade":             opp.get("cidade", ""),
+                    "categoria":          opp.get("categoria", ""),
+                    "origem_inicial":     opp.get("origem_oportunidade", ""),
+                }, origem="agente_operacao_entrega")
+                if _ct:
+                    opp["conta_id"] = _ct["id"]
+                    _conta_id = _ct["id"]
+                    vincular_oportunidade_a_conta(opp_id, _conta_id,
+                                                  origem="agente_operacao_entrega")
+            except Exception as _exc_cnt:
+                log.debug(f"  [contas] conta nao associada para {opp_id}: {_exc_cnt}")
+
         entrega, criada = abrir_ou_atualizar_entrega(opp, pipeline_entrega, log)
+
+        # Propagar conta_id para a entrega e vincular
+        if _conta_id:
+            entrega["conta_id"] = _conta_id
+            try:
+                from core.contas_empresa import vincular_entrega_a_conta
+                vincular_entrega_a_conta(entrega["id"], _conta_id,
+                                         origem="agente_operacao_entrega")
+            except Exception:
+                pass
 
         if criada:
             n_abertas += 1
@@ -238,6 +270,7 @@ def executar() -> dict:
             n_insumos_aplic += 1
 
     # ── ETAPA 4: Persistir ─────────────────────────────────────────────────
+    _salvar_json("pipeline_comercial.json", pipeline)   # persiste conta_id adicionado às opps
     _salvar_json("pipeline_entrega.json",   pipeline_entrega)
     _salvar_json("checklists_entrega.json", checklists)
     _salvar_json("historico_entrega.json",  historico)

@@ -187,6 +187,27 @@ def executar() -> dict:
         except Exception as _exc_of:
             log.debug(f"  [ofertas] enriquecimento ignorado: {_exc_of}")
 
+        # Associar conta mestra (melhor esforço — não bloqueia)
+        try:
+            from core.contas_empresa import encontrar_ou_criar_conta, vincular_oportunidade_a_conta
+            _conta = encontrar_ou_criar_conta({
+                "nome_empresa":       opp.get("contraparte", ""),
+                "email_principal":    opp.get("email", ""),
+                "telefone_principal": opp.get("telefone", ""),
+                "whatsapp":           opp.get("whatsapp", ""),
+                "instagram":          opp.get("instagram", ""),
+                "site":               opp.get("site", ""),
+                "cidade":             opp.get("cidade", ""),
+                "categoria":          opp.get("categoria", ""),
+                "origem_inicial":     opp.get("origem_oportunidade", origem),
+            }, origem="agente_comercial")
+            if _conta:
+                opp["conta_id"] = _conta["id"]
+                vincular_oportunidade_a_conta(opp["id"], _conta["id"],
+                                              origem="agente_comercial")
+        except Exception as _exc_cnt:
+            log.debug(f"  [contas] vinculacao ignorada: {_exc_cnt}")
+
         novas_opps.append(opp)
         novos_fus.append(fu)
         marcar_processado(estado, opp["id"])
@@ -370,6 +391,7 @@ def executar() -> dict:
         "aprovados_nesta_exec":     aprovados_agora,
         "resultados_aplicados":  res_stats["aplicados"],
         "followups_de_resultado": res_stats["novos_followups"],
+        "contas_vinculadas":     sum(1 for o in novas_opps if o.get("conta_id")),
         "caminho_log":           str(caminho_log),
     }
 

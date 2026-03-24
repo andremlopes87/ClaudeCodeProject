@@ -661,6 +661,36 @@ def encaminhar_para_entrega_se_manual_sale(entrada: dict, avaliacao: dict) -> di
         _salvar(arq_entrega, p_entrega)
         logger.info(f"[entrada_manual] Entrega '{ent_id}' criada no pipeline de entrega")
 
+    # Associar conta mestra (entrada manual = cliente imediato)
+    try:
+        from core.contas_empresa import (
+            encontrar_ou_criar_conta, vincular_oportunidade_a_conta,
+            vincular_entrega_a_conta,
+        )
+        _conta = encontrar_ou_criar_conta({
+            "nome_empresa":        entrada.get("nome", ""),
+            "email_principal":     entrada.get("email", ""),
+            "telefone_principal":  entrada.get("telefone", ""),
+            "whatsapp":            entrada.get("whatsapp", ""),
+            "cidade":              entrada.get("cidade", ""),
+            "categoria":           entrada.get("categoria", ""),
+            "origem_inicial":      "entrada_manual",
+            "status_relacionamento": "cliente_ativo",
+            "fase_atual":          "onboarding",
+        }, origem="entrada_manual_conselho")
+        if _conta:
+            opp["conta_id"]    = _conta["id"]
+            entrega["conta_id"] = _conta["id"]
+            # re-salvar pipeline e entrega com conta_id
+            for _lst, _arq in ((pipeline, arq_pipeline), (p_entrega, arq_entrega)):
+                _salvar(_arq, _lst)
+            vincular_oportunidade_a_conta(opp_id, _conta["id"],
+                                          origem="entrada_manual_conselho")
+            vincular_entrega_a_conta(ent_id, _conta["id"],
+                                     origem="entrada_manual_conselho")
+    except Exception as _exc_cnt:
+        logger.debug(f"[entrada_manual] conta nao associada: {_exc_cnt}")
+
     return {"oportunidade": opp, "entrega": entrega}
 
 

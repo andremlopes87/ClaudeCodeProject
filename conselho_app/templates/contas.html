@@ -1,0 +1,247 @@
+{% extends "base.html" %}
+{% block title %}Contas/Clientes — Painel do Conselho{% endblock %}
+{% block content %}
+
+{% if conta_selecionada %}
+{# ── MODO DETALHE ─────────────────────────────────────────────────────────── #}
+{% set c = conta_selecionada %}
+<div class="page-header">
+  <h1>
+    {{ c.nome_empresa or '(sem nome)' }}
+    <span class="badge {% if c.status_relacionamento in ('cliente_ativo','cliente_em_implantacao','cliente_recorrente') %}badge-success{% elif c.status_relacionamento == 'oportunidade' %}badge-accent{% elif c.status_relacionamento == 'perdido' %}badge-danger{% else %}badge-muted{% endif %}" style="font-size:11px;margin-left:8px;">
+      {{ c.status_relacionamento }}
+    </span>
+    {% if c.risco_relacionamento %}
+      <span class="badge badge-danger" style="font-size:11px;margin-left:4px;">risco</span>
+    {% endif %}
+  </h1>
+  <p>{{ c.cidade or '—' }} · {{ c.categoria or '—' }} · criada em {{ (c.criado_em or '')[:10] }}</p>
+</div>
+
+<div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px;">
+  <div class="card" style="flex:1;min-width:200px;">
+    <div class="label" style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Contato</div>
+    {% if c.email_principal %}<div style="font-size:12px;">✉ {{ c.email_principal }}</div>{% endif %}
+    {% if c.telefone_principal %}<div style="font-size:12px;">☎ {{ c.telefone_principal }}</div>{% endif %}
+    {% if c.whatsapp %}<div style="font-size:12px;">📱 {{ c.whatsapp }}</div>{% endif %}
+    {% if c.instagram %}<div style="font-size:12px;">@ {{ c.instagram }}</div>{% endif %}
+    {% if c.site %}<div style="font-size:12px;">🌐 {{ c.site }}</div>{% endif %}
+    {% if not c.email_principal and not c.telefone_principal and not c.instagram and not c.site %}
+      <div class="empty">Sem dados de contato</div>
+    {% endif %}
+  </div>
+  <div class="card" style="flex:1;min-width:200px;">
+    <div class="label" style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Financeiro</div>
+    <div class="drill-row"><span>Propostas (total)</span><b>R$ {{ "%.0f"|format(c.valor_total_propostas or 0) }}</b></div>
+    <div class="drill-row"><span>Fechado</span><b>R$ {{ "%.0f"|format(c.valor_total_fechado or 0) }}</b></div>
+    <div class="drill-row"><span>Entregas ativas</span><b>{{ c.entregas_ativas or 0 }}</b></div>
+  </div>
+  <div class="card" style="flex:1;min-width:200px;">
+    <div class="label" style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Fase</div>
+    <div class="drill-row"><span>Status</span><b>{{ c.status_relacionamento }}</b></div>
+    <div class="drill-row"><span>Fase atual</span><b>{{ c.fase_atual }}</b></div>
+    <div class="drill-row"><span>Origem</span><b class="text-muted">{{ c.origem_inicial or '—' }}</b></div>
+    <div class="drill-row"><span>Atualizado</span><b class="text-muted">{{ (c.atualizado_em or '')[:16].replace('T',' ') }}</b></div>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col">
+    <!-- Oportunidades -->
+    <h2>Oportunidades ({{ detalhe.oportunidades|length }})</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>ID</th><th>Estágio</th><th>Linha</th><th>Valor est.</th></tr></thead>
+        <tbody>
+          {% for o in detalhe.oportunidades %}
+          <tr>
+            <td class="text-muted" style="font-size:11px;">{{ o.id[:16] }}</td>
+            <td><span class="badge {% if o.estagio == 'ganho' %}badge-success{% elif o.estagio in ('perdido','encerrado') %}badge-danger{% else %}badge-muted{% endif %}">{{ o.estagio }}</span></td>
+            <td style="font-size:11px;">{{ o.linha_servico_sugerida or '—' }}</td>
+            <td class="text-muted" style="font-size:11px;">{% if o.valor_estimado %}R$ {{ "%.0f"|format(o.valor_estimado) }}{% else %}—{% endif %}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="4" class="empty">Sem oportunidades vinculadas</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Propostas -->
+    <h2>Propostas ({{ detalhe.propostas|length }})</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>ID</th><th>Status</th><th>Versão</th><th>Valor</th></tr></thead>
+        <tbody>
+          {% for p in detalhe.propostas %}
+          <tr>
+            <td class="text-muted" style="font-size:11px;">{{ p.id[:16] }}</td>
+            <td><span class="badge {% if p.status == 'aceita' %}badge-success{% elif p.status == 'rejeitada' %}badge-danger{% elif p.status == 'aguardando_conselho' %}badge-warning{% else %}badge-muted{% endif %}">{{ p.status }}</span></td>
+            <td class="text-muted">v{{ p.versao or 1 }}</td>
+            <td class="text-muted" style="font-size:11px;">{% if p.proposta_valor %}R$ {{ "%.0f"|format(p.proposta_valor) }}{% else %}—{% endif %}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="4" class="empty">Sem propostas vinculadas</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="col">
+    <!-- Entregas -->
+    <h2>Entregas ({{ detalhe.entregas|length }})</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>ID</th><th>Status</th><th>Etapa</th><th>Linha</th></tr></thead>
+        <tbody>
+          {% for e in detalhe.entregas %}
+          <tr>
+            <td class="text-muted" style="font-size:11px;">{{ e.id[:16] }}</td>
+            <td><span class="badge {% if e.status_entrega in ('concluida','entregue') %}badge-success{% elif e.status_entrega == 'aguardando_insumo' %}badge-warning{% else %}badge-muted{% endif %}">{{ e.status_entrega }}</span></td>
+            <td class="text-muted" style="font-size:11px;">{{ e.etapa_atual or '—' }}</td>
+            <td class="text-muted" style="font-size:11px;">{{ e.linha_servico or '—' }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="4" class="empty">Sem entregas vinculadas</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Jornada -->
+    <h2>Jornada Recente</h2>
+    <div class="card">
+      {% for j in detalhe.jornada %}
+      <div style="padding:5px 0;border-bottom:1px solid var(--border);font-size:11px;">
+        <span class="badge badge-muted" style="font-size:10px;">{{ j.tipo_evento }}</span>
+        <span style="margin-left:6px;color:var(--text);">{{ j.descricao[:70] }}</span>
+        <span style="float:right;color:var(--muted);">{{ (j.registrado_em or '')[:16].replace('T',' ') }}</span>
+      </div>
+      {% else %}
+      <div class="empty">Sem eventos de jornada</div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<div style="margin-top:16px;">
+  <a href="/contas" class="badge badge-muted" style="text-decoration:none;padding:5px 12px;">← Voltar para lista</a>
+</div>
+
+{% else %}
+{# ── MODO LISTA ───────────────────────────────────────────────────────────── #}
+<div class="page-header">
+  <h1>Contas / Clientes</h1>
+  <p>{{ total_sem_filtro }} empresa(s) cadastrada(s){% if filtro_status or busca %} · filtro ativo{% endif %}</p>
+</div>
+
+<!-- KPIs -->
+<div class="kpi-grid">
+  <div class="kpi">
+    <div class="label">Total</div>
+    <div class="value">{{ resumo.total_contas or 0 }}</div>
+    <div class="sub">contas</div>
+  </div>
+  <div class="kpi">
+    <div class="label">Leads</div>
+    <div class="value">{{ resumo.leads or 0 }}</div>
+    <div class="sub">identificados</div>
+  </div>
+  <div class="kpi">
+    <div class="label">Oportunidades</div>
+    <div class="value">{{ resumo.oportunidades or 0 }}</div>
+    <div class="sub">no pipeline</div>
+  </div>
+  <div class="kpi {% if (resumo.clientes_ativos or 0) > 0 %}ok{% endif %}">
+    <div class="label">Clientes Ativos</div>
+    <div class="value">{{ resumo.clientes_ativos or 0 }}</div>
+    <div class="sub">{{ resumo.clientes_em_implantacao or 0 }} em implant.</div>
+  </div>
+  <div class="kpi {% if (resumo.com_risco or 0) > 0 %}danger{% endif %}">
+    <div class="label">Risco</div>
+    <div class="value">{{ resumo.com_risco or 0 }}</div>
+    <div class="sub">com risco</div>
+  </div>
+  <div class="kpi">
+    <div class="label">Perdidos</div>
+    <div class="value">{{ resumo.perdidos or 0 }}</div>
+    <div class="sub">encerrados</div>
+  </div>
+</div>
+
+<!-- Filtros -->
+<div style="margin-bottom:16px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+  <form method="get" action="/contas" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+    <select name="status" style="padding:4px 8px;font-size:12px;border:1px solid var(--border);background:var(--bg2);color:var(--text);border-radius:3px;">
+      <option value="" {% if not filtro_status %}selected{% endif %}>Todos os status</option>
+      <option value="lead" {% if filtro_status=='lead' %}selected{% endif %}>Lead</option>
+      <option value="oportunidade" {% if filtro_status=='oportunidade' %}selected{% endif %}>Oportunidade</option>
+      <option value="cliente_ativo" {% if filtro_status=='cliente_ativo' %}selected{% endif %}>Cliente Ativo</option>
+      <option value="cliente_em_implantacao" {% if filtro_status=='cliente_em_implantacao' %}selected{% endif %}>Em Implantação</option>
+      <option value="cliente_recorrente" {% if filtro_status=='cliente_recorrente' %}selected{% endif %}>Recorrente</option>
+      <option value="cliente_inativo" {% if filtro_status=='cliente_inativo' %}selected{% endif %}>Inativo</option>
+      <option value="perdido" {% if filtro_status=='perdido' %}selected{% endif %}>Perdido</option>
+    </select>
+    <input type="text" name="busca" value="{{ busca }}" placeholder="Buscar nome, cidade, categoria..." style="padding:4px 8px;font-size:12px;border:1px solid var(--border);background:var(--bg2);color:var(--text);border-radius:3px;width:200px;">
+    <button type="submit" style="padding:4px 10px;font-size:12px;background:var(--accent);color:#000;border:none;border-radius:3px;cursor:pointer;">Filtrar</button>
+    {% if filtro_status or busca %}
+      <a href="/contas" style="font-size:11px;color:var(--muted);">✕ limpar</a>
+    {% endif %}
+  </form>
+</div>
+
+<!-- Tabela de contas -->
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Empresa</th>
+        <th>Status</th>
+        <th>Fase</th>
+        <th>Propostas</th>
+        <th>Fechado</th>
+        <th>Entregas</th>
+        <th>Atualizado</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for c in contas %}
+      <tr>
+        <td>
+          <div style="font-weight:500;font-size:13px;">{{ c.nome_empresa or '(sem nome)' }}</div>
+          <div style="font-size:10px;color:var(--muted);">{{ c.cidade or '' }}{% if c.cidade and c.categoria %} · {% endif %}{{ c.categoria or '' }}</div>
+        </td>
+        <td>
+          <span class="badge {% if c.status_relacionamento in ('cliente_ativo','cliente_em_implantacao','cliente_recorrente') %}badge-success{% elif c.status_relacionamento == 'oportunidade' %}badge-accent{% elif c.status_relacionamento == 'perdido' %}badge-danger{% else %}badge-muted{% endif %}">
+            {{ c.status_relacionamento }}
+          </span>
+          {% if c.risco_relacionamento %}<span class="badge badge-danger" style="margin-left:2px;font-size:9px;">risco</span>{% endif %}
+        </td>
+        <td class="text-muted" style="font-size:11px;">{{ c.fase_atual or '—' }}</td>
+        <td class="text-muted" style="font-size:11px;">
+          {% if c.valor_total_propostas %}R$ {{ "%.0f"|format(c.valor_total_propostas) }}{% else %}—{% endif %}
+        </td>
+        <td style="font-size:11px;">
+          {% if c.valor_total_fechado %}
+            <b style="color:var(--success);">R$ {{ "%.0f"|format(c.valor_total_fechado) }}</b>
+          {% else %}—{% endif %}
+        </td>
+        <td class="text-muted" style="font-size:11px;">{{ c.entregas_ativas or 0 }}</td>
+        <td class="text-muted" style="font-size:10px;">{{ (c.atualizado_em or '')[:10] }}</td>
+        <td>
+          <a href="/contas/{{ c.id }}" class="badge badge-muted" style="text-decoration:none;font-size:10px;">→</a>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="8" class="empty">
+        {% if filtro_status or busca %}Nenhuma conta corresponde ao filtro{% else %}Nenhuma conta cadastrada ainda — as contas são criadas automaticamente ao processar leads e oportunidades{% endif %}
+      </td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% endif %}
+{% endblock %}

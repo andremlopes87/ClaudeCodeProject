@@ -104,6 +104,12 @@ async def pagina_index(request: Request):
         propostas_resumo["_exp"] = _resumir_exp()
     except Exception:
         propostas_resumo = {}
+    # Resumo de contas/clientes para card da homepage
+    try:
+        from core.contas_empresa import resumir_para_painel as _resumir_contas
+        contas_resumo = _resumir_contas()
+    except Exception:
+        contas_resumo = {}
     return templates.TemplateResponse("index.html", {
         "request":        request,
         "page":           "index",
@@ -119,6 +125,7 @@ async def pagina_index(request: Request):
         "prov_email":       prov_resumo,
         "ofertas_resumo":   ofertas_resumo,
         "propostas_resumo": propostas_resumo,
+        "contas_resumo":    contas_resumo,
     })
 
 
@@ -567,6 +574,52 @@ async def registrar_resposta_action(
     if resposta:
         aplicar_resposta_proposta(resposta)
     return RedirectResponse("/propostas", status_code=303)
+
+
+@app.get("/contas", response_class=HTMLResponse)
+async def pagina_contas(request: Request, status: str = "", busca: str = ""):
+    from core.contas_empresa import carregar_contas, resumir_para_painel
+    contas  = carregar_contas()
+    resumo  = resumir_para_painel()
+    # Filtros
+    filtradas = contas
+    if status:
+        filtradas = [c for c in filtradas if c.get("status_relacionamento") == status]
+    if busca:
+        _b = busca.lower()
+        filtradas = [c for c in filtradas
+                     if _b in (c.get("nome_empresa") or "").lower()
+                     or _b in (c.get("cidade") or "").lower()
+                     or _b in (c.get("categoria") or "").lower()]
+    filtradas = sorted(filtradas, key=lambda c: c.get("atualizado_em", ""), reverse=True)
+    return templates.TemplateResponse("contas.html", {
+        "request":      request,
+        "page":         "contas",
+        "contas":       filtradas,
+        "resumo":       resumo,
+        "filtro_status": status,
+        "busca":        busca,
+        "total_sem_filtro": len(contas),
+    })
+
+
+@app.get("/contas/{conta_id}", response_class=HTMLResponse)
+async def pagina_conta_detalhe(request: Request, conta_id: str):
+    from core.contas_empresa import obter_detalhe_conta
+    detalhe = obter_detalhe_conta(conta_id)
+    if not detalhe:
+        return RedirectResponse("/contas")
+    return templates.TemplateResponse("contas.html", {
+        "request":  request,
+        "page":     "contas",
+        "detalhe":  detalhe,
+        "conta_selecionada": detalhe.get("conta"),
+        "contas":   [],
+        "resumo":   {},
+        "filtro_status": "",
+        "busca":    "",
+        "total_sem_filtro": 0,
+    })
 
 
 @app.get("/ofertas", response_class=HTMLResponse)

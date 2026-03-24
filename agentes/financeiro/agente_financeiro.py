@@ -184,6 +184,15 @@ def executar() -> dict:
     )
     salvar_estado(NOME_AGENTE, estado)
 
+    # ── ETAPA 8b: Associar contas_a_receber a contas cadastradas (best-effort) ──
+    try:
+        from core.contas_empresa import associar_contas_a_receber_a_contas
+        _n_linked = associar_contas_a_receber_a_contas()
+        if _n_linked:
+            log.info(f"[contas] {_n_linked} item(ns) em contas_a_receber vinculados a conta_id")
+    except Exception:
+        pass
+
     # ── ETAPA 9: Resumo final ─────────────────────────────────────────────
     resumo_execucao = {
         "agente":             NOME_AGENTE,

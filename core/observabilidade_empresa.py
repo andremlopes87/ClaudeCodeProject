@@ -389,6 +389,8 @@ def gerar_metricas_empresa() -> dict:
         "atualizado_em":                    datetime.now().isoformat(timespec="seconds"),
         # Métricas de propostas (melhor esforço)
         **_metricas_propostas(),
+        # Métricas de contas/clientes (melhor esforço)
+        **_metricas_contas(),
     }
 
 
@@ -405,6 +407,21 @@ def _metricas_propostas() -> dict:
             "propostas_aguardando_conselho": r["aguardando_conselho"],
             "propostas_aprovadas":         r["aprovadas"],
             "propostas_aceitas":           r["aceitas"],
+        }
+    except Exception:
+        return {}
+
+
+def _metricas_contas() -> dict:
+    """Contagens de contas/clientes para métricas da empresa."""
+    try:
+        from core.contas_empresa import resumir_para_painel as _rc
+        r = _rc()
+        return {
+            "total_contas":                r["total_contas"],
+            "total_clientes_ativos":       r["clientes_ativos"] + r["clientes_em_implantacao"],
+            "total_clientes_em_implantacao": r["clientes_em_implantacao"],
+            "contas_com_risco":            r["com_risco"],
         }
     except Exception:
         return {}

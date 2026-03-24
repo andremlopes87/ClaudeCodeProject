@@ -163,6 +163,25 @@
 </div>
 {% endif %}
 
+{% if contas_resumo and contas_resumo.total_contas is defined %}
+<div class="card" style="margin-bottom:16px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;">
+  <div>
+    <div class="label" style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Carteira de Contas</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+      <span class="badge badge-muted">{{ contas_resumo.total_contas }} total</span>
+      {% if contas_resumo.leads > 0 %}<span class="badge badge-muted">{{ contas_resumo.leads }} lead{% if contas_resumo.leads != 1 %}s{% endif %}</span>{% endif %}
+      {% if contas_resumo.oportunidades > 0 %}<span class="badge badge-accent">{{ contas_resumo.oportunidades }} oport.</span>{% endif %}
+      {% if contas_resumo.clientes_ativos > 0 %}<span class="badge badge-ok">{{ contas_resumo.clientes_ativos }} cliente{% if contas_resumo.clientes_ativos != 1 %}s{% endif %} ativo{% if contas_resumo.clientes_ativos != 1 %}s{% endif %}</span>{% endif %}
+      {% if contas_resumo.clientes_em_implantacao > 0 %}<span class="badge badge-info">{{ contas_resumo.clientes_em_implantacao }} implant.</span>{% endif %}
+      {% if contas_resumo.com_risco > 0 %}<span class="badge badge-danger">{{ contas_resumo.com_risco }} risco</span>{% endif %}
+    </div>
+  </div>
+  <div style="margin-left:auto;">
+    <a href="/contas" class="badge badge-muted" style="text-decoration:none;padding:5px 10px;">→ Ver contas</a>
+  </div>
+</div>
+{% endif %}
+
 {% if gov and (gov.modo_empresa != 'normal' or gov.agentes_pausados or gov.areas_pausadas or gov.diretrizes_ativas) %}
 <h2>Estado da Governança</h2>
 <div class="card" style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start;">
