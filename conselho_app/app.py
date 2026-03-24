@@ -78,6 +78,18 @@ async def pagina_index(request: Request):
     metricas = _metricas()
     from core.governanca_conselho import resumir_governanca_ativa
     saude = painel.get("saude", _ler("saude_empresa.json", {}))
+    # Resumo mínimo de provisionamento para card da homepage
+    try:
+        from core.provisionamento_canais import resumir_para_painel as _resumir_prov
+        _prov = _resumir_prov()
+        prov_resumo = {
+            "status_geral": _prov["status_geral"],
+            "dominio":      _prov["provisionamento"].get("dominio_planejado", "—"),
+            "pendencias":   len(_prov["bloqueios"]),
+            "apto":         _prov["apto"],
+        }
+    except Exception:
+        prov_resumo = {}
     return templates.TemplateResponse("index.html", {
         "request":        request,
         "page":           "index",
@@ -90,6 +102,7 @@ async def pagina_index(request: Request):
         "metricas":       metricas,
         "gov":            resumir_governanca_ativa(),
         "saude":          saude,
+        "prov_email":     prov_resumo,
     })
 
 
@@ -439,6 +452,23 @@ async def salvar_identidade(
             "financeiro":    obter_assinatura("financeiro"),
             "institucional": obter_assinatura("institucional"),
         },
+    })
+
+
+@app.get("/ativacao-email", response_class=HTMLResponse)
+async def pagina_ativacao_email(request: Request):
+    from core.provisionamento_canais import resumir_para_painel
+    dados = resumir_para_painel()
+    return templates.TemplateResponse("ativacao_email.html", {
+        "request":          request,
+        "page":             "ativacao_email",
+        "provisionamento":  dados["provisionamento"],
+        "checklist":        dados["checklist"],
+        "historico_recente": dados["historico_recente"],
+        "status_geral":     dados["status_geral"],
+        "apto":             dados["apto"],
+        "bloqueios":        dados["bloqueios"],
+        "progresso":        dados["progresso"],
     })
 
 

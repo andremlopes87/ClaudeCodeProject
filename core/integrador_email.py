@@ -1,5 +1,5 @@
 """
-core/integrador_email.py — Integrador do canal de email assistido (v0.40).
+core/integrador_email.py — Integrador do canal de email assistido (v0.42).
 
 Converte execuções prontas com canal=email (fila_execucao_contato.json)
 em emails preparados (fila_envio_email.json) para revisão pelo conselho.
@@ -73,6 +73,22 @@ def executar() -> dict:
     config_canal  = carregar_config_canal_email()
     modo          = config_canal.get("modo", "desativado")
     habilitado    = config_canal.get("habilitado", False)
+
+    # Guard: modo=real exige todos os pré-requisitos de provisionamento
+    if modo == "real":
+        try:
+            from core.provisionamento_canais import validar_modo_real_permitido, registrar_evento_provisionamento
+            permitido, motivo = validar_modo_real_permitido()
+            if not permitido:
+                log.warning(f"modo=real BLOQUEADO: {motivo} — operando em modo=assistido")
+                registrar_evento_provisionamento(
+                    "ativacao_real_bloqueada",
+                    f"Tentativa de modo=real bloqueada: {motivo}",
+                    "integrador_email",
+                )
+                modo = "assistido"
+        except Exception as _exc_prov:
+            log.warning(f"Verificação de provisionamento falhou: {_exc_prov} — mantendo modo={modo}")
 
     if not habilitado or modo == "desativado":
         log.info(f"Canal email desativado (modo={modo}, habilitado={habilitado}) — pulando")

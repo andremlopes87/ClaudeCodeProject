@@ -93,6 +93,30 @@
 </div>
 {% endif %}
 
+{% if prov_email %}
+<div class="card" style="margin-bottom:16px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;">
+  <div>
+    <div class="label" style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Canal Email Real</div>
+    {% if prov_email.status_geral == 'pronto_para_modo_real' %}
+      <span class="badge badge-ok" style="font-size:12px;padding:4px 10px;">✓ Pronto para ativar</span>
+    {% elif prov_email.status_geral == 'quase_pronto' %}
+      <span class="badge badge-info" style="font-size:12px;padding:4px 10px;">◑ Quase pronto</span>
+    {% elif prov_email.status_geral == 'em_preparacao' %}
+      <span class="badge badge-warn" style="font-size:12px;padding:4px 10px;">⚙ Em preparação</span>
+    {% else %}
+      <span class="badge badge-muted" style="font-size:12px;padding:4px 10px;">✗ Não pronto</span>
+    {% endif %}
+  </div>
+  <div style="font-size:11px;color:var(--muted);">
+    <div>Domínio: <code>{{ prov_email.dominio or '—' }}</code></div>
+    {% if prov_email.pendencias > 0 %}<div>{{ prov_email.pendencias }} pendência(s)</div>{% endif %}
+  </div>
+  <div style="margin-left:auto;">
+    <a href="/ativacao-email" class="badge badge-muted" style="text-decoration:none;padding:5px 10px;">→ Ver ativação</a>
+  </div>
+</div>
+{% endif %}
+
 {% if gov and (gov.modo_empresa != 'normal' or gov.agentes_pausados or gov.areas_pausadas or gov.diretrizes_ativas) %}
 <h2>Estado da Governança</h2>
 <div class="card" style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start;">

@@ -1,0 +1,254 @@
+{% extends "base.html" %}
+{% block title %}Ativação Email Real — Painel do Conselho{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1>✉ Ativação do Canal Email Real</h1>
+  <div class="subtitle">Preparação para sair do modo assistido. <strong>Nenhum email real enviado nesta página.</strong></div>
+</div>
+
+<!-- ═══ CARD DE STATUS GERAL ══════════════════════════════════════════════════ -->
+<div class="card" style="margin-bottom:16px;display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap;">
+
+  <div style="flex:0 0 auto;">
+    <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Status</div>
+    {% if status_geral == 'pronto_para_modo_real' %}
+      <div class="badge badge-ok" style="font-size:14px;padding:6px 14px;">✓ PRONTO PARA ATIVAR</div>
+    {% elif status_geral == 'quase_pronto' %}
+      <div class="badge badge-info" style="font-size:14px;padding:6px 14px;">◑ QUASE PRONTO</div>
+    {% elif status_geral == 'em_preparacao' %}
+      <div class="badge badge-warn" style="font-size:14px;padding:6px 14px;">⚙ EM PREPARAÇÃO</div>
+    {% else %}
+      <div class="badge badge-muted" style="font-size:14px;padding:6px 14px;">✗ NÃO PRONTO</div>
+    {% endif %}
+  </div>
+
+  <div style="flex:1;min-width:180px;">
+    <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Empresa / Domínio</div>
+    <div style="font-weight:600;">{{ provisionamento.empresa or '—' }}</div>
+    <div style="font-size:12px;margin-top:2px;"><code>{{ provisionamento.dominio_planejado or '—' }}</code></div>
+    <div style="font-size:11px;color:var(--muted);margin-top:2px;">
+      Remetente planejado: <code>{{ provisionamento.caixa_comercial_planejada or '—' }}</code>
+    </div>
+  </div>
+
+  <div style="flex:0 0 auto;text-align:center;">
+    <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Progresso</div>
+    <div style="font-size:28px;font-weight:700;color:{% if progresso.percentual >= 80 %}var(--success){% elif progresso.percentual >= 40 %}var(--text){% else %}var(--muted){% endif %};">
+      {{ progresso.percentual }}%
+    </div>
+    <div style="font-size:11px;color:var(--muted);">{{ progresso.concluidos }}/{{ progresso.total_obrig }} obrigatórios</div>
+  </div>
+
+  <div style="flex:1;min-width:160px;">
+    <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Provedor Planejado</div>
+    <div style="font-size:13px;">{{ provisionamento.provedor_email_planejado or '— (não definido)' }}</div>
+    <div style="font-size:11px;color:var(--muted);margin-top:4px;">
+      Sugestões: Zoho Mail (free), Google Workspace, Brevo
+    </div>
+  </div>
+
+</div>
+
+<!-- ═══ BLOQUEIOS ATUAIS ═══════════════════════════════════════════════════════ -->
+{% if bloqueios %}
+<section class="section">
+  <h2>Bloqueios para modo=real ({{ bloqueios|length }})</h2>
+  <div class="notice-box notice-warn">
+    <strong>O modo=real está bloqueado.</strong> Se config_canal_email.json for alterado para modo=real
+    sem os pré-requisitos abaixo, o integrador revertirá automaticamente para assistido e registrará o evento.
+  </div>
+  <table class="data-table" style="margin-top:10px;">
+    <thead><tr><th>#</th><th>Bloqueio</th></tr></thead>
+    <tbody>
+      {% for b in bloqueios %}
+      <tr>
+        <td style="color:var(--muted);width:30px;">{{ loop.index }}</td>
+        <td><span class="badge badge-warn">{{ b }}</span></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% else %}
+<div class="notice-box notice-ok" style="margin-bottom:16px;">
+  ✓ Nenhum bloqueio. O sistema está apto para modo=real quando desejar ativar.
+</div>
+{% endif %}
+
+<!-- ═══ CHECKLIST DE ATIVAÇÃO ════════════════════════════════════════════════ -->
+<section class="section">
+  <h2>Checklist de Ativação</h2>
+  <p class="text-muted" style="margin-bottom:12px;">
+    Itens obrigatórios devem estar <span class="badge badge-ok">concluido</span> antes de ativar modo=real.
+    Para atualizar: edite diretamente <code>dados/checklist_ativacao_email.json</code>.
+  </p>
+
+  {% set status_cores = {'concluido': 'badge-ok', 'em_andamento': 'badge-info', 'pendente': 'badge-muted', 'bloqueado': 'badge-warn', 'dispensado': 'badge-muted'} %}
+
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th style="width:20px;"></th>
+        <th>Item</th>
+        <th>Obrig.</th>
+        <th>Status</th>
+        <th>Observações</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in checklist %}
+      <tr>
+        <td style="text-align:center;">
+          {% if item.status == 'concluido' %}✓
+          {% elif item.status == 'em_andamento' %}◑
+          {% elif item.status == 'bloqueado' %}✗
+          {% else %}○{% endif %}
+        </td>
+        <td>
+          <strong>{{ item.titulo }}</strong>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px;">{{ item.descricao }}</div>
+        </td>
+        <td style="text-align:center;">
+          {% if item.obrigatorio %}<span class="badge badge-warn" style="font-size:9px;">SIM</span>{% else %}<span style="color:var(--muted);font-size:11px;">—</span>{% endif %}
+        </td>
+        <td>
+          <span class="badge {{ status_cores.get(item.status, 'badge-muted') }}">{{ item.status }}</span>
+        </td>
+        <td style="font-size:11px;color:var(--muted);">{{ item.observacoes or '—' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<!-- ═══ PROVISIONAMENTO EXTERNO ══════════════════════════════════════════════ -->
+<section class="section">
+  <h2>Provisionamento Externo</h2>
+  <p class="text-muted" style="margin-bottom:10px;">
+    Campos preenchidos externamente após configurar domínio e email real.
+    Edite <code>dados/provisionamento_email_real.json</code> e o sistema recalculará automaticamente.
+  </p>
+
+  {% macro bool_badge(val) %}
+    {% if val %}<span class="badge badge-ok">✓ sim</span>{% else %}<span class="badge badge-muted">✗ não</span>{% endif %}
+  {% endmacro %}
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+
+    <div class="card">
+      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Caixas Planejadas</div>
+      <div class="drill-row"><span>Principal</span><code style="font-size:11px;">{{ provisionamento.caixa_principal_planejada or '—' }}</code></div>
+      <div class="drill-row"><span>Comercial</span><code style="font-size:11px;">{{ provisionamento.caixa_comercial_planejada or '—' }}</code></div>
+      <div class="drill-row"><span>Financeiro</span><code style="font-size:11px;">{{ provisionamento.caixa_financeiro_planejada or '—' }}</code></div>
+      <div class="drill-row"><span>Operações</span><code style="font-size:11px;">{{ provisionamento.caixa_operacoes_planejada or '—' }}</code></div>
+      <div class="drill-row"><span>Provedor</span><b>{{ provisionamento.provedor_email_planejado or '—' }}</b></div>
+      <div class="drill-row"><span>SMTP host</span><code style="font-size:11px;">{{ provisionamento.smtp_host_planejado or '—' }}</code></div>
+      <div class="drill-row"><span>SMTP porta</span><b>{{ provisionamento.smtp_porta_planejada or '—' }}</b></div>
+    </div>
+
+    <div class="card">
+      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Status DNS / Email</div>
+      <div class="drill-row"><span>Domínio registrado</span>{{ bool_badge(provisionamento.dominio_registrado) }}</div>
+      <div class="drill-row"><span>DNS configurado</span>{{ bool_badge(provisionamento.dns_configurado) }}</div>
+      <div class="drill-row"><span>MX</span>{{ bool_badge(provisionamento.mx_configurado) }}</div>
+      <div class="drill-row"><span>SPF</span>{{ bool_badge(provisionamento.spf_configurado) }}</div>
+      <div class="drill-row"><span>DKIM</span>{{ bool_badge(provisionamento.dkim_configurado) }}</div>
+      <div class="drill-row"><span>DMARC</span>{{ bool_badge(provisionamento.dmarc_configurado) }}</div>
+      <div class="drill-row"><span>SMTP validado</span>{{ bool_badge(provisionamento.smtp_validado) }}</div>
+      <div class="drill-row"><span>Remetente validado</span>{{ bool_badge(provisionamento.remetente_validado) }}</div>
+      <div class="drill-row"><span>Whitelist de teste</span>{{ bool_badge(provisionamento.whitelist_teste_definida) }}</div>
+    </div>
+
+  </div>
+
+  {% if provisionamento.observacoes %}
+  <div class="card" style="margin-top:10px;font-size:12px;">
+    <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Observações</div>
+    {{ provisionamento.observacoes }}
+  </div>
+  {% endif %}
+
+  <div style="margin-top:8px;font-size:11px;color:var(--muted);">
+    Atualizado em: {{ provisionamento.atualizado_em or '—' }}
+  </div>
+</section>
+
+<!-- ═══ VALIDAÇÃO FINAL DE READINESS ════════════════════════════════════════ -->
+<section class="section">
+  <h2>Validação Final de Readiness</h2>
+  <div class="card">
+    <table class="data-table">
+      <thead><tr><th>Critério</th><th>Estado</th></tr></thead>
+      <tbody>
+        {% set checks = [
+          ('Identidade mínima definida', provisionamento.empresa != ''),
+          ('Domínio planejado definido', provisionamento.dominio_planejado != ''),
+          ('Caixa comercial planejada', provisionamento.caixa_comercial_planejada != ''),
+          ('Domínio registrado', provisionamento.dominio_registrado),
+          ('MX + SPF + DKIM configurados', provisionamento.mx_configurado and provisionamento.spf_configurado and provisionamento.dkim_configurado),
+          ('SMTP validado', provisionamento.smtp_validado),
+          ('Remetente validado', provisionamento.remetente_validado),
+          ('Whitelist de teste definida', provisionamento.whitelist_teste_definida),
+          ('Todos os obrigatórios do checklist concluídos', progresso.percentual == 100),
+        ] %}
+        {% for label, ok in checks %}
+        <tr>
+          <td>{{ label }}</td>
+          <td>{% if ok %}<span class="badge badge-ok">✓</span>{% else %}<span class="badge badge-warn">✗ pendente</span>{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border);">
+      <strong>pronto_para_modo_real =</strong>
+      {% if apto %}
+        <span class="badge badge-ok" style="font-size:13px;padding:4px 12px;">TRUE</span>
+      {% else %}
+        <span class="badge badge-warn" style="font-size:13px;padding:4px 12px;">FALSE</span>
+      {% endif %}
+    </div>
+  </div>
+</section>
+
+<!-- ═══ PRÓXIMOS PASSOS ══════════════════════════════════════════════════════ -->
+<section class="section">
+  <h2>Próximos Passos para Ativar Email Real</h2>
+  <div class="card" style="font-size:12px;line-height:1.7;">
+    <ol style="margin:0;padding-left:18px;">
+      <li>Registrar domínio <code>vetorai.com.br</code> em registro.br</li>
+      <li>Escolher provedor de email: <strong>Zoho Mail</strong> (gratuito até 5 caixas) ou Google Workspace</li>
+      <li>Configurar MX, SPF e DKIM no DNS do domínio conforme instruções do provedor</li>
+      <li>Criar caixas: <code>contato@</code>, <code>comercial@</code>, <code>financeiro@</code>, <code>operacoes@</code></li>
+      <li>Definir credenciais SMTP como variáveis de ambiente (NUNCA no repositório)</li>
+      <li>Atualizar <code>dados/provisionamento_email_real.json</code> marcando os campos como <code>true</code></li>
+      <li>Atualizar <code>dados/checklist_ativacao_email.json</code> marcando itens como <code>concluido</code></li>
+      <li>Definir <code>whitelist_emails_teste</code> em <code>config_canal_email.json</code></li>
+      <li>Rodar 1 ciclo em modo assistido, revisar emails na fila</li>
+      <li>Alterar <code>modo=real</code> em <code>config_canal_email.json</code> — o integrador validará automaticamente</li>
+    </ol>
+    <div style="margin-top:10px;"><a href="/docs/canais/ativacao_email_real.md" style="font-size:11px;color:var(--muted);">→ Ver runbook completo em docs/canais/ativacao_email_real.md</a></div>
+  </div>
+</section>
+
+<!-- ═══ HISTÓRICO ════════════════════════════════════════════════════════════ -->
+{% if historico_recente %}
+<section class="section">
+  <h2>Histórico de Provisionamento (últimos 20)</h2>
+  <table class="data-table">
+    <thead><tr><th>Evento</th><th>Descrição</th><th>Origem</th><th>Registrado em</th></tr></thead>
+    <tbody>
+      {% for ev in historico_recente %}
+      <tr>
+        <td><code style="font-size:10px;">{{ ev.evento }}</code></td>
+        <td style="font-size:11px;">{{ ev.descricao[:70] if ev.descricao else '—' }}{% if ev.descricao and ev.descricao|length > 70 %}…{% endif %}</td>
+        <td class="text-muted" style="font-size:11px;">{{ ev.origem or '—' }}</td>
+        <td class="text-muted" style="font-size:11px;">{{ ev.registrado_em or '—' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+
+{% endblock %}
