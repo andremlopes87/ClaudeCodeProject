@@ -29,6 +29,49 @@
 </div>
 {% endif %}
 
+<!-- Prontidão para Canal Real -->
+{% if prontidao %}
+<div class="card" style="margin-bottom:16px;display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;">
+  <div style="flex:1;min-width:220px;">
+    <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Empresa</div>
+    <div style="font-size:18px;font-weight:700;">{{ prontidao.nome_exibicao or identidade.nome_exibicao or '—' }}</div>
+    <div style="font-size:11px;color:var(--muted);margin-top:2px;">{{ prontidao.nome_oficial or identidade.nome_oficial or '—' }}</div>
+    {% if identidade._naming_finalistas %}
+    <div style="margin-top:8px;">
+      <div style="font-size:10px;color:var(--muted);margin-bottom:3px;">Finalistas avaliados:</div>
+      {% for f in identidade._naming_finalistas %}
+      <span class="badge {% if f == (identidade._naming_recomendado or identidade.nome_exibicao) %}badge-ok{% else %}badge-muted{% endif %}" style="margin-right:4px;">{{ f }}{% if f == (identidade._naming_recomendado or '') %} ⭐{% endif %}</span>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+  <div style="flex:1;min-width:180px;">
+    <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Domínio Planejado</div>
+    <code style="font-size:13px;">{{ prontidao.dominio_planejado_valor or canais.dominio_oficial_planejado or '—' }}</code>
+    <div style="margin-top:6px;font-size:11px;color:var(--muted);">Emails planejados:</div>
+    {% for campo in ['email_principal_planejado','email_comercial_planejado','email_financeiro_planejado','email_operacoes_planejado'] %}
+    {% if canais[campo] is defined and canais[campo] %}
+    <div style="font-size:11px;"><code>{{ canais[campo] }}</code></div>
+    {% endif %}
+    {% endfor %}
+  </div>
+  <div style="min-width:160px;">
+    <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Prontidão Canal Real</div>
+    {% if prontidao.pronto_para_configurar_email_real %}
+    <div class="badge badge-ok" style="font-size:12px;padding:4px 10px;">✓ PRONTO</div>
+    {% else %}
+    <div class="badge badge-warn" style="font-size:12px;padding:4px 10px;">⚠ PENDENTE</div>
+    {% endif %}
+    {% if prontidao.pendencias %}
+    <div style="margin-top:8px;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Pendências:</div>
+    {% for p in prontidao.pendencias %}
+    <div style="font-size:11px;margin-top:3px;">· {{ p[:55] }}{% if p|length > 55 %}…{% endif %}</div>
+    {% endfor %}
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
 <!-- Abas -->
 <div style="display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:16px;">
   {% for aba, label in [('institucional','Institucional'),('comunicacao','Comunicação'),('assinaturas','Assinaturas'),('canais','Canais'),('historico','Histórico')] %}
@@ -147,6 +190,22 @@
     <div class="card" style="margin-top:8px;font-size:11px;">
       <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Proposta de Valor</div>
       {{ identidade.proposta_valor_resumida }}
+    </div>
+    {% endif %}
+    {% if identidade._naming_recomendado %}
+    <div class="card" style="margin-top:8px;font-size:11px;">
+      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Naming — Decisão</div>
+      <div><b>Recomendado:</b> {{ identidade._naming_recomendado }} ⭐</div>
+      {% if identidade._naming_finalistas %}
+      <div style="margin-top:4px;"><b>Finalistas:</b>
+        {% for f in identidade._naming_finalistas %}
+        <span class="badge" style="margin-left:4px;">{{ f }}</span>
+        {% endfor %}
+      </div>
+      {% endif %}
+      {% if identidade._naming_dominio_sugerido %}
+      <div style="margin-top:4px;"><b>Domínio sugerido:</b> <code>{{ identidade._naming_dominio_sugerido }}</code></div>
+      {% endif %}
     </div>
     {% endif %}
   </div>

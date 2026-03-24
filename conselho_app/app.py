@@ -291,6 +291,7 @@ async def api_status():
 async def pagina_identidade(request: Request, aba: str = "institucional"):
     from core.identidade_empresa import resumir_identidade_para_painel, obter_assinatura
     dados = resumir_identidade_para_painel()
+    prontidao = _ler("prontidao_canais_reais.json", {})
     return templates.TemplateResponse("identidade.html", {
         "request":        request,
         "page":           "identidade",
@@ -301,6 +302,7 @@ async def pagina_identidade(request: Request, aba: str = "institucional"):
         "canais":         dados["canais"],
         "historico":      dados["historico"],
         "status_completo": dados["status_completo"],
+        "prontidao":      prontidao,
         "resultado":      None,
         "assinatura_previa": {
             "comercial":     obter_assinatura("comercial"),
@@ -419,6 +421,7 @@ async def salvar_identidade(
         mensagem = "Canais oficiais salvos."
 
     dados_painel = resumir_identidade_para_painel()
+    prontidao = _ler("prontidao_canais_reais.json", {})
     return templates.TemplateResponse("identidade.html", {
         "request":        request,
         "page":           "identidade",
@@ -429,6 +432,7 @@ async def salvar_identidade(
         "canais":         dados_painel["canais"],
         "historico":      dados_painel["historico"],
         "status_completo": dados_painel["status_completo"],
+        "prontidao":      prontidao,
         "resultado":      {"mensagem": mensagem} if mensagem else None,
         "assinatura_previa": {
             "comercial":     obter_assinatura("comercial"),
