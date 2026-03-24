@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+{% block title %}Acompanhamento Pós-Entrega — Painel do Conselho{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Acompanhamento Pós-Entrega</h1>
+  <p>{{ total_saudes }} conta(s) monitorada(s)</p>
+</div>
+
+<!-- KPIs -->
+<div class="kpi-grid">
+  <div class="kpi">
+    <div class="label">Acomp. Abertos</div>
+    <div class="value">{{ resumo.acompanhamentos_abertos or 0 }}</div>
+    <div class="sub">em andamento</div>
+  </div>
+  <div class="kpi {% if (resumo.contas_em_risco or 0) > 0 %}danger{% endif %}">
+    <div class="label">Em Risco</div>
+    <div class="value">{{ resumo.contas_em_risco or 0 }}</div>
+    <div class="sub">atenção/crítica</div>
+  </div>
+  <div class="kpi {% if (resumo.contas_com_potencial_expansao or 0) > 0 %}ok{% endif %}">
+    <div class="label">Pot. Expansão</div>
+    <div class="value">{{ resumo.contas_com_potencial_expansao or 0 }}</div>
+    <div class="sub">contas</div>
+  </div>
+  <div class="kpi">
+    <div class="label">Expansões Sug.</div>
+    <div class="value">{{ resumo.oportunidades_expansao_sugeridas or 0 }}</div>
+    <div class="sub">{{ resumo.oportunidades_expansao_handoff or 0 }} prontas</div>
+  </div>
+  <div class="kpi">
+    <div class="label">Convertidas</div>
+    <div class="value">{{ resumo.oportunidades_expansao_convertidas or 0 }}</div>
+    <div class="sub">em pipeline</div>
+  </div>
+</div>
+
+<!-- Filtros -->
+<div style="margin-bottom:16px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+  <form method="get" action="/acompanhamento" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+    <select name="filtro" style="padding:4px 8px;font-size:12px;border:1px solid var(--border);background:var(--bg2);color:var(--text);border-radius:3px;">
+      <option value="" {% if not filtro %}selected{% endif %}>Todas as contas</option>
+      <option value="risco" {% if filtro=='risco' %}selected{% endif %}>Em Risco</option>
+      <option value="expansao" {% if filtro=='expansao' %}selected{% endif %}>Potencial Expansão</option>
+      <option value="excelente" {% if filtro=='excelente' %}selected{% endif %}>Saúde Excelente</option>
+      <option value="boa" {% if filtro=='boa' %}selected{% endif %}>Saúde Boa</option>
+      <option value="atencao" {% if filtro=='atencao' %}selected{% endif %}>Atenção</option>
+      <option value="critica" {% if filtro=='critica' %}selected{% endif %}>Crítica</option>
+    </select>
+    <input type="text" name="busca" value="{{ busca }}" placeholder="Buscar conta..." style="padding:4px 8px;font-size:12px;border:1px solid var(--border);background:var(--bg2);color:var(--text);border-radius:3px;width:160px;">
+    <button type="submit" style="padding:4px 10px;font-size:12px;background:var(--accent);color:#000;border:none;border-radius:3px;cursor:pointer;">Filtrar</button>
+    {% if filtro or busca %}<a href="/acompanhamento" style="font-size:11px;color:var(--muted);">✕ limpar</a>{% endif %}
+  </form>
+</div>
+
+<div class="row">
+  <div class="col">
+
+    <!-- Saúde das contas -->
+    <h2>Saúde das Contas ({{ saudes|length }})</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Conta</th><th>Saúde</th><th>Score</th><th>Satisfação</th><th>Expansão</th><th>Recomendação</th><th></th></tr>
+        </thead>
+        <tbody>
+          {% for s in saudes %}
+          <tr>
+            <td style="font-weight:500;font-size:12px;">{{ s._nome }}</td>
+            <td>
+              <span class="badge {% if s.status_saude == 'excelente' %}badge-success{% elif s.status_saude == 'boa' %}badge-ok{% elif s.status_saude == 'atencao' %}badge-warning{% else %}badge-danger{% endif %}">
+                {{ s.status_saude }}
+              </span>
+            </td>
+            <td style="font-weight:bold;color:{% if s.score_saude >= 80 %}var(--success){% elif s.score_saude >= 60 %}var(--text){% elif s.score_saude >= 40 %}var(--warning){% else %}var(--danger){% endif %};">
+              {{ s.score_saude }}
+            </td>
+            <td class="text-muted" style="font-size:11px;">{{ s.satisfacao_atual or '—' }}</td>
+            <td>
+              {% if s.potencial_expansao %}<span class="badge badge-accent" style="font-size:10px;">sim</span>{% else %}<span class="text-muted" style="font-size:11px;">—</span>{% endif %}
+            </td>
+            <td class="text-muted" style="font-size:10px;">{{ (s.recomendacao_sistema or '')[:55] }}</td>
+            <td><a href="/contas/{{ s.conta_id }}" class="badge badge-muted" style="text-decoration:none;font-size:10px;">→</a></td>
+          </tr>
+          {% else %}
+          <tr><td colspan="7" class="empty">Nenhuma conta com saúde calculada — executar ciclo operacional para gerar dados</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Acompanhamentos abertos -->
+    {% if acomps_abertos %}
+    <h2>Acompanhamentos Abertos ({{ acomps_abertos|length }})</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>ID</th><th>Tipo</th><th>Status</th><th>Satisfação</th><th>Registrado</th><th>Ação</th></tr></thead>
+        <tbody>
+          {% for a in acomps_abertos %}
+          <tr>
+            <td class="text-muted" style="font-size:10px;">{{ a.id[:16] }}</td>
+            <td style="font-size:11px;">{{ a.tipo_acompanhamento }}</td>
+            <td><span class="badge badge-muted" style="font-size:10px;">{{ a.status }}</span></td>
+            <td>
+              {% if a.satisfacao %}
+                <span class="badge {% if a.satisfacao == 'alta' %}badge-success{% elif a.satisfacao == 'baixa' %}badge-danger{% else %}badge-muted{% endif %}" style="font-size:10px;">{{ a.satisfacao }}</span>
+              {% else %}
+                <form method="post" action="/acompanhamento/{{ a.id }}/satisfacao" style="display:flex;gap:4px;align-items:center;">
+                  <select name="satisfacao" style="padding:2px 4px;font-size:10px;border:1px solid var(--border);background:var(--bg2);color:var(--text);border-radius:2px;">
+                    <option value="alta">Alta</option>
+                    <option value="media">Média</option>
+                    <option value="baixa">Baixa</option>
+                  </select>
+                  <button type="submit" style="padding:2px 6px;font-size:10px;background:var(--accent);color:#000;border:none;border-radius:2px;cursor:pointer;">✓</button>
+                </form>
+              {% endif %}
+            </td>
+            <td class="text-muted" style="font-size:10px;">{{ (a.registrado_em or '')[:10] }}</td>
+            <td><a href="/contas/{{ a.conta_id }}" class="badge badge-muted" style="text-decoration:none;font-size:10px;">conta →</a></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+
+  </div>
+
+  <div class="col">
+
+    <!-- Contas em risco -->
+    {% if em_risco %}
+    <h2>Contas em Risco ({{ em_risco|length }})</h2>
+    <div class="card">
+      {% for s in em_risco %}
+      <div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;display:flex;align-items:center;gap:8px;">
+        <span class="badge {% if s.status_saude == 'critica' %}badge-danger{% else %}badge-warning{% endif %}">{{ s.status_saude }}</span>
+        <span style="flex:1;font-weight:500;">{{ s._nome }}</span>
+        <span style="font-size:10px;color:var(--muted);">score {{ s.score_saude }}</span>
+        <a href="/contas/{{ s.conta_id }}" class="badge badge-muted" style="text-decoration:none;font-size:10px;">→</a>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Potencial de expansão -->
+    {% if pot_exp %}
+    <h2>Potencial de Expansão ({{ pot_exp|length }})</h2>
+    <div class="card">
+      {% for s in pot_exp %}
+      <div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;display:flex;align-items:center;gap:8px;">
+        <span class="badge badge-ok" style="font-size:10px;">score {{ s.score_saude }}</span>
+        <span style="flex:1;font-weight:500;">{{ s._nome }}</span>
+        <a href="/contas/{{ s.conta_id }}" class="badge badge-muted" style="text-decoration:none;font-size:10px;">→</a>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Oportunidades de expansão prontas para handoff -->
+    {% if exp_handoff %}
+    <h2>Prontas para Handoff ({{ exp_handoff|length }})</h2>
+    <div class="card">
+      {% for x in exp_handoff %}
+      <div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:11px;">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;">
+          <span class="badge badge-accent" style="font-size:10px;">{{ x.tipo_oportunidade }}</span>
+          <span style="font-weight:500;">{{ x._nome }}</span>
+        </div>
+        <div style="color:var(--muted);">{{ x.motivo[:80] }}</div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Sugestões de expansão -->
+    {% if exp_sugeridas %}
+    <h2>Expansões Sugeridas ({{ exp_sugeridas|length }})</h2>
+    <div class="card">
+      {% for x in exp_sugeridas %}
+      <div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:11px;">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;flex-wrap:wrap;">
+          <span class="badge badge-muted" style="font-size:10px;">{{ x.tipo_oportunidade }}</span>
+          <span style="font-weight:500;">{{ x._nome }}</span>
+          {% if x.oferta_sugerida %}<span class="badge badge-muted" style="font-size:9px;">{{ x.oferta_sugerida }}</span>{% endif %}
+        </div>
+        <div style="color:var(--muted);margin-bottom:4px;">{{ x.motivo[:80] }}</div>
+        <form method="post" action="/acompanhamento/expansao/{{ x.id }}/promover" style="display:inline;">
+          <button type="submit" style="padding:2px 8px;font-size:10px;background:var(--accent);color:#000;border:none;border-radius:3px;cursor:pointer;">→ promover para handoff</button>
+        </form>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+{% endblock %}

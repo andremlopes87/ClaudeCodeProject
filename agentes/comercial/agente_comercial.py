@@ -132,6 +132,20 @@ def executar() -> dict:
     except Exception as _exc_resp:
         log.warning(f"  [respostas_propostas] aplicação parcial: {_exc_resp}")
 
+    # ── ETAPA 3d: Converter expansões prontas em oportunidades ───────────
+    n_expansoes_convertidas = 0
+    try:
+        from core.acompanhamento_contas import processar_expansoes_para_handoff
+        # pipeline ainda não carregado aqui — carregamos preview mínimo
+        _pipe_preview = carregar_pipeline()
+        _res_exp = processar_expansoes_para_handoff(_pipe_preview,
+                                                    origem=NOME_AGENTE)
+        n_expansoes_convertidas = _res_exp.get("convertidas", 0)
+        if n_expansoes_convertidas:
+            log.info(f"  [expansao] {n_expansoes_convertidas} expansao(oes) convertida(s) em oportunidade")
+    except Exception as _exc_exp:
+        log.warning(f"  [expansao] conversao parcial: {_exc_exp}")
+
     # ── ETAPA 4: Carregar dados ────────────────────────────────────────────
     leads     = _carregar_leads(log)
     pipeline  = carregar_pipeline()
@@ -391,8 +405,9 @@ def executar() -> dict:
         "aprovados_nesta_exec":     aprovados_agora,
         "resultados_aplicados":  res_stats["aplicados"],
         "followups_de_resultado": res_stats["novos_followups"],
-        "contas_vinculadas":     sum(1 for o in novas_opps if o.get("conta_id")),
-        "caminho_log":           str(caminho_log),
+        "contas_vinculadas":       sum(1 for o in novas_opps if o.get("conta_id")),
+        "expansoes_convertidas":   n_expansoes_convertidas,
+        "caminho_log":             str(caminho_log),
     }
 
     log.info("=" * 60)

@@ -110,6 +110,12 @@ async def pagina_index(request: Request):
         contas_resumo = _resumir_contas()
     except Exception:
         contas_resumo = {}
+    # Resumo de acompanhamento pós-entrega
+    try:
+        from core.acompanhamento_contas import resumir_para_painel as _resumir_acomp
+        acomp_resumo = _resumir_acomp()
+    except Exception:
+        acomp_resumo = {}
     return templates.TemplateResponse("index.html", {
         "request":        request,
         "page":           "index",
@@ -126,6 +132,7 @@ async def pagina_index(request: Request):
         "ofertas_resumo":   ofertas_resumo,
         "propostas_resumo": propostas_resumo,
         "contas_resumo":    contas_resumo,
+        "acomp_resumo":     acomp_resumo,
     })
 
 
@@ -606,6 +613,9 @@ async def pagina_contas(request: Request, status: str = "", busca: str = ""):
 @app.get("/contas/{conta_id}", response_class=HTMLResponse)
 async def pagina_conta_detalhe(request: Request, conta_id: str):
     from core.contas_empresa import obter_detalhe_conta
+    from core.acompanhamento_contas import (
+        obter_acompanhamentos_conta, obter_expansoes_conta, obter_saude_conta
+    )
     detalhe = obter_detalhe_conta(conta_id)
     if not detalhe:
         return RedirectResponse("/contas")
@@ -613,13 +623,105 @@ async def pagina_conta_detalhe(request: Request, conta_id: str):
         "request":  request,
         "page":     "contas",
         "detalhe":  detalhe,
-        "conta_selecionada": detalhe.get("conta"),
+        "conta_selecionada":   detalhe.get("conta"),
+        "saude_conta":         obter_saude_conta(conta_id),
+        "acompanhamentos":     obter_acompanhamentos_conta(conta_id),
+        "expansoes":           obter_expansoes_conta(conta_id),
         "contas":   [],
         "resumo":   {},
         "filtro_status": "",
         "busca":    "",
         "total_sem_filtro": 0,
     })
+
+
+@app.get("/acompanhamento", response_class=HTMLResponse)
+async def pagina_acompanhamento(request: Request, filtro: str = "", busca: str = ""):
+    from core.acompanhamento_contas import (
+        carregar_acompanhamentos, carregar_saude_contas,
+        carregar_expansoes, resumir_para_painel,
+    )
+    from core.contas_empresa import carregar_contas
+    acomps   = carregar_acompanhamentos()
+    saudes   = carregar_saude_contas()
+    expansoes = carregar_expansoes()
+    resumo   = resumir_para_painel()
+    contas   = {c["id"]: c for c in carregar_contas()}
+
+    # Enriquecer saúdes com nome da conta
+    for s in saudes:
+        s["_nome"] = contas.get(s.get("conta_id", ""), {}).get("nome_empresa", "—")
+
+    # Filtros
+    saudes_filtradas = saudes
+    if filtro == "risco":
+        saudes_filtradas = [s for s in saudes if s.get("status_saude") in ("atencao", "critica")]
+    elif filtro == "expansao":
+        saudes_filtradas = [s for s in saudes if s.get("potencial_expansao")]
+    elif filtro in ("excelente", "boa", "atencao", "critica"):
+        saudes_filtradas = [s for s in saudes if s.get("status_saude") == filtro]
+    if busca:
+        _b = busca.lower()
+        saudes_filtradas = [s for s in saudes_filtradas if _b in (s.get("_nome") or "").lower()]
+
+    saudes_filtradas = sorted(saudes_filtradas,
+                               key=lambda s: s.get("score_saude", 0),
+                               reverse=True)
+
+    # Seções especiais
+    em_risco  = [s for s in saudes if s.get("status_saude") in ("atencao", "critica")]
+    pot_exp   = [s for s in saudes if s.get("potencial_expansao")]
+    exp_sug   = [x for x in expansoes if x.get("status") == "sugerida"]
+    exp_hand  = [x for x in expansoes if x.get("status") == "pronta_para_handoff"]
+    acomps_ab = [a for a in acomps if a.get("status") in ("novo", "em_andamento")]
+
+    # Enriquecer expansões com nome da conta
+    for x in exp_sug + exp_hand:
+        x["_nome"] = contas.get(x.get("conta_id", ""), {}).get("nome_empresa", "—")
+
+    return templates.TemplateResponse("acompanhamento.html", {
+        "request":         request,
+        "page":            "acompanhamento",
+        "saudes":          saudes_filtradas,
+        "resumo":          resumo,
+        "filtro":          filtro,
+        "busca":           busca,
+        "em_risco":        em_risco[:10],
+        "pot_exp":         pot_exp[:10],
+        "exp_sugeridas":   exp_sug[:20],
+        "exp_handoff":     exp_hand[:10],
+        "acomps_abertos":  acomps_ab[:20],
+        "total_saudes":    len(saudes),
+    })
+
+
+@app.post("/acompanhamento/{acomp_id}/satisfacao", response_class=RedirectResponse)
+async def registrar_satisfacao_action(
+    acomp_id: str,
+    satisfacao: str = Form(""),
+    nps: str       = Form(""),
+    resumo: str    = Form(""),
+):
+    from core.acompanhamento_contas import registrar_satisfacao
+    nps_int = None
+    try:
+        nps_int = int(nps) if nps.strip() else None
+    except ValueError:
+        pass
+    registrar_satisfacao(acomp_id, satisfacao, nps_int, resumo, "conselho")
+    return RedirectResponse("/acompanhamento", status_code=303)
+
+
+@app.post("/acompanhamento/expansao/{exp_id}/promover", response_class=RedirectResponse)
+async def promover_expansao_action(exp_id: str):
+    from core.acompanhamento_contas import carregar_expansoes, _salvar, _ARQ_EXPANSAO, _agora
+    expansoes = carregar_expansoes()
+    exp = next((x for x in expansoes if x["id"] == exp_id), None)
+    if exp:
+        exp["status"]       = "pronta_para_handoff"
+        exp["atualizado_em"] = _agora()
+        _salvar(_ARQ_EXPANSAO, expansoes)
+    return RedirectResponse("/acompanhamento", status_code=303)
 
 
 @app.get("/ofertas", response_class=HTMLResponse)

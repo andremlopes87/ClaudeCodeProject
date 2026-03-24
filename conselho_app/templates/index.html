@@ -182,6 +182,31 @@
 </div>
 {% endif %}
 
+{% if acomp_resumo and (acomp_resumo.acompanhamentos_abertos or acomp_resumo.contas_em_risco or acomp_resumo.contas_com_potencial_expansao) %}
+<div class="card" style="margin-bottom:16px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;">
+  <div>
+    <div class="label" style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Pós-Entrega</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+      {% if acomp_resumo.acompanhamentos_abertos > 0 %}
+        <span class="badge badge-muted">{{ acomp_resumo.acompanhamentos_abertos }} acomp. aberto{% if acomp_resumo.acompanhamentos_abertos != 1 %}s{% endif %}</span>
+      {% endif %}
+      {% if acomp_resumo.contas_em_risco > 0 %}
+        <span class="badge badge-danger">{{ acomp_resumo.contas_em_risco }} em risco</span>
+      {% endif %}
+      {% if acomp_resumo.contas_com_potencial_expansao > 0 %}
+        <span class="badge badge-ok">{{ acomp_resumo.contas_com_potencial_expansao }} expansão</span>
+      {% endif %}
+      {% if acomp_resumo.oportunidades_expansao_sugeridas > 0 %}
+        <span class="badge badge-accent">{{ acomp_resumo.oportunidades_expansao_sugeridas }} sugestão{% if acomp_resumo.oportunidades_expansao_sugeridas != 1 %}ões{% endif %}</span>
+      {% endif %}
+    </div>
+  </div>
+  <div style="margin-left:auto;">
+    <a href="/acompanhamento" class="badge badge-muted" style="text-decoration:none;padding:5px 10px;">→ Ver acompanhamento</a>
+  </div>
+</div>
+{% endif %}
+
 {% if gov and (gov.modo_empresa != 'normal' or gov.agentes_pausados or gov.areas_pausadas or gov.diretrizes_ativas) %}
 <h2>Estado da Governança</h2>
 <div class="card" style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start;">

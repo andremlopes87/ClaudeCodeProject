@@ -269,6 +269,24 @@ def executar() -> dict:
         if mudou:
             n_insumos_aplic += 1
 
+    # ── ETAPA 3c: Acompanhamento pós-entrega e saúde de conta ─────────────
+    n_acomp_criados = 0
+    n_expansoes_sug = 0
+    try:
+        from core.acompanhamento_contas import processar_acompanhamentos_entrega
+        _res_acomp = processar_acompanhamentos_entrega(pipeline_entrega,
+                                                        origem=NOME_AGENTE)
+        n_acomp_criados = _res_acomp.get("criados", 0)
+        n_expansoes_sug = _res_acomp.get("expansoes_sugeridas", 0)
+        if n_acomp_criados or n_expansoes_sug:
+            log.info(
+                f"  [acompanhamento] {n_acomp_criados} criado(s) | "
+                f"{_res_acomp.get('saudes_recalculadas',0)} saúde(s) | "
+                f"{n_expansoes_sug} expansão(ões) sugerida(s)"
+            )
+    except Exception as _exc_acomp:
+        log.warning(f"  [acompanhamento] processamento parcial: {_exc_acomp}")
+
     # ── ETAPA 4: Persistir ─────────────────────────────────────────────────
     _salvar_json("pipeline_comercial.json", pipeline)   # persiste conta_id adicionado às opps
     _salvar_json("pipeline_entrega.json",   pipeline_entrega)
@@ -307,17 +325,19 @@ def executar() -> dict:
     log.info("=" * 60)
 
     return {
-        "agente":             NOME_AGENTE,
-        "timestamp":          ts,
-        "aptas":              len(aptas),
-        "abertas":            n_abertas,
-        "atualizadas":        n_atualizadas,
-        "checklists_criados": n_checklists,
-        "bloqueadas":         n_bloqueadas,
-        "insumos_aplicados":  n_insumos_aplic,
-        "deliberacoes":       n_delib,
-        "pipeline_entrega":   len(pipeline_entrega),
-        "caminho_log":        str(caminho_log),
+        "agente":               NOME_AGENTE,
+        "timestamp":            ts,
+        "aptas":                len(aptas),
+        "abertas":              n_abertas,
+        "atualizadas":          n_atualizadas,
+        "checklists_criados":   n_checklists,
+        "bloqueadas":           n_bloqueadas,
+        "insumos_aplicados":    n_insumos_aplic,
+        "deliberacoes":         n_delib,
+        "acompanhamentos_criados": n_acomp_criados,
+        "expansoes_sugeridas":  n_expansoes_sug,
+        "pipeline_entrega":     len(pipeline_entrega),
+        "caminho_log":          str(caminho_log),
     }
 
 

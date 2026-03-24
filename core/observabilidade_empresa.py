@@ -391,6 +391,8 @@ def gerar_metricas_empresa() -> dict:
         **_metricas_propostas(),
         # Métricas de contas/clientes (melhor esforço)
         **_metricas_contas(),
+        # Métricas de acompanhamento pós-entrega (melhor esforço)
+        **_metricas_acompanhamento(),
     }
 
 
@@ -422,6 +424,22 @@ def _metricas_contas() -> dict:
             "total_clientes_ativos":       r["clientes_ativos"] + r["clientes_em_implantacao"],
             "total_clientes_em_implantacao": r["clientes_em_implantacao"],
             "contas_com_risco":            r["com_risco"],
+        }
+    except Exception:
+        return {}
+
+
+def _metricas_acompanhamento() -> dict:
+    """Contagens de acompanhamento pós-entrega para métricas da empresa."""
+    try:
+        from core.acompanhamento_contas import resumir_para_painel as _ra
+        r = _ra()
+        return {
+            "acompanhamentos_abertos":          r["acompanhamentos_abertos"],
+            "contas_em_risco_acomp":            r["contas_em_risco"],
+            "contas_com_potencial_expansao":    r["contas_com_potencial_expansao"],
+            "oportunidades_expansao_sugeridas": r["oportunidades_expansao_sugeridas"],
+            "oportunidades_expansao_convertidas": r["oportunidades_expansao_convertidas"],
         }
     except Exception:
         return {}
