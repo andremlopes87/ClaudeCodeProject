@@ -116,6 +116,19 @@ def consolidar_painel_conselho(
     except Exception:
         pass
 
+    # Identidade da empresa (resumo para painel)
+    identidade_resumo = {}
+    try:
+        from core.identidade_empresa import carregar_identidade
+        _id = carregar_identidade()
+        identidade_resumo = {
+            "nome_oficial":   _id.get("nome_oficial", ""),
+            "nome_exibicao":  _id.get("nome_exibicao", ""),
+            "descricao_curta": _id.get("descricao_curta", ""),
+        }
+    except Exception:
+        pass
+
     return {
         "atualizado_em":    datetime.now().isoformat(timespec="seconds"),
         "status_empresa":   estado.get("status_empresa", "desconhecido"),
@@ -132,6 +145,7 @@ def consolidar_painel_conselho(
         "proximas_acoes_relevantes": proximas,
         "metricas":         metricas_emp,
         "saude":            saude,
+        "identidade":       identidade_resumo,
     }
 
 

@@ -27,6 +27,14 @@ from core.orquestrador_empresa import executar_ciclo_empresa
 def main() -> None:
     config.PASTA_DADOS.mkdir(parents=True, exist_ok=True)
 
+    # Exibir identidade da empresa no início do ciclo
+    try:
+        from core.identidade_empresa import carregar_identidade
+        _id = carregar_identidade()
+        print(f"[{_id.get('nome_exibicao') or _id.get('nome_oficial', 'Empresa IA')}] iniciando ciclo operacional...")
+    except Exception:
+        pass
+
     ciclo = executar_ciclo_empresa()
 
     print("\n" + "=" * 64)

@@ -59,6 +59,19 @@ def executar() -> dict:
         f"processados={len(estado.get('itens_processados', []))}"
     )
 
+    # ── ETAPA 0: Carregar identidade da empresa ────────────────────────────
+    try:
+        from core.identidade_empresa import obter_contexto_remetente
+        _remetente = obter_contexto_remetente()
+        log.info(
+            f"Identidade carregada: remetente='{_remetente['nome_remetente']}' | "
+            f"email='{_remetente['email_comercial'] or 'pendente'}' | "
+            f"status_email='{_remetente['status_email']}'"
+        )
+    except Exception as _exc_id:
+        _remetente = {}
+        log.warning(f"Identidade nao carregada: {_exc_id}")
+
     # ── ETAPA 1: Carregar insumos ──────────────────────────────────────────
     handoffs  = _carregar_json("handoffs_agentes.json",        padrao=[])
     followups = _carregar_json("fila_followups.json",          padrao=[])
@@ -108,6 +121,16 @@ def executar() -> dict:
             abordagem = detectar_abordagem_execucao(fu, opp)
             payload   = montar_payload_execucao(fu, opp)
             enriquecer_payload_execucao(payload, abordagem, fu, opp)
+            # Enriquecer com identidade da empresa (remetente, assinatura)
+            if _remetente:
+                payload["remetente"] = {
+                    "nome_empresa":    _remetente.get("nome_empresa", ""),
+                    "nome_remetente":  _remetente.get("nome_remetente", ""),
+                    "cargo":           _remetente.get("cargo_remetente", ""),
+                    "email_comercial": _remetente.get("email_comercial", ""),
+                    "whatsapp_oficial": _remetente.get("whatsapp_oficial", ""),
+                    "assinatura":      _remetente.get("assinatura_comercial", ""),
+                }
 
             execucao = criar_execucao_contato(handoff, fu, opp, payload,
                                               status="aguardando_integracao_canal",

@@ -1,0 +1,469 @@
+{% extends "base.html" %}
+{% block title %}Identidade da Empresa — Painel do Conselho{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Identidade da Empresa
+    {% if status_completo %}
+    <span class="badge {% if status_completo.status == 'completo' %}badge-success{% elif status_completo.status == 'parcial' %}badge-warning{% else %}badge-muted{% endif %}" style="font-size:11px;margin-left:10px;">
+      {{ status_completo.percentual }}% preenchido
+    </span>
+    {% endif %}
+  </h1>
+  <p>Camada institucional central — lida por agentes, conectores e painel.</p>
+</div>
+
+{% if resultado %}
+<div class="card" style="margin-bottom:16px;border-left:3px solid var(--success);">
+  <div style="font-size:12px;font-weight:bold;">✓ {{ resultado.mensagem }}</div>
+</div>
+{% endif %}
+
+{% if status_completo and status_completo.campos_pendentes %}
+<div class="card" style="margin-bottom:16px;border-left:3px solid var(--warning);padding:8px 14px;">
+  <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Campos pendentes</div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap;">
+    {% for campo in status_completo.campos_pendentes %}
+    <span class="badge badge-warning">{{ campo }}</span>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- Abas -->
+<div style="display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:16px;">
+  {% for aba, label in [('institucional','Institucional'),('comunicacao','Comunicação'),('assinaturas','Assinaturas'),('canais','Canais'),('historico','Histórico')] %}
+  <a href="?aba={{ aba }}" style="padding:6px 14px;font-size:11px;text-decoration:none;border-bottom:2px solid {% if aba_ativa == aba %}var(--accent){% else %}transparent{% endif %};color:{% if aba_ativa == aba %}var(--accent){% else %}var(--muted){% endif %};">
+    {{ label }}
+  </a>
+  {% endfor %}
+</div>
+
+<!-- ═══ ABA: INSTITUCIONAL ════════════════════════════════════════════════════ -->
+{% if aba_ativa == 'institucional' %}
+<div class="row">
+  <div class="col">
+    <h2>Editar Identidade Institucional</h2>
+    <div class="card">
+      <form method="post" action="/identidade?aba=institucional">
+        <input type="hidden" name="secao" value="identidade">
+        <div style="display:grid;gap:10px;">
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div>
+              <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Nome Oficial</label>
+              <input type="text" name="nome_oficial" value="{{ identidade.nome_oficial or '' }}"
+                style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 8px;font-family:inherit;font-size:12px;margin-top:3px;">
+            </div>
+            <div>
+              <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Nome de Exibição</label>
+              <input type="text" name="nome_exibicao" value="{{ identidade.nome_exibicao or '' }}"
+                style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 8px;font-family:inherit;font-size:12px;margin-top:3px;">
+            </div>
+          </div>
+
+          <div>
+            <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Descrição Curta</label>
+            <input type="text" name="descricao_curta" value="{{ identidade.descricao_curta or '' }}"
+              style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 8px;font-family:inherit;font-size:12px;margin-top:3px;">
+          </div>
+
+          <div>
+            <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Descrição Média</label>
+            <textarea name="descricao_media" rows="2"
+              style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 8px;font-family:inherit;font-size:12px;margin-top:3px;resize:vertical;">{{ identidade.descricao_media or '' }}</textarea>
+          </div>
+
+          <div>
+            <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Proposta de Valor Resumida</label>
+            <textarea name="proposta_valor_resumida" rows="2"
+              style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 8px;font-family:inherit;font-size:12px;margin-top:3px;resize:vertical;">{{ identidade.proposta_valor_resumida or '' }}</textarea>
+          </div>
+
+          <div>
+            <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Público-Alvo</label>
+            <input type="text" name="publico_alvo" value="{{ identidade.publico_alvo or '' }}"
+              style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 8px;font-family:inherit;font-size:12px;margin-top:3px;">
+          </div>
+
+          <div>
+            <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Linhas de Serviço (separadas por vírgula)</label>
+            <input type="text" name="linhas_servico" value="{{ identidade.linhas_servico | join(', ') if identidade.linhas_servico else '' }}"
+              style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 8px;font-family:inherit;font-size:12px;margin-top:3px;">
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+            <div>
+              <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Cidade Base</label>
+              <input type="text" name="cidade_base" value="{{ identidade.cidade_base or '' }}"
+                style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 8px;font-family:inherit;font-size:12px;margin-top:3px;">
+            </div>
+            <div>
+              <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">País</label>
+              <input type="text" name="pais_base" value="{{ identidade.pais_base or 'Brasil' }}"
+                style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 8px;font-family:inherit;font-size:12px;margin-top:3px;">
+            </div>
+            <div>
+              <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Idioma Padrão</label>
+              <input type="text" name="idioma_padrao" value="{{ identidade.idioma_padrao or 'pt-BR' }}"
+                style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 8px;font-family:inherit;font-size:12px;margin-top:3px;">
+            </div>
+          </div>
+
+        </div>
+        <div style="margin-top:14px;">
+          <button type="submit" style="background:var(--accent);color:#000;border:none;padding:8px 20px;font-family:inherit;font-size:12px;font-weight:bold;cursor:pointer;">
+            Salvar Identidade
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="col">
+    <h2>Visualização Atual</h2>
+    <div class="card">
+      <div class="drill-row"><span>Nome oficial</span><b>{{ identidade.nome_oficial or '—' }}</b></div>
+      <div class="drill-row"><span>Exibição</span><b>{{ identidade.nome_exibicao or '—' }}</b></div>
+      <div class="drill-row"><span>Público-alvo</span><b style="font-size:11px;">{{ identidade.publico_alvo or '—' }}</b></div>
+      <div class="drill-row"><span>Cidade base</span><b>{{ identidade.cidade_base or '—' }}</b></div>
+      <div class="drill-row"><span>Idioma</span><b>{{ identidade.idioma_padrao or '—' }}</b></div>
+      <div class="drill-row"><span>Atualizado</span><b class="text-muted">{{ identidade.atualizado_em[:16].replace('T',' ') if identidade.atualizado_em else '—' }}</b></div>
+    </div>
+    {% if identidade.linhas_servico %}
+    <div class="card" style="margin-top:8px;">
+      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Linhas de Serviço</div>
+      {% for ls in identidade.linhas_servico %}
+      <span class="badge badge-accent" style="margin-right:4px;">{{ ls }}</span>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% if identidade.descricao_curta %}
+    <div class="card" style="margin-top:8px;font-size:11px;">
+      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Descrição Curta</div>
+      {{ identidade.descricao_curta }}
+    </div>
+    {% endif %}
+    {% if identidade.proposta_valor_resumida %}
+    <div class="card" style="margin-top:8px;font-size:11px;">
+      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Proposta de Valor</div>
+      {{ identidade.proposta_valor_resumida }}
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ═══ ABA: COMUNICAÇÃO ══════════════════════════════════════════════════════ -->
+{% elif aba_ativa == 'comunicacao' %}
+<div class="row">
+  <div class="col">
+    <h2>Editar Guia de Comunicação</h2>
+    <div class="card">
+      <form method="post" action="/identidade?aba=comunicacao">
+        <input type="hidden" name="secao" value="guia">
+        <div style="display:grid;gap:10px;">
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div>
+              <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Tom de Voz</label>
+              <input type="text" name="tom_voz" value="{{ guia.tom_voz or '' }}"
+                style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 8px;font-family:inherit;font-size:12px;margin-top:3px;">
+            </div>
+            <div>
+              <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Nível de Formalidade</label>
+              <select name="nivel_formalidade" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 8px;font-family:inherit;font-size:12px;margin-top:3px;">
+                {% for opt in ['informal','medio','formal'] %}
+                <option value="{{ opt }}" {% if guia.nivel_formalidade == opt %}selected{% endif %}>{{ opt }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Postura Comercial</label>
+            <input type="text" name="postura_comercial" value="{{ guia.postura_comercial or '' }}"
+              style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 8px;font-family:inherit;font-size:12px;margin-top:3px;">
+          </div>
+
+          <div>
+            <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Postura Consultiva</label>
+            <input type="text" name="postura_consultiva" value="{{ guia.postura_consultiva or '' }}"
+              style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 8px;font-family:inherit;font-size:12px;margin-top:3px;">
+          </div>
+
+          <div>
+            <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Postura de Cobrança</label>
+            <input type="text" name="postura_cobranca" value="{{ guia.postura_cobranca or '' }}"
+              style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 8px;font-family:inherit;font-size:12px;margin-top:3px;">
+          </div>
+
+          <div>
+            <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Estilo de Abertura</label>
+            <input type="text" name="estilo_abertura" value="{{ guia.estilo_abertura or '' }}"
+              style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 8px;font-family:inherit;font-size:12px;margin-top:3px;">
+          </div>
+
+          <div>
+            <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Estilo de Fechamento</label>
+            <input type="text" name="estilo_fechamento" value="{{ guia.estilo_fechamento or '' }}"
+              style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 8px;font-family:inherit;font-size:12px;margin-top:3px;">
+          </div>
+
+          <div>
+            <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Palavras que Usa (separadas por vírgula)</label>
+            <input type="text" name="palavras_que_usa" value="{{ guia.palavras_que_usa | join(', ') if guia.palavras_que_usa else '' }}"
+              style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 8px;font-family:inherit;font-size:12px;margin-top:3px;">
+          </div>
+
+          <div>
+            <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Palavras que Evita (separadas por vírgula)</label>
+            <input type="text" name="palavras_que_evita" value="{{ guia.palavras_que_evita | join(', ') if guia.palavras_que_evita else '' }}"
+              style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 8px;font-family:inherit;font-size:12px;margin-top:3px;">
+          </div>
+
+          <div>
+            <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Observações</label>
+            <textarea name="observacoes" rows="2"
+              style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 8px;font-family:inherit;font-size:12px;margin-top:3px;resize:vertical;">{{ guia.observacoes or '' }}</textarea>
+          </div>
+
+        </div>
+        <div style="margin-top:14px;">
+          <button type="submit" style="background:var(--accent);color:#000;border:none;padding:8px 20px;font-family:inherit;font-size:12px;font-weight:bold;cursor:pointer;">
+            Salvar Guia
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="col">
+    <h2>Guia Atual</h2>
+    <div class="card">
+      <div class="drill-row"><span>Tom de voz</span><b>{{ guia.tom_voz or '—' }}</b></div>
+      <div class="drill-row"><span>Formalidade</span><b>{{ guia.nivel_formalidade or '—' }}</b></div>
+      <div class="drill-row"><span>Postura comercial</span><b style="font-size:11px;">{{ guia.postura_comercial or '—' }}</b></div>
+      <div class="drill-row"><span>Postura consultiva</span><b style="font-size:11px;">{{ guia.postura_consultiva or '—' }}</b></div>
+      <div class="drill-row"><span>Postura cobrança</span><b style="font-size:11px;">{{ guia.postura_cobranca or '—' }}</b></div>
+      <div class="drill-row"><span>Abertura</span><b style="font-size:11px;">{{ guia.estilo_abertura or '—' }}</b></div>
+      <div class="drill-row"><span>Fechamento</span><b style="font-size:11px;">{{ guia.estilo_fechamento or '—' }}</b></div>
+    </div>
+    {% if guia.palavras_que_usa %}
+    <div class="card" style="margin-top:8px;">
+      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Usa</div>
+      {% for p in guia.palavras_que_usa %}<span class="badge badge-success" style="margin:2px;">{{ p }}</span>{% endfor %}
+    </div>
+    {% endif %}
+    {% if guia.palavras_que_evita %}
+    <div class="card" style="margin-top:8px;">
+      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Evita</div>
+      {% for p in guia.palavras_que_evita %}<span class="badge badge-danger" style="margin:2px;">{{ p }}</span>{% endfor %}
+    </div>
+    {% endif %}
+    {% if guia.observacoes %}
+    <div class="card" style="margin-top:8px;font-size:11px;color:var(--muted);font-style:italic;">{{ guia.observacoes }}</div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ═══ ABA: ASSINATURAS ══════════════════════════════════════════════════════ -->
+{% elif aba_ativa == 'assinaturas' %}
+<div class="row">
+  <div class="col">
+    <h2>Editar Assinaturas</h2>
+    <div class="card">
+      <form method="post" action="/identidade?aba=assinaturas">
+        <input type="hidden" name="secao" value="assinaturas">
+        <div style="display:grid;gap:10px;">
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div>
+              <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Nome do Remetente Padrão</label>
+              <input type="text" name="nome_remetente_padrao" value="{{ assinaturas.nome_remetente_padrao or '' }}"
+                style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 8px;font-family:inherit;font-size:12px;margin-top:3px;">
+            </div>
+            <div>
+              <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Cargo do Remetente</label>
+              <input type="text" name="cargo_remetente_padrao" value="{{ assinaturas.cargo_remetente_padrao or '' }}"
+                style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 8px;font-family:inherit;font-size:12px;margin-top:3px;">
+            </div>
+          </div>
+
+          {% for tipo, label in [('comercial','Comercial'),('financeiro','Financeiro'),('institucional','Institucional')] %}
+          <div>
+            <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Assinatura {{ label }} (texto)</label>
+            <textarea name="assinatura_{{ tipo }}_texto" rows="3"
+              style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 8px;font-family:inherit;font-size:11px;margin-top:3px;resize:vertical;">{{ assinaturas['assinatura_' + tipo + '_texto'] or '' }}</textarea>
+            <div style="font-size:10px;color:var(--muted);margin-top:2px;">Variáveis: {nome_remetente} {cargo} {nome_empresa} {email_comercial} {email_financeiro} {site_oficial} {descricao_curta}</div>
+          </div>
+          {% endfor %}
+
+        </div>
+        <div style="margin-top:14px;">
+          <button type="submit" style="background:var(--accent);color:#000;border:none;padding:8px 20px;font-family:inherit;font-size:12px;font-weight:bold;cursor:pointer;">
+            Salvar Assinaturas
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="col">
+    <h2>Prévia das Assinaturas</h2>
+    {% for tipo, label in [('comercial','Comercial'),('financeiro','Financeiro'),('institucional','Institucional')] %}
+    <h3 style="font-size:11px;color:var(--muted);margin:12px 0 4px;">{{ label }}</h3>
+    <div class="card" style="font-size:11px;white-space:pre-wrap;color:var(--text);">{{ assinatura_previa[tipo] or '—' }}</div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- ═══ ABA: CANAIS ═══════════════════════════════════════════════════════════ -->
+{% elif aba_ativa == 'canais' %}
+<div class="row">
+  <div class="col">
+    <h2>Editar Canais Oficiais</h2>
+    <div class="card">
+      <form method="post" action="/identidade?aba=canais">
+        <input type="hidden" name="secao" value="canais">
+        <div style="display:grid;gap:10px;">
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div>
+              <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Domínio Oficial Planejado</label>
+              <input type="text" name="dominio_oficial_planejado" value="{{ canais.dominio_oficial_planejado or '' }}" placeholder="exemplo.com.br"
+                style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 8px;font-family:inherit;font-size:12px;margin-top:3px;">
+            </div>
+            <div>
+              <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Site Oficial</label>
+              <input type="text" name="site_oficial" value="{{ canais.site_oficial or '' }}" placeholder="https://..."
+                style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 8px;font-family:inherit;font-size:12px;margin-top:3px;">
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+            <div>
+              <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Email Principal</label>
+              <input type="text" name="email_principal_planejado" value="{{ canais.email_principal_planejado or '' }}"
+                style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 8px;font-family:inherit;font-size:12px;margin-top:3px;">
+            </div>
+            <div>
+              <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Email Comercial</label>
+              <input type="text" name="email_comercial_planejado" value="{{ canais.email_comercial_planejado or '' }}"
+                style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 8px;font-family:inherit;font-size:12px;margin-top:3px;">
+            </div>
+            <div>
+              <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Email Financeiro</label>
+              <input type="text" name="email_financeiro_planejado" value="{{ canais.email_financeiro_planejado or '' }}"
+                style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 8px;font-family:inherit;font-size:12px;margin-top:3px;">
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div>
+              <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Instagram Oficial</label>
+              <input type="text" name="instagram_oficial" value="{{ canais.instagram_oficial or '' }}" placeholder="@..."
+                style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 8px;font-family:inherit;font-size:12px;margin-top:3px;">
+            </div>
+            <div>
+              <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">WhatsApp Oficial</label>
+              <input type="text" name="whatsapp_oficial" value="{{ canais.whatsapp_oficial or '' }}"
+                style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 8px;font-family:inherit;font-size:12px;margin-top:3px;">
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div>
+              <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Status Configuração Email</label>
+              <select name="status_configuracao_email" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 8px;font-family:inherit;font-size:12px;margin-top:3px;">
+                {% for opt in ['nao_definido','definido_sem_configurar','configurado_modo_assistido','configurado_real'] %}
+                <option value="{{ opt }}" {% if canais.status_configuracao_email == opt %}selected{% endif %}>{{ opt }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div>
+              <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Status Configuração Site</label>
+              <select name="status_configuracao_site" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 8px;font-family:inherit;font-size:12px;margin-top:3px;">
+                {% for opt in ['nao_definido','definido_sem_configurar','configurado_modo_assistido','configurado_real'] %}
+                <option value="{{ opt }}" {% if canais.status_configuracao_site == opt %}selected{% endif %}>{{ opt }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Observações</label>
+            <textarea name="observacoes" rows="2"
+              style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 8px;font-family:inherit;font-size:12px;margin-top:3px;resize:vertical;">{{ canais.observacoes or '' }}</textarea>
+          </div>
+
+        </div>
+        <div style="margin-top:14px;">
+          <button type="submit" style="background:var(--accent);color:#000;border:none;padding:8px 20px;font-family:inherit;font-size:12px;font-weight:bold;cursor:pointer;">
+            Salvar Canais
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="col">
+    <h2>Status dos Canais</h2>
+    <div class="card">
+      {% set canais_lista = [
+        ('Domínio', canais.dominio_oficial_planejado),
+        ('Site', canais.site_oficial),
+        ('Email principal', canais.email_principal_planejado),
+        ('Email comercial', canais.email_comercial_planejado),
+        ('Email financeiro', canais.email_financeiro_planejado),
+        ('Instagram', canais.instagram_oficial),
+        ('WhatsApp', canais.whatsapp_oficial),
+      ] %}
+      {% for label, valor in canais_lista %}
+      <div class="drill-row">
+        <span>{{ label }}</span>
+        {% if valor %}<b>{{ valor }}</b>{% else %}<span class="badge badge-muted">pendente</span>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    <div class="card" style="margin-top:8px;">
+      <div class="drill-row">
+        <span>Config. email</span>
+        <span class="badge {% if canais.status_configuracao_email == 'configurado_real' %}badge-success{% elif canais.status_configuracao_email == 'configurado_modo_assistido' %}badge-warning{% elif canais.status_configuracao_email == 'definido_sem_configurar' %}badge-accent{% else %}badge-muted{% endif %}">
+          {{ canais.status_configuracao_email or 'nao_definido' }}
+        </span>
+      </div>
+      <div class="drill-row">
+        <span>Config. site</span>
+        <span class="badge {% if canais.status_configuracao_site == 'configurado_real' %}badge-success{% elif canais.status_configuracao_site == 'configurado_modo_assistido' %}badge-warning{% elif canais.status_configuracao_site == 'definido_sem_configurar' %}badge-accent{% else %}badge-muted{% endif %}">
+          {{ canais.status_configuracao_site or 'nao_definido' }}
+        </span>
+      </div>
+    </div>
+    {% if canais.observacoes %}
+    <div class="card" style="margin-top:8px;font-size:11px;color:var(--muted);font-style:italic;">{{ canais.observacoes }}</div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ═══ ABA: HISTÓRICO ════════════════════════════════════════════════════════ -->
+{% elif aba_ativa == 'historico' %}
+<h2>Histórico de Alterações</h2>
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>Evento</th><th>Descrição</th><th>Origem</th><th>Registrado em</th></tr></thead>
+    <tbody>
+      {% for h in historico %}
+      <tr>
+        <td><span class="badge badge-muted">{{ h.evento }}</span></td>
+        <td style="font-size:11px;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ h.descricao }}</td>
+        <td class="text-muted" style="font-size:10px;">{{ h.origem }}</td>
+        <td class="text-muted">{{ h.registrado_em[:16].replace('T',' ') if h.registrado_em else '—' }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="4" class="empty">Nenhuma alteração registrada.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% endblock %}

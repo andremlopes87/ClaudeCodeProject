@@ -287,6 +287,157 @@ async def api_status():
 
 # ─── Página de governança ─────────────────────────────────────────────────────
 
+@app.get("/identidade", response_class=HTMLResponse)
+async def pagina_identidade(request: Request, aba: str = "institucional"):
+    from core.identidade_empresa import resumir_identidade_para_painel, obter_assinatura
+    dados = resumir_identidade_para_painel()
+    return templates.TemplateResponse("identidade.html", {
+        "request":        request,
+        "page":           "identidade",
+        "aba_ativa":      aba,
+        "identidade":     dados["identidade"],
+        "guia":           dados["guia"],
+        "assinaturas":    dados["assinaturas"],
+        "canais":         dados["canais"],
+        "historico":      dados["historico"],
+        "status_completo": dados["status_completo"],
+        "resultado":      None,
+        "assinatura_previa": {
+            "comercial":     obter_assinatura("comercial"),
+            "financeiro":    obter_assinatura("financeiro"),
+            "institucional": obter_assinatura("institucional"),
+        },
+    })
+
+
+@app.post("/identidade", response_class=HTMLResponse)
+async def salvar_identidade(
+    request: Request,
+    aba:     str = "institucional",
+    secao:   str = Form(...),
+    # Identidade
+    nome_oficial:           str = Form(""),
+    nome_exibicao:          str = Form(""),
+    descricao_curta:        str = Form(""),
+    descricao_media:        str = Form(""),
+    proposta_valor_resumida: str = Form(""),
+    publico_alvo:           str = Form(""),
+    linhas_servico:         str = Form(""),
+    cidade_base:            str = Form(""),
+    pais_base:              str = Form("Brasil"),
+    idioma_padrao:          str = Form("pt-BR"),
+    # Guia
+    tom_voz:                str = Form(""),
+    nivel_formalidade:      str = Form("medio"),
+    postura_comercial:      str = Form(""),
+    postura_consultiva:     str = Form(""),
+    postura_cobranca:       str = Form(""),
+    estilo_abertura:        str = Form(""),
+    estilo_fechamento:      str = Form(""),
+    palavras_que_usa:       str = Form(""),
+    palavras_que_evita:     str = Form(""),
+    observacoes:            str = Form(""),
+    # Assinaturas
+    nome_remetente_padrao:  str = Form(""),
+    cargo_remetente_padrao: str = Form(""),
+    assinatura_comercial_texto:     str = Form(""),
+    assinatura_financeiro_texto:    str = Form(""),
+    assinatura_institucional_texto: str = Form(""),
+    # Canais
+    dominio_oficial_planejado:  str = Form(""),
+    site_oficial:               str = Form(""),
+    email_principal_planejado:  str = Form(""),
+    email_comercial_planejado:  str = Form(""),
+    email_financeiro_planejado: str = Form(""),
+    instagram_oficial:          str = Form(""),
+    whatsapp_oficial:           str = Form(""),
+    status_configuracao_email:  str = Form("nao_definido"),
+    status_configuracao_site:   str = Form("nao_definido"),
+):
+    from core.identidade_empresa import (
+        carregar_identidade, carregar_guia_comunicacao,
+        carregar_assinaturas, carregar_canais,
+        salvar_identidade as _salvar_id,
+        salvar_guia_comunicacao, salvar_assinaturas, salvar_canais,
+        resumir_identidade_para_painel, obter_assinatura,
+    )
+
+    mensagem = ""
+    if secao == "identidade":
+        dados = carregar_identidade()
+        dados.update({
+            "nome_oficial": nome_oficial, "nome_exibicao": nome_exibicao,
+            "descricao_curta": descricao_curta, "descricao_media": descricao_media,
+            "proposta_valor_resumida": proposta_valor_resumida,
+            "publico_alvo": publico_alvo,
+            "linhas_servico": [s.strip() for s in linhas_servico.split(",") if s.strip()],
+            "cidade_base": cidade_base, "pais_base": pais_base, "idioma_padrao": idioma_padrao,
+        })
+        _salvar_id(dados, origem="painel")
+        mensagem = "Identidade institucional salva."
+
+    elif secao == "guia":
+        dados = carregar_guia_comunicacao()
+        dados.update({
+            "tom_voz": tom_voz, "nivel_formalidade": nivel_formalidade,
+            "postura_comercial": postura_comercial, "postura_consultiva": postura_consultiva,
+            "postura_cobranca": postura_cobranca, "estilo_abertura": estilo_abertura,
+            "estilo_fechamento": estilo_fechamento, "observacoes": observacoes,
+            "palavras_que_usa":   [s.strip() for s in palavras_que_usa.split(",") if s.strip()],
+            "palavras_que_evita": [s.strip() for s in palavras_que_evita.split(",") if s.strip()],
+        })
+        salvar_guia_comunicacao(dados, origem="painel")
+        mensagem = "Guia de comunicação salvo."
+
+    elif secao == "assinaturas":
+        dados = carregar_assinaturas()
+        dados.update({
+            "nome_remetente_padrao": nome_remetente_padrao,
+            "cargo_remetente_padrao": cargo_remetente_padrao,
+            "assinatura_comercial_texto": assinatura_comercial_texto,
+            "assinatura_financeiro_texto": assinatura_financeiro_texto,
+            "assinatura_institucional_texto": assinatura_institucional_texto,
+        })
+        salvar_assinaturas(dados, origem="painel")
+        mensagem = "Assinaturas salvas."
+
+    elif secao == "canais":
+        dados = carregar_canais()
+        dados.update({
+            "dominio_oficial_planejado": dominio_oficial_planejado,
+            "site_oficial": site_oficial,
+            "email_principal_planejado": email_principal_planejado,
+            "email_comercial_planejado": email_comercial_planejado,
+            "email_financeiro_planejado": email_financeiro_planejado,
+            "instagram_oficial": instagram_oficial,
+            "whatsapp_oficial": whatsapp_oficial,
+            "status_configuracao_email": status_configuracao_email,
+            "status_configuracao_site": status_configuracao_site,
+            "observacoes": observacoes,
+        })
+        salvar_canais(dados, origem="painel")
+        mensagem = "Canais oficiais salvos."
+
+    dados_painel = resumir_identidade_para_painel()
+    return templates.TemplateResponse("identidade.html", {
+        "request":        request,
+        "page":           "identidade",
+        "aba_ativa":      aba,
+        "identidade":     dados_painel["identidade"],
+        "guia":           dados_painel["guia"],
+        "assinaturas":    dados_painel["assinaturas"],
+        "canais":         dados_painel["canais"],
+        "historico":      dados_painel["historico"],
+        "status_completo": dados_painel["status_completo"],
+        "resultado":      {"mensagem": mensagem} if mensagem else None,
+        "assinatura_previa": {
+            "comercial":     obter_assinatura("comercial"),
+            "financeiro":    obter_assinatura("financeiro"),
+            "institucional": obter_assinatura("institucional"),
+        },
+    })
+
+
 @app.get("/entrada-manual", response_class=HTMLResponse)
 async def pagina_entrada_manual(request: Request):
     from modulos.entrada_manual.processador_entrada_manual import (

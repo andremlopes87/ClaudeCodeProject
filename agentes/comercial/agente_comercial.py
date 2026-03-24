@@ -77,12 +77,23 @@ def executar() -> dict:
     log.info(f"AGENTE COMERCIAL — inicio {ts}")
     log.info("=" * 60)
 
-    # ── ETAPA 0: Carregar políticas operacionais ──────────────────────────
+    # ── ETAPA 0: Carregar políticas operacionais e identidade ─────────────
     politicas = carregar_politicas()
     linhas_priorizadas = politicas.get("linhas_priorizadas", [])
     foco_curto_prazo   = politicas.get("comercial", {}).get("foco_curto_prazo", False)
     modo_empresa = politicas.get("modo_empresa", "normal")
     log.info(f"Politicas carregadas: modo={modo_empresa} | linhas_prio={linhas_priorizadas} | foco_curto={foco_curto_prazo}")
+
+    try:
+        from core.identidade_empresa import obter_contexto_comercial
+        contexto_empresa = obter_contexto_comercial()
+        log.info(
+            f"Identidade carregada: empresa='{contexto_empresa['nome_empresa']}' | "
+            f"tom='{contexto_empresa['tom_voz']}'"
+        )
+    except Exception as _exc_id:
+        contexto_empresa = {}
+        log.warning(f"Identidade nao carregada: {_exc_id}")
 
     # ── ETAPA 1: Garantir arquivos base ───────────────────────────────────
     persistir_arquivos_base()
