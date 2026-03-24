@@ -134,6 +134,12 @@
       {% if propostas_resumo.aceitas > 0 %}
         <span class="badge badge-success">{{ propostas_resumo.aceitas }} aceitas</span>
       {% endif %}
+      {% if propostas_resumo._exp and propostas_resumo._exp.em_fila_assistida > 0 %}
+        <span class="badge badge-info">{{ propostas_resumo._exp.em_fila_assistida }} em fila email</span>
+      {% endif %}
+      {% if propostas_resumo._exp and propostas_resumo._exp.enviados > 0 %}
+        <span class="badge badge-muted">{{ propostas_resumo._exp.enviados }} enviadas</span>
+      {% endif %}
     </div>
   </div>
   <div style="margin-left:auto;">

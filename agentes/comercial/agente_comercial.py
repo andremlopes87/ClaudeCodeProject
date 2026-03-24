@@ -113,6 +113,25 @@ def executar() -> dict:
     # ── ETAPA 3b: Verificar deliberações do conselho resolvidas ───────────
     aprovados_agora += _processar_deliberacoes_resolvidas(estado, log)
 
+    # ── ETAPA 3c: Aplicar respostas de propostas pendentes ────────────────
+    n_respostas_aplicadas = 0
+    try:
+        from core.expediente_propostas import (
+            respostas_pendentes_de_aplicacao, aplicar_resposta_proposta
+        )
+        respostas_pendentes = respostas_pendentes_de_aplicacao()
+        for resp in respostas_pendentes:
+            resultado = aplicar_resposta_proposta(resp)
+            if resultado.get("aplicado"):
+                n_respostas_aplicadas += 1
+                log.info(
+                    f"  [resposta_proposta] {resp['tipo_resposta']} aplicada "
+                    f"para opp {resp.get('oportunidade_id','?')} "
+                    f"— efeitos: {resultado.get('efeitos', [])}"
+                )
+    except Exception as _exc_resp:
+        log.warning(f"  [respostas_propostas] aplicação parcial: {_exc_resp}")
+
     # ── ETAPA 4: Carregar dados ────────────────────────────────────────────
     leads     = _carregar_leads(log)
     pipeline  = carregar_pipeline()
@@ -346,8 +365,9 @@ def executar() -> dict:
         "enriquecidas_marketing": n_enriquecidas,
         "casos_revisao":         len(revisoes),
         "escalados_conselho":    len(itens_para_consolidada),
-        "propostas_geradas":     n_propostas_geradas,
-        "aprovados_nesta_exec":  aprovados_agora,
+        "propostas_geradas":        n_propostas_geradas,
+        "respostas_prop_aplicadas": n_respostas_aplicadas,
+        "aprovados_nesta_exec":     aprovados_agora,
         "resultados_aplicados":  res_stats["aplicados"],
         "followups_de_resultado": res_stats["novos_followups"],
         "caminho_log":           str(caminho_log),

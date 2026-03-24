@@ -210,6 +210,12 @@ def avaliar_sinais_de_fechamento(opp: dict, resultados_opp: list, insumos_opp: l
     except Exception:
         pass
 
+    # Sinal de proposta enviada (sem resposta ainda — menos forte que aprovada)
+    proposta_enviada = opp.get("proposta_status") in {"enviada", "em_fila_assistida"}
+    if proposta_enviada and "proposta_aprovada" not in sinais and "proposta_aceita" not in sinais:
+        score += 1
+        sinais.append("proposta_enviada_sem_resposta")
+
     return score, sinais
 
 

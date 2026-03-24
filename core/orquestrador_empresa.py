@@ -381,8 +381,9 @@ def montar_resumo_final_ciclo(etapas: list) -> dict:
         "promovidos_ganho":                aval.get("promovidos_ganho", 0),
         "promovidos_pronto_para_entrega":  aval.get("promovidos_pronto", 0),
         "escalados_fechamento":            aval.get("escalados", 0),
-        "propostas_geradas_no_ciclo":      com.get("propostas_geradas", 0),
-        "propostas_aguardando_conselho":   _contar_propostas_aguardando_conselho(),
+        "propostas_geradas_no_ciclo":        com.get("propostas_geradas", 0),
+        "propostas_aguardando_conselho":     _contar_propostas_aguardando_conselho(),
+        "respostas_prop_aplicadas_no_ciclo": com.get("respostas_prop_aplicadas", 0),
         "erros_no_ciclo":                  sum(1 for e in etapas if e["status"] == "erro"),
     }
 

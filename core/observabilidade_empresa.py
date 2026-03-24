@@ -261,6 +261,32 @@ def gerar_feed_eventos_empresa() -> dict:
             timestamp="",
         ))
 
+    # Histórico de expediente de propostas (últimos 20 eventos)
+    try:
+        hist_exp_arq = config.PASTA_DADOS / "historico_envios_propostas.json"
+        if hist_exp_arq.exists():
+            with open(hist_exp_arq, "r", encoding="utf-8") as _f:
+                hist_exp = json.load(_f)
+            _sev_map_exp = {
+                "proposta_aceita": "sucesso", "proposta_recusada": "erro",
+                "resposta_cliente_registrada": "sucesso",
+                "envio_proposta_enfileirado_email": "info",
+                "envio_proposta_marcado_como_enviado": "info",
+            }
+            for hev in hist_exp[-20:]:
+                eventos.append(_evento(
+                    tipo=hev.get("evento", "expediente_proposta"),
+                    agente="expediente_propostas",
+                    area="comercial",
+                    ref=hev.get("envio_proposta_id", ""),
+                    titulo=hev.get("evento", "?").replace("_", " ").title(),
+                    descricao=hev.get("descricao", "")[:120],
+                    severidade=_sev_map_exp.get(hev.get("evento", ""), "info"),
+                    timestamp=hev.get("registrado_em", ""),
+                ))
+    except Exception:
+        pass
+
     # Incidentes operacionais recentes
     try:
         incidentes_arq = config.PASTA_DADOS / "incidentes_operacionais.json"

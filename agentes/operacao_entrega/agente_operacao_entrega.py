@@ -105,8 +105,21 @@ def executar() -> dict:
             # Preferir proposta aprovada/aceita como origem do escopo
             _prop_aprovada = None
             try:
-                from core.propostas_empresa import buscar_proposta_aprovada_ou_aceita
-                _prop_aprovada = buscar_proposta_aprovada_ou_aceita(opp.get("id", ""))
+                from core.propostas_empresa import carregar_propostas
+                _props = carregar_propostas()
+                # Preferir aceita ou aceite_verbal; enviada+aprovada só se sem aceite
+                _prop_aceita = next(
+                    (p for p in _props
+                     if p.get("oportunidade_id") == opp.get("id", "")
+                     and p.get("status") == "aceita"),
+                    None,
+                )
+                _prop_aprovada = _prop_aceita or next(
+                    (p for p in _props
+                     if p.get("oportunidade_id") == opp.get("id", "")
+                     and p.get("status") in {"enviada", "aprovada_para_envio", "preparada_para_envio"}),
+                    None,
+                )
             except Exception:
                 pass
 

@@ -14,11 +14,6 @@
     <div class="value">{{ resumo.total }}</div>
     <div class="sub">propostas</div>
   </div>
-  <div class="kpi {% if resumo.rascunho > 0 %}warning{% endif %}">
-    <div class="label">Rascunho</div>
-    <div class="value">{{ resumo.rascunho }}</div>
-    <div class="sub">+ {{ resumo.pronta_para_revisao }} p/ revisão</div>
-  </div>
   <div class="kpi {% if resumo.aguardando_conselho > 0 %}danger{% endif %}">
     <div class="label">Aguard. Conselho</div>
     <div class="value">{{ resumo.aguardando_conselho }}</div>
@@ -27,13 +22,30 @@
   <div class="kpi {% if resumo.aprovadas > 0 %}warning{% endif %}">
     <div class="label">Aprovadas</div>
     <div class="value">{{ resumo.aprovadas }}</div>
-    <div class="sub">para envio</div>
+    <div class="sub">prontas para envio</div>
+  </div>
+  <div class="kpi">
+    <div class="label">Em Fila Email</div>
+    <div class="value">{{ expediente.em_fila_assistida }}</div>
+    <div class="sub">aguardando envio manual</div>
+  </div>
+  <div class="kpi">
+    <div class="label">Enviadas</div>
+    <div class="value">{{ expediente.enviados }}</div>
+    <div class="sub">aguardando resposta</div>
   </div>
   <div class="kpi {% if resumo.aceitas > 0 %}success{% endif %}">
     <div class="label">Aceitas</div>
     <div class="value">{{ resumo.aceitas }}</div>
     <div class="sub">pelo cliente</div>
   </div>
+  {% if expediente.respostas_pendentes > 0 %}
+  <div class="kpi danger">
+    <div class="label">Resp. Pendentes</div>
+    <div class="value">{{ expediente.respostas_pendentes }}</div>
+    <div class="sub">aguardam aplicação</div>
+  </div>
+  {% endif %}
 </div>
 
 <!-- ═══ ALERTAS ═══════════════════════════════════════════════════════════════ -->
@@ -161,25 +173,73 @@
       {% endif %}
     </details>
 
-    <!-- Ações -->
+    <!-- Ações do ciclo de vida -->
     {% if prop.status not in ['aceita', 'rejeitada', 'arquivada'] %}
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;padding-top:8px;border-top:1px solid var(--border);">
-      {% if prop.status in ['pronta_para_revisao', 'aguardando_conselho', 'rascunho'] %}
-      <form method="post" action="/propostas/{{ prop.id }}/aprovar" style="display:inline;">
-        <button type="submit" class="badge badge-ok" style="border:none;cursor:pointer;padding:5px 12px;">✓ Aprovar</button>
-      </form>
+    <div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border);">
+
+      <!-- Linha 1: aprovação e preparo -->
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px;">
+        {% if prop.status in ['rascunho', 'pronta_para_revisao', 'aguardando_conselho'] %}
+        <form method="post" action="/propostas/{{ prop.id }}/aprovar" style="display:inline;">
+          <button type="submit" class="badge badge-ok" style="border:none;cursor:pointer;padding:5px 12px;">✓ Aprovar para envio</button>
+        </form>
+        {% endif %}
+
+        {% if prop.status == 'aprovada_para_envio' %}
+        <form method="post" action="/propostas/{{ prop.id }}/preparar-envio" style="display:inline;">
+          <button type="submit" class="badge badge-info" style="border:none;cursor:pointer;padding:5px 12px;">⚙ Preparar envio</button>
+        </form>
+        {% endif %}
+
+        {% if prop.status == 'preparada_para_envio' %}
+        <form method="post" action="/propostas/{{ prop.id }}/enfileirar-email" style="display:inline;">
+          <button type="submit" class="badge badge-info" style="border:none;cursor:pointer;padding:5px 12px;">✉ Enfileirar email assistido</button>
+        </form>
+        {% endif %}
+
+        {% if prop.status in ['preparada_para_envio', 'em_fila_assistida'] %}
+        <form method="post" action="/propostas/{{ prop.id }}/marcar-enviada" style="display:inline;">
+          <button type="submit" class="badge badge-ok" style="border:none;cursor:pointer;padding:5px 12px;">→ Marcar como enviada</button>
+        </form>
+        {% endif %}
+
+        <form method="post" action="/propostas/{{ prop.id }}/rejeitar" style="display:inline;">
+          <button type="submit" class="badge badge-danger" style="border:none;cursor:pointer;padding:5px 12px;">✗ Rejeitar</button>
+        </form>
+        <form method="post" action="/propostas/{{ prop.id }}/arquivar" style="display:inline;">
+          <button type="submit" class="badge badge-muted" style="border:none;cursor:pointer;padding:5px 12px;">⊘ Arquivar</button>
+        </form>
+      </div>
+
+      <!-- Linha 2: resposta do cliente -->
+      {% if prop.status in ['enviada', 'aprovada_para_envio', 'preparada_para_envio', 'pronta_para_revisao', 'aguardando_conselho'] %}
+      <details style="margin-top:6px;">
+        <summary style="font-size:11px;color:var(--accent);cursor:pointer;font-weight:600;">▸ Registrar resposta do cliente</summary>
+        <form method="post" action="/propostas/{{ prop.id }}/resposta" style="margin-top:8px;display:flex;flex-direction:column;gap:6px;max-width:500px;">
+          <div>
+            <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Tipo de resposta</label>
+            <select name="tipo_resposta" style="display:block;width:100%;padding:6px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:4px;font-size:12px;margin-top:3px;">
+              <option value="aceitou">✓ Aceitou</option>
+              <option value="aceite_verbal_registrado">★ Aceite verbal registrado</option>
+              <option value="pediu_ajuste">◑ Pediu ajuste</option>
+              <option value="pediu_retorno_futuro">⏱ Pediu retorno futuro</option>
+              <option value="recusou">✗ Recusou</option>
+              <option value="sem_resposta">— Sem resposta</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Descrição</label>
+            <input name="descricao" type="text" placeholder="Como o cliente respondeu..." style="display:block;width:100%;padding:6px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:4px;font-size:12px;margin-top:3px;">
+          </div>
+          <div>
+            <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Observações</label>
+            <input name="observacoes" type="text" placeholder="Obs. internas..." style="display:block;width:100%;padding:6px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:4px;font-size:12px;margin-top:3px;">
+          </div>
+          <button type="submit" class="badge badge-accent" style="border:none;cursor:pointer;padding:6px 14px;align-self:flex-start;font-size:12px;">Registrar resposta</button>
+        </form>
+      </details>
       {% endif %}
-      {% if prop.status in ['aprovada_para_envio', 'enviada', 'pronta_para_revisao', 'aguardando_conselho'] %}
-      <form method="post" action="/propostas/{{ prop.id }}/aceite" style="display:inline;">
-        <button type="submit" class="badge badge-success" style="border:none;cursor:pointer;padding:5px 12px;">★ Registrar Aceite</button>
-      </form>
-      {% endif %}
-      <form method="post" action="/propostas/{{ prop.id }}/rejeitar" style="display:inline;">
-        <button type="submit" class="badge badge-danger" style="border:none;cursor:pointer;padding:5px 12px;">✗ Rejeitar</button>
-      </form>
-      <form method="post" action="/propostas/{{ prop.id }}/arquivar" style="display:inline;">
-        <button type="submit" class="badge badge-muted" style="border:none;cursor:pointer;padding:5px 12px;">⊘ Arquivar</button>
-      </form>
+
     </div>
     {% endif %}
 

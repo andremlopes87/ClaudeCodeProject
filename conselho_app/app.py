@@ -99,7 +99,9 @@ async def pagina_index(request: Request):
     # Resumo de propostas para card da homepage
     try:
         from core.propostas_empresa import resumir_para_painel as _resumir_propostas
+        from core.expediente_propostas import resumir_para_painel as _resumir_exp
         propostas_resumo = _resumir_propostas()
+        propostas_resumo["_exp"] = _resumir_exp()
     except Exception:
         propostas_resumo = {}
     return templates.TemplateResponse("index.html", {
@@ -472,10 +474,12 @@ async def salvar_identidade(
 @app.get("/propostas", response_class=HTMLResponse)
 async def pagina_propostas(request: Request):
     from core.propostas_empresa import resumir_para_painel
+    from core.expediente_propostas import resumir_para_painel as resumir_expediente
     return templates.TemplateResponse("propostas.html", {
-        "request": request,
-        "page":    "propostas",
-        "resumo":  resumir_para_painel(),
+        "request":   request,
+        "page":      "propostas",
+        "resumo":    resumir_para_painel(),
+        "expediente": resumir_expediente(),
     })
 
 
@@ -509,6 +513,59 @@ async def aceite_proposta_action(proposta_id: str):
         descricao="Aceite registrado manualmente pelo conselho via painel",
         origem="conselho_painel",
     )
+    return RedirectResponse("/propostas", status_code=303)
+
+
+@app.post("/propostas/{proposta_id}/preparar-envio", response_class=RedirectResponse)
+async def preparar_envio_action(proposta_id: str):
+    from core.propostas_empresa import carregar_propostas
+    from core.expediente_propostas import criar_envio_proposta
+    propostas = carregar_propostas()
+    prop = next((p for p in propostas if p["id"] == proposta_id), None)
+    if prop:
+        criar_envio_proposta(prop, origem="conselho_painel")
+    return RedirectResponse("/propostas", status_code=303)
+
+
+@app.post("/propostas/{proposta_id}/enfileirar-email", response_class=RedirectResponse)
+async def enfileirar_email_action(proposta_id: str):
+    from core.expediente_propostas import carregar_envios, enfileirar_proposta_no_email_assistido
+    envios = carregar_envios()
+    envio = next(
+        (e for e in envios if e.get("proposta_id") == proposta_id
+         and e.get("status") not in {"cancelado", "em_fila_assistida",
+                                      "enviado_manual_registrado", "resposta_recebida"}),
+        None,
+    )
+    if envio:
+        enfileirar_proposta_no_email_assistido(envio, origem="conselho_painel")
+    return RedirectResponse("/propostas", status_code=303)
+
+
+@app.post("/propostas/{proposta_id}/marcar-enviada", response_class=RedirectResponse)
+async def marcar_enviada_action(proposta_id: str):
+    from core.expediente_propostas import marcar_envio_como_enviado
+    marcar_envio_como_enviado(proposta_id, origem="conselho_painel")
+    return RedirectResponse("/propostas", status_code=303)
+
+
+@app.post("/propostas/{proposta_id}/resposta", response_class=RedirectResponse)
+async def registrar_resposta_action(
+    proposta_id: str,
+    tipo_resposta: str = Form("sem_resposta"),
+    descricao: str = Form(""),
+    observacoes: str = Form(""),
+):
+    from core.expediente_propostas import registrar_resposta_proposta, aplicar_resposta_proposta
+    resposta = registrar_resposta_proposta(
+        proposta_id,
+        tipo_resposta=tipo_resposta,
+        descricao=descricao,
+        observacoes=observacoes,
+        origem="conselho_painel",
+    )
+    if resposta:
+        aplicar_resposta_proposta(resposta)
     return RedirectResponse("/propostas", status_code=303)
 
 
