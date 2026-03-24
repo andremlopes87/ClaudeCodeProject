@@ -117,6 +117,21 @@
 </div>
 {% endif %}
 
+{% if ofertas_resumo and ofertas_resumo.total_ofertas %}
+<div class="card" style="margin-bottom:16px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;">
+  <div>
+    <div class="label" style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Catálogo de Ofertas</div>
+    <span class="badge badge-ok" style="font-size:12px;padding:4px 10px;">✓ {{ ofertas_resumo.total_ofertas }} famílias · {{ ofertas_resumo.total_pacotes }} pacotes</span>
+  </div>
+  <div style="font-size:11px;color:var(--muted);">
+    {% for linha in ofertas_resumo.linhas_cobertas %}<span class="badge badge-muted" style="margin-right:4px;">{{ linha }}</span>{% endfor %}
+  </div>
+  <div style="margin-left:auto;">
+    <a href="/ofertas" class="badge badge-muted" style="text-decoration:none;padding:5px 10px;">→ Ver catálogo</a>
+  </div>
+</div>
+{% endif %}
+
 {% if gov and (gov.modo_empresa != 'normal' or gov.agentes_pausados or gov.areas_pausadas or gov.diretrizes_ativas) %}
 <h2>Estado da Governança</h2>
 <div class="card" style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start;">

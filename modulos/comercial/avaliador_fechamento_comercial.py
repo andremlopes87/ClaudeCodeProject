@@ -259,6 +259,18 @@ def decidir_promocao(opp: dict, score: int, sinais: list, insumos_opp: list,
             ),
         }
 
+    # ESCALAR por oferta: customização alta ou sem oferta mapeada (melhor esforço)
+    try:
+        from core.ofertas_empresa import verificar_gatilho_deliberacao_oferta
+        _delib, _motivo_of = verificar_gatilho_deliberacao_oferta(opp)
+        if _delib and score >= 2:
+            return {
+                "acao":   "escalar",
+                "motivo": f"gatilho_oferta: {_motivo_of}",
+            }
+    except Exception:
+        pass
+
     # GANHO: score alto + linha + sem bloqueios (ja filtrados antes)
     # Com exigir_escopo ativado: bloquear ganho se sem escopo
     if score >= score_ganho:

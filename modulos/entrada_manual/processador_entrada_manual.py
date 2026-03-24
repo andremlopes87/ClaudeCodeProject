@@ -586,8 +586,20 @@ def encaminhar_para_entrega_se_manual_sale(entrada: dict, avaliacao: dict) -> di
     except (TypeError, ValueError):
         valor = None
 
-    servico = entrada.get("servico_vendido", "") or avaliacao.get("oferta_principal_comercial", "")
-    linha   = _inferir_linha_servico(servico)
+    servico   = entrada.get("servico_vendido", "") or avaliacao.get("oferta_principal_comercial", "")
+    linha     = _inferir_linha_servico(servico)
+    oferta_id = entrada.get("oferta_id", "") or ""
+    pacote_id = entrada.get("pacote_id", "") or ""
+
+    # Se oferta_id não fornecida, tentar inferir do catálogo
+    if not oferta_id:
+        try:
+            from core.ofertas_empresa import sugerir_oferta_por_oportunidade
+            _sug = sugerir_oferta_por_oportunidade({"linha_servico_sugerida": linha, "prioridade": "alta"})
+            oferta_id = _sug.get("oferta_id", "") or ""
+            pacote_id = _sug.get("pacote_id", "") or ""
+        except Exception:
+            pass
 
     # Oportunidade "ganho" no pipeline comercial
     opp = {
@@ -606,6 +618,8 @@ def encaminhar_para_entrega_se_manual_sale(entrada: dict, avaliacao: dict) -> di
         "linha_servico_sugerida": linha,
         "servico_contratado":     servico,
         "valor_estimado":         valor,
+        "oferta_id":              oferta_id,
+        "pacote_id":              pacote_id,
         "contato_principal":      avaliacao.get("contato_principal", ""),
         "canal_abordagem_sugerido": avaliacao.get("canal_abordagem_sugerido", ""),
         "prioridade":             "alta",

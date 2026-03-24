@@ -103,7 +103,10 @@ def executar() -> dict:
         sem_checklist = not any(c.get("entrega_id") == entrega["id"] for c in checklists)
         if sem_checklist:
             checklist = criar_checklist_inicial_por_linha_servico(
-                entrega["id"], opp.get("linha_servico_sugerida", "")
+                entrega["id"],
+                opp.get("linha_servico_sugerida", ""),
+                oferta_id=opp.get("oferta_id", ""),
+                pacote_id=opp.get("pacote_id", ""),
             )
             checklists.append(checklist)
             entrega["checklist_id"] = checklist["id"]
@@ -340,18 +343,49 @@ def _tipo_entrega_por_linha(linha: str) -> str:
 
 # ─── Checklist ────────────────────────────────────────────────────────────────
 
-def criar_checklist_inicial_por_linha_servico(entrega_id: str, linha: str) -> dict:
-    """Cria checklist inicial com itens especificos por linha de servico."""
+def criar_checklist_inicial_por_linha_servico(entrega_id: str, linha: str,
+                                               oferta_id: str = "", pacote_id: str = "") -> dict:
+    """Cria checklist inicial. Prefere catálogo de ofertas; cai para checklist por linha."""
     agora = datetime.now().isoformat(timespec="seconds")
+    itens = []
+    if oferta_id and pacote_id:
+        itens = _itens_checklist_por_oferta_pacote(oferta_id, pacote_id)
+    if not itens:
+        itens = _itens_checklist_por_linha(linha)
     return {
         "id":            f"ck_{entrega_id}",
         "entrega_id":    entrega_id,
         "linha_servico": linha or "nao_definida",
-        "itens":         _itens_checklist_por_linha(linha),
+        "oferta_id":     oferta_id or None,
+        "pacote_id":     pacote_id or None,
+        "itens":         itens,
         "status":        "pendente",
         "registrado_em": agora,
         "atualizado_em": agora,
     }
+
+
+def _itens_checklist_por_oferta_pacote(oferta_id: str, pacote_id: str) -> list:
+    """Retorna itens de checklist pelo catálogo de ofertas. [] se não encontrado."""
+    try:
+        from core.ofertas_empresa import obter_checklist_por_oferta_e_pacote
+        itens_raw = obter_checklist_por_oferta_e_pacote(oferta_id, pacote_id)
+        agora = datetime.now().isoformat(timespec="seconds")
+        return [
+            {
+                "id":           f"ck_of_{i}",
+                "titulo":       item,
+                "descricao":    "",
+                "obrigatorio":  True,
+                "status":       "pendente",
+                "depende_de":   None,
+                "criado_em":    agora,
+                "atualizado_em": agora,
+            }
+            for i, item in enumerate(itens_raw)
+        ]
+    except Exception:
+        return []
 
 
 def _itens_checklist_por_linha(linha: str) -> list:

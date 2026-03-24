@@ -161,6 +161,13 @@ def executar() -> dict:
         # Vincular follow-up à oportunidade
         opp["depende_de"] = fu["id"]
 
+        # Enriquecer com oferta do catálogo (melhor esforço — não bloqueia)
+        try:
+            from core.ofertas_empresa import enriquecer_oportunidade_com_oferta
+            enriquecer_oportunidade_com_oferta(opp)
+        except Exception as _exc_of:
+            log.debug(f"  [ofertas] enriquecimento ignorado: {_exc_of}")
+
         novas_opps.append(opp)
         novos_fus.append(fu)
         marcar_processado(estado, opp["id"])

@@ -90,6 +90,12 @@ async def pagina_index(request: Request):
         }
     except Exception:
         prov_resumo = {}
+    # Resumo de ofertas para card da homepage
+    try:
+        from core.ofertas_empresa import resumir_para_painel as _resumir_ofertas
+        ofertas_resumo = _resumir_ofertas()
+    except Exception:
+        ofertas_resumo = {}
     return templates.TemplateResponse("index.html", {
         "request":        request,
         "page":           "index",
@@ -103,6 +109,7 @@ async def pagina_index(request: Request):
         "gov":            resumir_governanca_ativa(),
         "saude":          saude,
         "prov_email":     prov_resumo,
+        "ofertas_resumo": ofertas_resumo,
     })
 
 
@@ -452,6 +459,18 @@ async def salvar_identidade(
             "financeiro":    obter_assinatura("financeiro"),
             "institucional": obter_assinatura("institucional"),
         },
+    })
+
+
+@app.get("/ofertas", response_class=HTMLResponse)
+async def pagina_ofertas(request: Request):
+    from core.ofertas_empresa import carregar_catalogo, carregar_regras, resumir_para_painel
+    return templates.TemplateResponse("ofertas.html", {
+        "request": request,
+        "page":    "ofertas",
+        "catalogo": carregar_catalogo(),
+        "regras":   carregar_regras(),
+        "resumo":   resumir_para_painel(),
     })
 
 
