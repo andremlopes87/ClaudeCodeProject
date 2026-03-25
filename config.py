@@ -185,3 +185,27 @@ COMERCIAL_DIAS_SEM_ATIVIDADE_REVISAO = 30
 
 # Número máximo de tentativas antes de sugerir encerramento
 COMERCIAL_TENTATIVAS_MAXIMAS = 3
+
+# ============================================================
+# [LLM] — Router central de modelos de linguagem
+# Controlado por LLM_MODO ou variável de ambiente LLM_MODO.
+# ============================================================
+
+# Modo de operação do router LLM.
+#   "dry-run" (padrão) — custo zero, sem chamada real, respostas simuladas.
+#   "real"             — chamadas à API Anthropic (requer ANTHROPIC_API_KEY).
+# Para ativar o modo real: mudar aqui E configurar ANTHROPIC_API_KEY no .env.
+LLM_MODO = "dry-run"
+
+# Modelos disponíveis para uso (modo real)
+# Haiku: mais rápido e barato — triagem, resumo, classificação
+# Sonnet: mais capaz — redação, decisão, análise
+LLM_MODELO_RAPIDO   = "claude-haiku-4-5-20251001"
+LLM_MODELO_COMPLETO = "claude-sonnet-4-6"
+
+# Timeout das chamadas LLM em segundos
+LLM_TIMEOUT = 30
+
+# Limite de tokens por resposta (controla custo)
+LLM_MAX_TOKENS_RAPIDO   = 1024
+LLM_MAX_TOKENS_COMPLETO = 2048

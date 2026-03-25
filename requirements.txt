@@ -1,9 +1,6 @@
-# Dependências do projeto — Plataforma de Agentes v0.1
+# Dependências do projeto — Plataforma de Agentes
 #
 # Instalar com: pip install -r requirements.txt
-#
-# Esta versão usa apenas bibliotecas mínimas.
-# Todas as fontes de dados são públicas e gratuitas (sem chave de API necessária).
 
 requests==2.32.3
 
@@ -12,3 +9,8 @@ fastapi==0.115.6
 uvicorn==0.32.1
 jinja2==3.1.4
 python-multipart==0.0.12
+
+# LLM Router — modo dry-run funciona sem instalar.
+# Instalar quando LLM_MODO=real for ativado:
+anthropic>=0.40.0
+python-dotenv>=1.0.0
