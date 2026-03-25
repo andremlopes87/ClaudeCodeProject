@@ -517,11 +517,21 @@ async def salvar_identidade(
 async def pagina_propostas(request: Request):
     from core.propostas_empresa import resumir_para_painel
     from core.expediente_propostas import resumir_para_painel as resumir_expediente
+    try:
+        from core.respostas_documentos import carregar_respostas as _cr
+        _rdocs = _cr()
+        respostas_por_proposta = {
+            r["proposta_id"]: r for r in _rdocs
+            if r.get("proposta_id") and r.get("status_aplicacao") == "aplicado"
+        }
+    except Exception:
+        respostas_por_proposta = {}
     return templates.TemplateResponse("propostas.html", {
-        "request":   request,
-        "page":      "propostas",
-        "resumo":    resumir_para_painel(),
-        "expediente": resumir_expediente(),
+        "request":               request,
+        "page":                  "propostas",
+        "resumo":                resumir_para_painel(),
+        "expediente":            resumir_expediente(),
+        "respostas_por_proposta": respostas_por_proposta,
     })
 
 
@@ -1120,14 +1130,25 @@ async def pagina_documentos(request: Request, tipo: str = "", status: str = ""):
         doc_id = ev.get("documento_id", "")
         if doc_id and ev.get("status") not in {"cancelado"}:
             envio_por_doc[doc_id] = ev
+    # Respostas de documentos por envio_doc_id
+    try:
+        from core.respostas_documentos import carregar_respostas as _cr, resumir_para_painel as _rrespdoc
+        _rdocs = _cr()
+        respostas_por_envio = {r["envio_documento_id"]: r for r in _rdocs}
+        respostas_resumo    = _rrespdoc()
+    except Exception:
+        respostas_por_envio = {}
+        respostas_resumo    = {}
     return templates.TemplateResponse("documentos.html", {
-        "request":       request,
-        "page":          "documentos",
-        "documentos":    documentos,
-        "docs_resumo":   docs_resumo,
-        "filtro_tipo":   tipo,
-        "filtro_status": status,
-        "envio_por_doc": envio_por_doc,
+        "request":            request,
+        "page":               "documentos",
+        "documentos":         documentos,
+        "docs_resumo":        docs_resumo,
+        "filtro_tipo":        tipo,
+        "filtro_status":      status,
+        "envio_por_doc":      envio_por_doc,
+        "respostas_por_envio": respostas_por_envio,
+        "respostas_resumo":   respostas_resumo,
     })
 
 
@@ -1171,6 +1192,32 @@ async def marcar_enviado_doc_action(doc_id: str):
     )
     if envio:
         marcar_documento_como_enviado(envio["id"], origem="conselho_painel")
+    return RedirectResponse("/documentos", status_code=303)
+
+
+@app.post("/documentos/{doc_id}/resposta", response_class=RedirectResponse)
+async def registrar_resposta_doc_action(
+    doc_id: str,
+    tipo_resposta: str = Form(...),
+    descricao: str = Form(""),
+):
+    from core.expediente_documentos_email import carregar_envios_documentos
+    from core.respostas_documentos import (
+        registrar_resposta_documento,
+        aplicar_resposta_documento,
+    )
+    envios = carregar_envios_documentos()
+    envio = next(
+        (e for e in envios if e.get("documento_id") == doc_id
+         and e.get("status") not in {"cancelado"}),
+        None,
+    )
+    if envio:
+        resposta = registrar_resposta_documento(
+            envio["id"], tipo_resposta, descricao, origem="conselho_painel"
+        )
+        if resposta and resposta.get("status_aplicacao") == "pendente":
+            aplicar_resposta_documento(resposta)
     return RedirectResponse("/documentos", status_code=303)
 
 

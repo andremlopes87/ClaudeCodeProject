@@ -95,6 +95,10 @@
         {% if prop.requer_deliberacao %}
         <div style="margin-top:4px;"><span class="badge badge-warn" style="font-size:10px;">⚠ requer deliberação</span></div>
         {% endif %}
+        {% if respostas_por_proposta is defined and respostas_por_proposta.get(prop.id) %}
+        {% set rdoc = respostas_por_proposta[prop.id] %}
+        <div style="margin-top:4px;"><span class="badge badge-ok" style="font-size:10px;" title="Resposta via documento enviado: {{ rdoc.tipo_resposta }}">◈ via documento</span></div>
+        {% endif %}
       </div>
     </div>
 

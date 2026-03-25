@@ -399,6 +399,8 @@ def gerar_metricas_empresa() -> dict:
         **_metricas_documentos(),
         # Métricas de envios de documentos por email (melhor esforço)
         **_metricas_envios_documentos(),
+        # Métricas de respostas de documentos (melhor esforço)
+        **_metricas_respostas_documentos(),
     }
 
 
@@ -500,6 +502,21 @@ def _metricas_envios_documentos() -> dict:
             "envios_documentos_em_fila":    r["envios_em_fila"],
             "envios_documentos_enviados":   r["envios_documentos_enviados"],
             "envios_documentos_bloqueados": r["envios_bloqueados"],
+        }
+    except Exception:
+        return {}
+
+
+def _metricas_respostas_documentos() -> dict:
+    try:
+        from core.respostas_documentos import resumir_para_painel as _rrd
+        r = _rrd()
+        return {
+            "respostas_docs_pendentes":         r["respostas_pendentes"],
+            "respostas_docs_aplicadas":         r["respostas_aplicadas"],
+            "documentos_aceitos":               r["documentos_aceitos"],
+            "documentos_recusados":             r["documentos_recusados"],
+            "documentos_enviados_sem_resposta": r["documentos_enviados_sem_resposta"],
         }
     except Exception:
         return {}

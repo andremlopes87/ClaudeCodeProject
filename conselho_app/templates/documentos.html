@@ -32,6 +32,22 @@
     <div class="value">{{ docs_resumo.documentos_obsoletos }}</div>
     <div class="sub">aguardando regeneração</div>
   </div>
+  {% if respostas_resumo %}
+  <div class="kpi {% if respostas_resumo.respostas_pendentes > 0 %}warning{% endif %}">
+    <div class="label">Respostas recebidas</div>
+    <div class="value">{{ respostas_resumo.total_respostas }}</div>
+    <div class="sub">
+      {% if respostas_resumo.respostas_pendentes > 0 %}<span class="text-warning">{{ respostas_resumo.respostas_pendentes }} pendente(s)</span>{% else %}{{ respostas_resumo.documentos_aceitos }} aceito(s) · {{ respostas_resumo.documentos_recusados }} recusado(s){% endif %}
+    </div>
+  </div>
+  {% if respostas_resumo.documentos_enviados_sem_resposta > 0 %}
+  <div class="kpi warning">
+    <div class="label">Sem resposta</div>
+    <div class="value">{{ respostas_resumo.documentos_enviados_sem_resposta }}</div>
+    <div class="sub">aguardando retorno</div>
+  </div>
+  {% endif %}
+  {% endif %}
 </div>
 
 <div class="row" style="gap:12px;margin-bottom:16px;">
@@ -55,6 +71,7 @@
         <th>Versão</th>
         <th>Status doc.</th>
         <th>Envio email</th>
+        <th>Resposta</th>
         <th>Gerado em</th>
         <th>Ações</th>
       </tr>
@@ -109,6 +126,44 @@
             <span class="text-muted" style="font-size:10px;">sem envio</span>
           {% endif %}
         </td>
+        <td style="font-size:11px;min-width:110px;">
+          {% if doc.tipo_documento == 'resumo_entrega' %}
+            <span class="text-muted" style="font-size:10px;">—</span>
+          {% elif envio %}
+            {% set resposta = respostas_por_envio.get(envio.id) %}
+            {% if resposta %}
+              <span class="badge
+                {% if resposta.tipo_resposta in ('aceitou','aceite_verbal_registrado') %}badge-ok
+                {% elif resposta.tipo_resposta == 'recusou' %}badge-danger
+                {% elif resposta.tipo_resposta == 'pediu_ajuste' %}badge-accent
+                {% else %}badge-muted{% endif %}"
+                style="font-size:10px;">{{ resposta.tipo_resposta | replace('_', ' ') }}</span>
+              {% if resposta.status_aplicacao == 'aplicado' %}
+                <div class="text-muted" style="font-size:9px;margin-top:2px;">efeito aplicado</div>
+              {% endif %}
+            {% elif envio.status in ('marcado_como_enviado', 'em_fila_assistida', 'resposta_recebida') %}
+              <details style="font-size:10px;">
+                <summary style="cursor:pointer;color:var(--accent);">+ registrar</summary>
+                <form method="post" action="/documentos/{{ doc.id }}/resposta" style="margin-top:6px;">
+                  <select name="tipo_resposta" style="font-size:10px;padding:2px;width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:3px;margin-bottom:4px;">
+                    <option value="aceitou">aceitou</option>
+                    <option value="recusou">recusou</option>
+                    <option value="pediu_ajuste">pediu ajuste</option>
+                    <option value="pediu_retorno_futuro">retorno futuro</option>
+                    <option value="aceite_verbal_registrado">aceite verbal</option>
+                    <option value="sem_resposta">sem resposta</option>
+                  </select>
+                  <input type="text" name="descricao" placeholder="obs. opcional" style="font-size:10px;padding:2px;width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:3px;margin-bottom:4px;">
+                  <button type="submit" class="badge badge-accent" style="border:none;cursor:pointer;font-size:10px;padding:2px 8px;width:100%;">salvar</button>
+                </form>
+              </details>
+            {% else %}
+              <span class="text-muted" style="font-size:10px;">—</span>
+            {% endif %}
+          {% else %}
+            <span class="text-muted" style="font-size:10px;">—</span>
+          {% endif %}
+        </td>
         <td class="text-muted" style="font-size:11px;">{{ doc.gerado_em[:10] }}</td>
         <td style="font-size:11px;white-space:nowrap;">
           <a href="/documentos/preview/{{ doc.id }}" target="_blank"
@@ -137,7 +192,7 @@
         </td>
       </tr>
       {% else %}
-      <tr><td colspan="8" class="empty">Nenhum documento gerado ainda.</td></tr>
+      <tr><td colspan="9" class="empty">Nenhum documento gerado ainda.</td></tr>
       {% endfor %}
     </tbody>
   </table>
