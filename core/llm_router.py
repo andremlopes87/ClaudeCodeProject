@@ -85,7 +85,7 @@ class LLMRouter:
                 "classificacao": "simulado",
                 "confianca": "dry-run",
                 "nota": "Resposta simulada — ativar modo real para classificação via LLM",
-            })
+            }, modelo_simulado=_MODELO_RAPIDO)
         return self._chamar_real(
             metodo="classificar",
             contexto=contexto,
@@ -113,7 +113,7 @@ class LLMRouter:
                          "Em modo real, o LLM redigiria uma mensagem personalizada "
                          "baseada no contexto.",
                 "canal": "simulado",
-            })
+            }, modelo_simulado=_MODELO_COMPLETO)
         return self._chamar_real(
             metodo="redigir",
             contexto=contexto,
@@ -139,7 +139,7 @@ class LLMRouter:
                 "decisao": "pendente_revisao_humana",
                 "justificativa": "Modo dry-run — decisão requer ativação do LLM ou revisão manual",
                 "confianca": "dry-run",
-            })
+            }, modelo_simulado=_MODELO_COMPLETO)
         return self._chamar_real(
             metodo="decidir",
             contexto=contexto,
@@ -165,7 +165,7 @@ class LLMRouter:
                 "analise": "simulada",
                 "riscos": [],
                 "nota": "Análise simulada — ativar modo real para diagnóstico via LLM",
-            })
+            }, modelo_simulado=_MODELO_COMPLETO)
         return self._chamar_real(
             metodo="analisar",
             contexto=contexto,
@@ -191,7 +191,7 @@ class LLMRouter:
             return self._resposta_dry_run("resumir", contexto, {
                 "resumo": f"[DRY-RUN] Resumo simulado. Dados recebidos: {len(dados)} chave(s).",
                 "nota": "dry-run",
-            })
+            }, modelo_simulado=_MODELO_RAPIDO)
         return self._chamar_real(
             metodo="resumir",
             contexto=contexto,
@@ -202,23 +202,42 @@ class LLMRouter:
 
     # ─── Dry-run ──────────────────────────────────────────────────────────────
 
-    def _resposta_dry_run(self, metodo: str, contexto: dict, resultado: dict) -> dict:
+    def _resposta_dry_run(
+        self,
+        metodo: str,
+        contexto: dict,
+        resultado: dict,
+        modelo_simulado: str = "",
+    ) -> dict:
         agente = contexto.get("agente", "desconhecido")
         tarefa = contexto.get("tarefa", "—")
         print(
             f"[LLM Router] dry-run | {metodo} | agente={agente} | tarefa={tarefa}"
         )
-        return {
-            "sucesso":             True,
-            "resultado":           resultado,
-            "modelo_usado":        "dry-run",
-            "tokens_entrada":      0,
-            "tokens_saida":        0,
-            "custo_estimado_usd":  0.0,
-            "fallback_usado":      False,
-            "modo":                "dry-run",
-            "erro":                None,
+        resp = {
+            "sucesso":            True,
+            "resultado":          resultado,
+            "modelo_usado":       "dry-run",
+            "tokens_entrada":     0,
+            "tokens_saida":       0,
+            "custo_estimado_usd": 0.0,
+            "fallback_usado":     False,
+            "modo":               "dry-run",
+            "erro":               None,
         }
+        try:
+            from core.llm_log import registrar_chamada_llm
+            registrar_chamada_llm({
+                **resp,
+                "agente":          agente,
+                "tipo_tarefa":     metodo,
+                "payload_chars":   len(json.dumps(contexto, ensure_ascii=False)),
+                "modelo_simulado": modelo_simulado,
+                "ciclo_id":        contexto.get("ciclo_id"),
+            })
+        except Exception as _exc:
+            log.warning(f"[llm_router] falha ao registrar log dry-run: {_exc}")
+        return resp
 
     # ─── Modo real ────────────────────────────────────────────────────────────
 
@@ -258,7 +277,7 @@ class LLMRouter:
             resultado = self._parsear_resultado(conteudo)
             custo     = self._estimar_custo(modelo, tok_in, tok_out)
 
-            return {
+            resp = {
                 "sucesso":            True,
                 "resultado":          resultado,
                 "modelo_usado":       modelo,
@@ -269,11 +288,24 @@ class LLMRouter:
                 "modo":               "real",
                 "erro":               None,
             }
+            try:
+                from core.llm_log import registrar_chamada_llm
+                registrar_chamada_llm({
+                    **resp,
+                    "agente":          agente,
+                    "tipo_tarefa":     metodo,
+                    "payload_chars":   0,
+                    "modelo_simulado": "",
+                    "ciclo_id":        contexto.get("ciclo_id"),
+                })
+            except Exception as _exc:
+                log.warning(f"[llm_router] falha ao registrar log real: {_exc}")
+            return resp
 
         except Exception as exc:
             log.warning(f"[llm_router] falha em {metodo} ({agente}): {exc}")
             print(f"[LLM Router] ERRO em {metodo}: {exc} — retornando fallback")
-            return {
+            resp_err = {
                 "sucesso":            False,
                 "resultado":          {},
                 "modelo_usado":       modelo,
@@ -284,6 +316,19 @@ class LLMRouter:
                 "modo":               "real",
                 "erro":               str(exc),
             }
+            try:
+                from core.llm_log import registrar_chamada_llm
+                registrar_chamada_llm({
+                    **resp_err,
+                    "agente":          agente,
+                    "tipo_tarefa":     metodo,
+                    "payload_chars":   0,
+                    "modelo_simulado": "",
+                    "ciclo_id":        contexto.get("ciclo_id"),
+                })
+            except Exception:
+                pass
+            return resp_err
 
     # ─── Auxiliares ──────────────────────────────────────────────────────────
 
