@@ -66,12 +66,16 @@
   <p class="text-muted" style="margin-bottom:12px;">Revisão antes de qualquer envio. Status: <code>preparado</code> | <code>simulado=true</code></p>
 
   {% for email in preparados %}
+  {% set doc_vinculado = docs_map.get(email.documento_id) if email.documento_id else None %}
   <div class="card" style="margin-bottom:16px;">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;">
       <div>
         <strong>{{ email.contraparte or '—' }}</strong>
         <span class="badge badge-ok" style="margin-left:8px;">{{ email.status }}</span>
         <span class="badge badge-info" style="margin-left:4px;">simulado</span>
+        {% if email.tipo_envio == 'documento_oficial' %}
+          <span class="badge badge-accent" style="margin-left:4px;">◈ documento oficial</span>
+        {% endif %}
       </div>
       <div class="text-muted" style="font-size:11px;">{{ email.criado_em or '—' }}</div>
     </div>
@@ -82,6 +86,16 @@
       <div><span class="label">Abordagem:</span> {{ email.abordagem_tipo or '—' }}</div>
       <div><span class="label">Linha:</span> {{ email.linha_servico or '—' }}</div>
     </div>
+
+    {% if doc_vinculado %}
+    <div style="margin-top:8px;padding:8px 12px;background:#f4f2ff;border-radius:6px;border-left:3px solid #6c63ff;font-size:12px;">
+      <strong style="color:#6c63ff;">Documento oficial vinculado:</strong>
+      {{ doc_vinculado.titulo }}
+      <span class="badge badge-muted" style="font-size:10px;margin-left:4px;">v{{ doc_vinculado.versao }}</span>
+      <a href="/documentos/preview/{{ doc_vinculado.id }}" target="_blank"
+         style="color:#6c63ff;margin-left:10px;text-decoration:underline;">ver documento</a>
+    </div>
+    {% endif %}
 
     <div style="margin-top:10px;">
       <div class="label">Assunto:</div>
@@ -97,6 +111,7 @@
 
     <div style="margin-top:6px;font-size:11px;color:#888;">
       ID: {{ email.id }} | exec: {{ email.execucao_id }} | oport: {{ email.oportunidade_id or '—' }}
+      {% if email.documento_id %} | doc: {{ email.documento_id }}{% endif %}
     </div>
   </div>
   {% endfor %}

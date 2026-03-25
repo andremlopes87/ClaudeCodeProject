@@ -397,6 +397,8 @@ def gerar_metricas_empresa() -> dict:
         **_metricas_contratos(),
         # Métricas de documentos oficiais (melhor esforço)
         **_metricas_documentos(),
+        # Métricas de envios de documentos por email (melhor esforço)
+        **_metricas_envios_documentos(),
     }
 
 
@@ -484,6 +486,20 @@ def _metricas_documentos() -> dict:
             "contratos_sem_documento":     r["contratos_sem_documento"],
             "entregas_sem_resumo":         r["entregas_sem_resumo"],
             "documentos_obsoletos":        r["documentos_obsoletos"],
+        }
+    except Exception:
+        return {}
+
+
+def _metricas_envios_documentos() -> dict:
+    try:
+        from core.expediente_documentos_email import resumir_para_painel as _rev
+        r = _rev()
+        return {
+            "envios_documentos_preparados": r["envios_preparados"],
+            "envios_documentos_em_fila":    r["envios_em_fila"],
+            "envios_documentos_enviados":   r["envios_documentos_enviados"],
+            "envios_documentos_bloqueados": r["envios_bloqueados"],
         }
     except Exception:
         return {}

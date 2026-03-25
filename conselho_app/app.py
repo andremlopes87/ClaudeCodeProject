@@ -791,6 +791,13 @@ async def pagina_email(request: Request):
     historico_recente = sorted(historico, key=lambda x: x.get("registrado_em",""), reverse=True)[:30]
     preparados   = [e for e in fila if e.get("status") == "preparado"]
     bloqueados   = [e for e in fila if e.get("status") == "bloqueado"]
+    # Documentos vinculados: lookup por documento_id para exibir link de preview
+    docs_map: dict = {}
+    try:
+        docs_list = _ler("documentos_oficiais.json", [])
+        docs_map = {d["id"]: d for d in docs_list}
+    except Exception:
+        pass
     return templates.TemplateResponse("email.html", {
         "request":           request,
         "page":              "email",
@@ -800,6 +807,7 @@ async def pagina_email(request: Request):
         "preparados":        preparados,
         "bloqueados":        bloqueados,
         "historico_recente": historico_recente,
+        "docs_map":          docs_map,
     })
 
 
@@ -1105,14 +1113,65 @@ async def pagina_documentos(request: Request, tipo: str = "", status: str = ""):
     else:
         documentos = [d for d in documentos if d.get("status") != "arquivado"]
     documentos = sorted(documentos, key=lambda d: d.get("gerado_em", ""), reverse=True)
+    # Envios de documentos para mostrar status de envio por linha
+    envios_docs = _ler("envios_documentos.json", [])
+    envio_por_doc = {}
+    for ev in envios_docs:
+        doc_id = ev.get("documento_id", "")
+        if doc_id and ev.get("status") not in {"cancelado"}:
+            envio_por_doc[doc_id] = ev
     return templates.TemplateResponse("documentos.html", {
-        "request":     request,
-        "page":        "documentos",
-        "documentos":  documentos,
-        "docs_resumo": docs_resumo,
-        "filtro_tipo": tipo,
+        "request":       request,
+        "page":          "documentos",
+        "documentos":    documentos,
+        "docs_resumo":   docs_resumo,
+        "filtro_tipo":   tipo,
         "filtro_status": status,
+        "envio_por_doc": envio_por_doc,
     })
+
+
+@app.post("/documentos/{doc_id}/preparar-envio", response_class=RedirectResponse)
+async def preparar_envio_doc_action(doc_id: str):
+    from core.expediente_documentos_email import preparar_envio_documento
+    preparar_envio_documento(doc_id, origem="conselho_painel")
+    return RedirectResponse("/documentos", status_code=303)
+
+
+@app.post("/documentos/{doc_id}/enfileirar", response_class=RedirectResponse)
+async def enfileirar_doc_action(doc_id: str):
+    from core.expediente_documentos_email import (
+        carregar_envios_documentos,
+        enfileirar_documento_no_email_assistido,
+    )
+    envios = carregar_envios_documentos()
+    envio  = next(
+        (e for e in envios
+         if e.get("documento_id") == doc_id
+         and e.get("status") not in {"cancelado", "em_fila_assistida", "marcado_como_enviado"}),
+        None,
+    )
+    if envio:
+        enfileirar_documento_no_email_assistido(envio, origem="conselho_painel")
+    return RedirectResponse("/documentos", status_code=303)
+
+
+@app.post("/documentos/{doc_id}/marcar-enviado", response_class=RedirectResponse)
+async def marcar_enviado_doc_action(doc_id: str):
+    from core.expediente_documentos_email import (
+        carregar_envios_documentos,
+        marcar_documento_como_enviado,
+    )
+    envios = carregar_envios_documentos()
+    envio  = next(
+        (e for e in envios
+         if e.get("documento_id") == doc_id
+         and e.get("status") not in {"cancelado", "marcado_como_enviado"}),
+        None,
+    )
+    if envio:
+        marcar_documento_como_enviado(envio["id"], origem="conselho_painel")
+    return RedirectResponse("/documentos", status_code=303)
 
 
 @app.get("/documentos/preview/{doc_id}", response_class=HTMLResponse)

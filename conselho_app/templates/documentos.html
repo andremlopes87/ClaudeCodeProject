@@ -53,13 +53,15 @@
         <th>Título / Empresa</th>
         <th>Ref.</th>
         <th>Versão</th>
-        <th>Status</th>
+        <th>Status doc.</th>
+        <th>Envio email</th>
         <th>Gerado em</th>
         <th>Ações</th>
       </tr>
     </thead>
     <tbody>
       {% for doc in documentos %}
+      {% set envio = envio_por_doc.get(doc.id) %}
       <tr>
         <td>
           <span class="badge
@@ -70,7 +72,7 @@
             {{ {'proposta_comercial':'Proposta','contrato_comercial':'Contrato','resumo_entrega':'Entrega'}.get(doc.tipo_documento, doc.tipo_documento) }}
           </span>
         </td>
-        <td style="font-weight:500;font-size:13px;">{{ doc.titulo[:55] }}</td>
+        <td style="font-weight:500;font-size:13px;">{{ doc.titulo[:50] }}</td>
         <td class="text-muted" style="font-size:10px;">
           {{ (doc.referencia_id or '')[:14] }}
         </td>
@@ -87,16 +89,55 @@
             {{ doc.status }}
           </span>
         </td>
-        <td class="text-muted" style="font-size:11px;">{{ doc.gerado_em[:10] }}</td>
         <td style="font-size:11px;">
+          {% if doc.tipo_documento == 'resumo_entrega' %}
+            <span class="text-muted" style="font-size:10px;">—</span>
+          {% elif envio %}
+            <span class="badge
+              {% if envio.status == 'preparado' %}badge-ok
+              {% elif envio.status == 'em_fila_assistida' %}badge-accent
+              {% elif envio.status == 'marcado_como_enviado' %}badge-ok
+              {% elif envio.status == 'bloqueado' %}badge-danger
+              {% else %}badge-muted{% endif %}"
+              style="font-size:10px;" title="{{ envio.motivo_bloqueio or '' }}">
+              {{ envio.status | replace('_', ' ') }}
+            </span>
+            {% if envio.destinatario %}
+              <div class="text-muted" style="font-size:9px;margin-top:2px;">{{ envio.destinatario[:30] }}</div>
+            {% endif %}
+          {% else %}
+            <span class="text-muted" style="font-size:10px;">sem envio</span>
+          {% endif %}
+        </td>
+        <td class="text-muted" style="font-size:11px;">{{ doc.gerado_em[:10] }}</td>
+        <td style="font-size:11px;white-space:nowrap;">
           <a href="/documentos/preview/{{ doc.id }}" target="_blank"
-             style="color:var(--accent);margin-right:8px;">preview</a>
+             style="color:var(--accent);margin-right:6px;">preview</a>
           <a href="/documentos/download/{{ doc.id }}"
-             style="color:var(--muted);">baixar</a>
+             style="color:var(--muted);margin-right:6px;">baixar</a>
+          {% if doc.tipo_documento != 'resumo_entrega' %}
+            {% if not envio %}
+              <form method="post" action="/documentos/{{ doc.id }}/preparar-envio" style="display:inline;">
+                <button type="submit" class="badge badge-accent" style="border:none;cursor:pointer;font-size:10px;padding:2px 7px;">preparar envio</button>
+              </form>
+            {% elif envio.status == 'preparado' %}
+              <form method="post" action="/documentos/{{ doc.id }}/enfileirar" style="display:inline;">
+                <button type="submit" class="badge badge-ok" style="border:none;cursor:pointer;font-size:10px;padding:2px 7px;">enfileirar</button>
+              </form>
+            {% elif envio.status == 'em_fila_assistida' %}
+              <form method="post" action="/documentos/{{ doc.id }}/marcar-enviado" style="display:inline;">
+                <button type="submit" class="badge badge-muted" style="border:none;cursor:pointer;font-size:10px;padding:2px 7px;">marcar enviado</button>
+              </form>
+            {% elif envio.status == 'bloqueado' %}
+              <form method="post" action="/documentos/{{ doc.id }}/preparar-envio" style="display:inline;">
+                <button type="submit" class="badge badge-danger" style="border:none;cursor:pointer;font-size:10px;padding:2px 7px;" title="{{ envio.motivo_bloqueio }}">retentar</button>
+              </form>
+            {% endif %}
+          {% endif %}
         </td>
       </tr>
       {% else %}
-      <tr><td colspan="7" class="empty">Nenhum documento gerado ainda.</td></tr>
+      <tr><td colspan="8" class="empty">Nenhum documento gerado ainda.</td></tr>
       {% endfor %}
     </tbody>
   </table>

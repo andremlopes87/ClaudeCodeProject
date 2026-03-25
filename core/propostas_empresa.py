@@ -370,7 +370,14 @@ def aprovar_proposta(proposta_id: str, origem: str = "conselho") -> tuple[bool, 
     # Gerar documento oficial de proposta (best-effort)
     try:
         from core.documentos_empresa import gerar_documento_proposta
-        gerar_documento_proposta(proposta_id, origem=origem)
+        _doc = gerar_documento_proposta(proposta_id, origem=origem)
+        # Preparar envio por email assistido se documento gerado
+        if _doc:
+            try:
+                from core.expediente_documentos_email import preparar_envio_documento
+                preparar_envio_documento(_doc["id"], origem=origem)
+            except Exception as _exc_env:
+                log.debug(f"[propostas] envio documento nao preparado: {_exc_env}")
     except Exception as _exc_doc:
         log.debug(f"[propostas] documento nao gerado: {_exc_doc}")
 

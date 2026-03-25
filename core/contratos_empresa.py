@@ -172,7 +172,14 @@ def gerar_contrato_de_proposta(proposta_id: str,
     # Gerar documento oficial de contrato (best-effort)
     try:
         from core.documentos_empresa import gerar_documento_contrato
-        gerar_documento_contrato(contrato_id, origem=origem)
+        _doc = gerar_documento_contrato(contrato_id, origem=origem)
+        # Preparar envio por email assistido se documento gerado
+        if _doc:
+            try:
+                from core.expediente_documentos_email import preparar_envio_documento
+                preparar_envio_documento(_doc["id"], origem=origem)
+            except Exception as _exc_env:
+                log.debug(f"[contratos] envio documento nao preparado: {_exc_env}")
     except Exception as _exc_doc:
         log.debug(f"[contratos] documento nao gerado: {_exc_doc}")
 

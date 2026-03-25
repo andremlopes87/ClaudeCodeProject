@@ -391,6 +391,7 @@ def montar_resumo_final_ciclo(etapas: list) -> dict:
         "parcelas_reconciliadas_ciclo":      fin.get("parcelas_reconciliadas", 0),
         "contratos_reconciliados_ciclo":     fin.get("contratos_reconciliados", 0),
         "documentos_gerados_no_ciclo":       ent.get("documentos_entrega_gerados", 0),
+        "envios_docs_preparados_ciclo":      _contar_envios_documentos_preparados(),
         "acompanhamentos_abertos":           ent.get("acompanhamentos_criados", 0),
         "expansoes_sugeridas_no_ciclo":      ent.get("expansoes_sugeridas", 0),
         "expansoes_convertidas_no_ciclo":    com.get("expansoes_convertidas", 0),
@@ -506,6 +507,17 @@ def _contar_followups_aguardando_integracao() -> int:
         return 0
     with open(arq, "r", encoding="utf-8") as f:
         return sum(1 for e in json.load(f) if e.get("pronto_para_integracao"))
+
+
+def _contar_envios_documentos_preparados() -> int:
+    arq = config.PASTA_DADOS / "envios_documentos.json"
+    if not arq.exists():
+        return 0
+    with open(arq, "r", encoding="utf-8") as f:
+        return sum(
+            1 for e in json.load(f)
+            if e.get("status") in ("preparado", "em_fila_assistida", "marcado_como_enviado")
+        )
 
 
 # ─── Status e persistência ────────────────────────────────────────────────────
