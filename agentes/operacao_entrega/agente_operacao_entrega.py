@@ -305,6 +305,27 @@ def executar() -> dict:
     except Exception as _exc_ct:
         log.debug(f"  [contratos] atualizacao operacional ignorada: {_exc_ct}")
 
+    # ── ETAPA 3e: Gerar resumos de onboarding para entregas abertas ──────────
+    n_docs_entrega = 0
+    try:
+        from core.documentos_empresa import gerar_documento_resumo_entrega, obter_ultima_versao_documento, _checksum, detectar_documento_obsoleto
+        _STATUS_GERAR = ("onboarding", "em_execucao", "em_andamento", "aguardando_insumo", "concluida")
+        for ent in pipeline_entrega:
+            _st = ent.get("status_entrega", ent.get("status", ""))
+            if _st not in _STATUS_GERAR:
+                continue
+            _eid = ent.get("id", "")
+            if not _eid:
+                continue
+            _chk = _checksum(ent)
+            if detectar_documento_obsoleto(_eid, "resumo_entrega", _chk) \
+                    or not obter_ultima_versao_documento(_eid, "resumo_entrega"):
+                _doc = gerar_documento_resumo_entrega(_eid, origem=NOME_AGENTE)
+                if _doc:
+                    n_docs_entrega += 1
+    except Exception as _exc_doc:
+        log.debug(f"  [documentos] geracao resumo entrega ignorada: {_exc_doc}")
+
     # ── ETAPA 4: Persistir ─────────────────────────────────────────────────
     _salvar_json("pipeline_comercial.json", pipeline)   # persiste conta_id adicionado às opps
     _salvar_json("pipeline_entrega.json",   pipeline_entrega)
@@ -354,6 +375,7 @@ def executar() -> dict:
         "deliberacoes":         n_delib,
         "acompanhamentos_criados": n_acomp_criados,
         "expansoes_sugeridas":  n_expansoes_sug,
+        "documentos_entrega_gerados": n_docs_entrega,
         "pipeline_entrega":     len(pipeline_entrega),
         "caminho_log":          str(caminho_log),
     }

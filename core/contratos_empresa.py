@@ -168,6 +168,14 @@ def gerar_contrato_de_proposta(proposta_id: str,
 
     log.info(f"[contratos] {contrato_id} criado | contraparte={contrato['contraparte']} | "
              f"valor=R${valor:.2f} | modelo={modelo}")
+
+    # Gerar documento oficial de contrato (best-effort)
+    try:
+        from core.documentos_empresa import gerar_documento_contrato
+        gerar_documento_contrato(contrato_id, origem=origem)
+    except Exception as _exc_doc:
+        log.debug(f"[contratos] documento nao gerado: {_exc_doc}")
+
     return contrato
 
 

@@ -395,6 +395,8 @@ def gerar_metricas_empresa() -> dict:
         **_metricas_acompanhamento(),
         # Métricas de contratos/faturamento (melhor esforço)
         **_metricas_contratos(),
+        # Métricas de documentos oficiais (melhor esforço)
+        **_metricas_documentos(),
     }
 
 
@@ -467,6 +469,21 @@ def _metricas_contratos() -> dict:
             "parcelas_vencidas_contrato":     rr["parcelas_vencidas"],
             "contratos_sem_plano":            r["contratos_sem_plano"],
             "inconsistencias_contrato_plano": rr["inconsistencias"],
+        }
+    except Exception:
+        return {}
+
+
+def _metricas_documentos() -> dict:
+    try:
+        from core.documentos_empresa import resumir_para_painel as _rdoc
+        r = _rdoc()
+        return {
+            "total_documentos_oficiais":   r["total_documentos"],
+            "propostas_sem_documento":     r["propostas_sem_documento"],
+            "contratos_sem_documento":     r["contratos_sem_documento"],
+            "entregas_sem_resumo":         r["entregas_sem_resumo"],
+            "documentos_obsoletos":        r["documentos_obsoletos"],
         }
     except Exception:
         return {}

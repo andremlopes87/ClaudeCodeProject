@@ -1092,6 +1092,67 @@ async def pagina_contrato_detalhe(request: Request, contrato_id: str):
     })
 
 
+@app.get("/documentos", response_class=HTMLResponse)
+async def pagina_documentos(request: Request, tipo: str = "", status: str = ""):
+    from core.documentos_empresa import resumir_para_painel as _rdoc
+    docs_resumo = _rdoc()
+    documentos  = _ler("documentos_oficiais.json", [])
+    # Filtros
+    if tipo:
+        documentos = [d for d in documentos if d.get("tipo_documento") == tipo]
+    if status:
+        documentos = [d for d in documentos if d.get("status") == status]
+    else:
+        documentos = [d for d in documentos if d.get("status") != "arquivado"]
+    documentos = sorted(documentos, key=lambda d: d.get("gerado_em", ""), reverse=True)
+    return templates.TemplateResponse("documentos.html", {
+        "request":     request,
+        "page":        "documentos",
+        "documentos":  documentos,
+        "docs_resumo": docs_resumo,
+        "filtro_tipo": tipo,
+        "filtro_status": status,
+    })
+
+
+@app.get("/documentos/preview/{doc_id}", response_class=HTMLResponse)
+async def preview_documento(request: Request, doc_id: str):
+    from core.documentos_empresa import registrar_historico_documento
+    documentos = _ler("documentos_oficiais.json", [])
+    doc = next((d for d in documentos if d.get("id") == doc_id), None)
+    if not doc:
+        return HTMLResponse("<h3>Documento não encontrado.</h3>", status_code=404)
+    caminho = Path(doc.get("caminho_arquivo", ""))
+    if not caminho.is_absolute():
+        caminho = Path(__file__).parent.parent / caminho
+    if not caminho.exists():
+        return HTMLResponse("<h3>Arquivo não encontrado.</h3>", status_code=404)
+    registrar_historico_documento(doc_id, "preview_consultado",
+                                  "Preview consultado no painel", "conselho_app")
+    return HTMLResponse(content=caminho.read_text(encoding="utf-8"))
+
+
+@app.get("/documentos/download/{doc_id}")
+async def download_documento(doc_id: str):
+    from fastapi.responses import FileResponse
+    documentos = _ler("documentos_oficiais.json", [])
+    doc = next((d for d in documentos if d.get("id") == doc_id), None)
+    if not doc:
+        from fastapi.responses import JSONResponse as JR
+        return JR({"erro": "não encontrado"}, status_code=404)
+    caminho = Path(doc.get("caminho_arquivo", ""))
+    if not caminho.is_absolute():
+        caminho = Path(__file__).parent.parent / caminho
+    if not caminho.exists():
+        from fastapi.responses import JSONResponse as JR
+        return JR({"erro": "arquivo não encontrado"}, status_code=404)
+    return FileResponse(
+        path=str(caminho),
+        filename=doc.get("nome_arquivo", "documento.html"),
+        media_type="text/html",
+    )
+
+
 @app.get("/api/governanca/resumo")
 async def api_governanca_resumo():
     from core.governanca_conselho import resumir_governanca_ativa

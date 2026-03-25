@@ -85,6 +85,7 @@ def main() -> None:
     print(f"  Recebiveis de contratos     : {resumo.get('recebiveis_contratos_gerados', 0)}")
     print(f"  Parcelas reconciliadas      : {resumo.get('parcelas_reconciliadas_ciclo', 0)}")
     print(f"  Contratos reconciliados     : {resumo.get('contratos_reconciliados_ciclo', 0)}")
+    print(f"  Docs gerados no ciclo       : {resumo.get('documentos_gerados_no_ciclo', 0)}")
     print(f"  Acomp. criados no ciclo     : {resumo.get('acompanhamentos_abertos', 0)}")
     print(f"  Expansões sugeridas         : {resumo.get('expansoes_sugeridas_no_ciclo', 0)}")
     print(f"  Expansões convertidas       : {resumo.get('expansoes_convertidas_no_ciclo', 0)}")

@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% block title %}Documentos — Painel do Conselho{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Documentos Oficiais</h1>
+  <p>Propostas, contratos e resumos de entrega gerados pela Vetor.</p>
+</div>
+
+<div class="kpi-grid">
+  <div class="kpi">
+    <div class="label">Total gerados</div>
+    <div class="value">{{ docs_resumo.total_documentos }}</div>
+    <div class="sub">documentos ativos</div>
+  </div>
+  <div class="kpi">
+    <div class="label">Propostas c/ doc.</div>
+    <div class="value">{{ docs_resumo.propostas_com_documento }}</div>
+    <div class="sub">{% if docs_resumo.propostas_sem_documento > 0 %}<span class="text-warning">{{ docs_resumo.propostas_sem_documento }} sem documento</span>{% else %}todas cobertas{% endif %}</div>
+  </div>
+  <div class="kpi">
+    <div class="label">Contratos c/ doc.</div>
+    <div class="value">{{ docs_resumo.contratos_com_documento }}</div>
+    <div class="sub">{% if docs_resumo.contratos_sem_documento > 0 %}<span class="text-warning">{{ docs_resumo.contratos_sem_documento }} sem documento</span>{% else %}todos cobertos{% endif %}</div>
+  </div>
+  <div class="kpi">
+    <div class="label">Entregas c/ resumo</div>
+    <div class="value">{{ docs_resumo.entregas_com_resumo }}</div>
+    <div class="sub">{% if docs_resumo.entregas_sem_resumo > 0 %}<span class="text-warning">{{ docs_resumo.entregas_sem_resumo }} sem resumo</span>{% else %}todas cobertas{% endif %}</div>
+  </div>
+  <div class="kpi {% if docs_resumo.documentos_obsoletos > 0 %}warning{% endif %}">
+    <div class="label">Obsoletos</div>
+    <div class="value">{{ docs_resumo.documentos_obsoletos }}</div>
+    <div class="sub">aguardando regeneração</div>
+  </div>
+</div>
+
+<div class="row" style="gap:12px;margin-bottom:16px;">
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+    <span style="font-size:12px;color:var(--muted);">Filtrar:</span>
+    <a href="/documentos" class="badge {% if not filtro_tipo %}badge-accent{% else %}badge-muted{% endif %}" style="text-decoration:none;">Todos</a>
+    <a href="/documentos?tipo=proposta_comercial" class="badge {% if filtro_tipo=='proposta_comercial' %}badge-accent{% else %}badge-muted{% endif %}" style="text-decoration:none;">Propostas</a>
+    <a href="/documentos?tipo=contrato_comercial" class="badge {% if filtro_tipo=='contrato_comercial' %}badge-accent{% else %}badge-muted{% endif %}" style="text-decoration:none;">Contratos</a>
+    <a href="/documentos?tipo=resumo_entrega" class="badge {% if filtro_tipo=='resumo_entrega' %}badge-accent{% else %}badge-muted{% endif %}" style="text-decoration:none;">Entregas</a>
+    <a href="/documentos?status=obsoleto" class="badge {% if filtro_status=='obsoleto' %}badge-danger{% else %}badge-muted{% endif %}" style="text-decoration:none;">Obsoletos</a>
+  </div>
+</div>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Tipo</th>
+        <th>Título / Empresa</th>
+        <th>Ref.</th>
+        <th>Versão</th>
+        <th>Status</th>
+        <th>Gerado em</th>
+        <th>Ações</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for doc in documentos %}
+      <tr>
+        <td>
+          <span class="badge
+            {% if doc.tipo_documento == 'proposta_comercial' %}badge-accent
+            {% elif doc.tipo_documento == 'contrato_comercial' %}badge-ok
+            {% else %}badge-muted{% endif %}"
+            style="font-size:10px;">
+            {{ {'proposta_comercial':'Proposta','contrato_comercial':'Contrato','resumo_entrega':'Entrega'}.get(doc.tipo_documento, doc.tipo_documento) }}
+          </span>
+        </td>
+        <td style="font-weight:500;font-size:13px;">{{ doc.titulo[:55] }}</td>
+        <td class="text-muted" style="font-size:10px;">
+          {{ (doc.referencia_id or '')[:14] }}
+        </td>
+        <td style="text-align:center;">
+          <span class="badge badge-muted">v{{ doc.versao }}</span>
+        </td>
+        <td>
+          <span class="badge
+            {% if doc.status == 'gerado' %}badge-ok
+            {% elif doc.status == 'atualizado' %}badge-accent
+            {% elif doc.status == 'obsoleto' %}badge-danger
+            {% else %}badge-muted{% endif %}"
+            style="font-size:10px;">
+            {{ doc.status }}
+          </span>
+        </td>
+        <td class="text-muted" style="font-size:11px;">{{ doc.gerado_em[:10] }}</td>
+        <td style="font-size:11px;">
+          <a href="/documentos/preview/{{ doc.id }}" target="_blank"
+             style="color:var(--accent);margin-right:8px;">preview</a>
+          <a href="/documentos/download/{{ doc.id }}"
+             style="color:var(--muted);">baixar</a>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="7" class="empty">Nenhum documento gerado ainda.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if docs_resumo.propostas_sem_documento > 0 or docs_resumo.contratos_sem_documento > 0 or docs_resumo.entregas_sem_resumo > 0 %}
+<div class="card" style="margin-top:16px;border-left:3px solid var(--warning);padding:10px 14px;font-size:12px;">
+  <b style="color:var(--warning);">Referências sem documento:</b>
+  {% if docs_resumo.propostas_sem_documento > 0 %}
+  <span class="badge badge-warning" style="margin-left:6px;">{{ docs_resumo.propostas_sem_documento }} proposta(s)</span>
+  {% endif %}
+  {% if docs_resumo.contratos_sem_documento > 0 %}
+  <span class="badge badge-warning" style="margin-left:6px;">{{ docs_resumo.contratos_sem_documento }} contrato(s)</span>
+  {% endif %}
+  {% if docs_resumo.entregas_sem_resumo > 0 %}
+  <span class="badge badge-warning" style="margin-left:6px;">{{ docs_resumo.entregas_sem_resumo }} entrega(s)</span>
+  {% endif %}
+  <span class="text-muted" style="margin-left:10px;">Execute o ciclo para gerar automaticamente.</span>
+</div>
+{% endif %}
+{% endblock %}

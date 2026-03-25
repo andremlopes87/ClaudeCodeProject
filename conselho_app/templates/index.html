@@ -226,6 +226,24 @@
 </div>
 {% endif %}
 
+{% if metricas.get('total_documentos_oficiais', 0) > 0 or metricas.get('propostas_sem_documento', 0) > 0 or metricas.get('contratos_sem_documento', 0) > 0 %}
+<div class="card" style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;">
+  <div>
+    <div class="label" style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Documentos Oficiais</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;">
+      <span class="badge badge-ok">{{ metricas.get('total_documentos_oficiais', 0) }} gerado{% if metricas.get('total_documentos_oficiais', 0) != 1 %}s{% endif %}</span>
+      {% if metricas.get('propostas_sem_documento', 0) > 0 %}<span class="badge badge-warning">{{ metricas.propostas_sem_documento }} proposta(s) sem doc.</span>{% endif %}
+      {% if metricas.get('contratos_sem_documento', 0) > 0 %}<span class="badge badge-warning">{{ metricas.contratos_sem_documento }} contrato(s) sem doc.</span>{% endif %}
+      {% if metricas.get('entregas_sem_resumo', 0) > 0 %}<span class="badge badge-muted">{{ metricas.entregas_sem_resumo }} entrega(s) sem resumo</span>{% endif %}
+      {% if metricas.get('documentos_obsoletos', 0) > 0 %}<span class="badge badge-danger">{{ metricas.documentos_obsoletos }} obsoleto(s)</span>{% endif %}
+    </div>
+  </div>
+  <div style="margin-left:auto;">
+    <a href="/documentos" class="badge badge-muted" style="text-decoration:none;padding:5px 10px;">→ Ver documentos</a>
+  </div>
+</div>
+{% endif %}
+
 {% if gov and (gov.modo_empresa != 'normal' or gov.agentes_pausados or gov.areas_pausadas or gov.diretrizes_ativas) %}
 <h2>Estado da Governança</h2>
 <div class="card" style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start;">

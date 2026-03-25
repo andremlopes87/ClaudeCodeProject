@@ -366,6 +366,14 @@ def aprovar_proposta(proposta_id: str, origem: str = "conselho") -> tuple[bool, 
         origem=origem,
     )
     log.info(f"[propostas] {proposta_id} aprovada por {origem}")
+
+    # Gerar documento oficial de proposta (best-effort)
+    try:
+        from core.documentos_empresa import gerar_documento_proposta
+        gerar_documento_proposta(proposta_id, origem=origem)
+    except Exception as _exc_doc:
+        log.debug(f"[propostas] documento nao gerado: {_exc_doc}")
+
     return True, ""
 
 
