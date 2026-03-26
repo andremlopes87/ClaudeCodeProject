@@ -34,6 +34,29 @@ _TEMPLATE_DIR  = Path(__file__).parent / "templates"
 app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
 templates = Jinja2Templates(directory=str(_TEMPLATE_DIR))
 
+# Jinja2 global: badge de alerta de TI (lido a cada render, sem custo relevante)
+def _ti_tem_alerta() -> bool:
+    try:
+        rel = json.loads((config.PASTA_DADOS / "relatorio_seguranca.json").read_text(encoding="utf-8"))
+        if rel.get("resumo", {}).get("criticas", 0) > 0:
+            return True
+    except Exception:
+        pass
+    try:
+        inc = json.loads((config.PASTA_DADOS / "incidentes_executor.json").read_text(encoding="utf-8"))
+        from datetime import datetime, timedelta
+        limite = datetime.now() - timedelta(hours=48)
+        for i in inc:
+            if i.get("tipo") == "rollback":
+                ts = datetime.fromisoformat(i.get("timestamp", "2000-01-01"))
+                if ts >= limite:
+                    return True
+    except Exception:
+        pass
+    return False
+
+templates.env.globals["ti_tem_alerta"] = _ti_tem_alerta
+
 
 # ─── Helpers de leitura ───────────────────────────────────────────────────────
 
@@ -135,6 +158,23 @@ async def pagina_index(request: Request):
         nps_resumo = _calc_nps()
     except Exception:
         nps_resumo = {}
+    # Resumo TI para cards da homepage
+    try:
+        _rel_seg  = _ler("relatorio_seguranca.json", None)
+        _rel_qual = _ler("relatorio_qualidade.json", None)
+        _rel_mel  = _ler("relatorio_melhorias.json", None)
+        _hist_mel = _ler("historico_melhorias.json", [])
+        ti_resumo = {
+            "score_seguranca":  _rel_seg["resumo"]["score_seguranca"]  if _rel_seg  else None,
+            "total_vulns":      _rel_seg["resumo"]["total_vulnerabilidades"] if _rel_seg else None,
+            "score_qualidade":  _rel_qual["score_qualidade"] if _rel_qual else None,
+            "taxa_testes":      _rel_qual["testes"]["taxa_sucesso"] if _rel_qual else None,
+            "melhorias_aplic":  sum(h.get("aplicadas", 0) for h in _hist_mel),
+            "pendentes_llm":    _rel_mel["pendentes_llm_real"] if _rel_mel else 0,
+            "modo_executor":    _ler("politicas_ti.json", {}).get("executor", {}).get("modo", "dry-run"),
+        }
+    except Exception:
+        ti_resumo = {}
     # Resumo scheduler para card da homepage
     try:
         from datetime import datetime as _dt
@@ -176,6 +216,7 @@ async def pagina_index(request: Request):
         "llm_resumo":       llm_resumo,
         "scheduler_resumo": scheduler_resumo,
         "nps_resumo":       nps_resumo,
+        "ti_resumo":        ti_resumo,
     })
 
 
@@ -967,8 +1008,10 @@ async def pagina_saude(request: Request):
 async def pagina_governanca(request: Request):
     from core.governanca_conselho import resumir_governanca_ativa
     from core.politicas_empresa import resumir_politicas_ativas
+    from core.politicas_ti import carregar_politicas_ti
     gov     = resumir_governanca_ativa()
     politicas_resumo = resumir_politicas_ativas()
+    politicas_ti = carregar_politicas_ti()
     historico = _ler("historico_comandos_conselho.json", [])
     historico_recente = sorted(historico, key=lambda x: x.get("registrado_em",""), reverse=True)[:20]
     return templates.TemplateResponse("governanca.html", {
@@ -976,6 +1019,7 @@ async def pagina_governanca(request: Request):
         "page":       "governanca",
         "gov":        gov,
         "politicas":  politicas_resumo,
+        "politicas_ti": politicas_ti,
         "historico":  historico_recente,
         "agentes_conhecidos": [
             "agente_financeiro", "agente_prospeccao", "agente_marketing",
@@ -986,6 +1030,7 @@ async def pagina_governanca(request: Request):
         "areas_conhecidas": ["financeiro", "prospeccao", "marketing", "comercial", "entrega", "operacao"],
         "modos_validos":    ["normal", "conservador", "foco_caixa", "foco_crescimento", "manutencao"],
         "linhas_servico":   ["marketing_presenca_digital", "automacao_atendimento", "outras"],
+        "riscos_ti":        ["baixo", "medio"],
     })
 
 
@@ -1520,6 +1565,61 @@ async def pagina_nps(request: Request):
         "respostas_recentes": respostas_recentes,
         "contas_map":        contas,
     })
+
+
+@app.get("/ti", response_class=HTMLResponse)
+async def pagina_ti(request: Request):
+    from core.politicas_ti import carregar_politicas_ti
+    # Relatórios TI
+    rel_seg   = _ler("relatorio_seguranca.json", None)
+    hist_seg  = list(reversed(_ler("historico_auditorias_seguranca.json", [])))[:5]
+    rel_qual  = _ler("relatorio_qualidade.json", None)
+    hist_qual = list(reversed(_ler("historico_qualidade.json", [])))[:5]
+    rel_mel   = _ler("relatorio_melhorias.json", None)
+    hist_mel  = list(reversed(_ler("historico_melhorias.json", [])))[:10]
+    # Políticas TI
+    politicas_ti = carregar_politicas_ti()
+    # Backups disponíveis
+    backups_dir = config.PASTA_DADOS / "backups"
+    backups = []
+    if backups_dir.exists():
+        backups = sorted(
+            [d.name for d in backups_dir.iterdir() if d.is_dir() and d.name.startswith("backup_")],
+            reverse=True,
+        )[:5]
+    # Scheduler estado
+    sched_estado = _ler("scheduler_estado.json", {})
+    return templates.TemplateResponse("ti.html", {
+        "request":      request,
+        "page":         "ti",
+        "rel_seg":      rel_seg,
+        "hist_seg":     hist_seg,
+        "rel_qual":     rel_qual,
+        "hist_qual":    hist_qual,
+        "rel_mel":      rel_mel,
+        "hist_mel":     hist_mel,
+        "politicas_ti": politicas_ti,
+        "backups":      backups,
+        "sched":        sched_estado,
+    })
+
+
+@app.post("/acao/ti_politica")
+async def acao_ti_politica(
+    request:  Request,
+    secao:    str = Form(...),
+    campo:    str = Form(...),
+    valor:    str = Form(...),
+):
+    from core.politicas_ti import atualizar_politica_ti
+    # Converter valor para tipo correto
+    val: object = valor
+    if valor.lower() in ("true", "false"):
+        val = valor.lower() == "true"
+    elif valor.isdigit():
+        val = int(valor)
+    atualizar_politica_ti(secao, campo, val)
+    return RedirectResponse("/governanca", status_code=303)
 
 
 @app.get("/api/nps/resumo")

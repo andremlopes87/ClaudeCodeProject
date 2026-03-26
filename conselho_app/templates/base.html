@@ -40,6 +40,8 @@
   <a href="/email" class="{% if page=='email' %}active{% endif %}">✉ Canal Email</a>
   <a href="/ativacao-email" class="{% if page=='ativacao_email' %}active{% endif %}">⚡ Ativação Email</a>
   <a href="/entrada-manual" class="{% if page=='entrada_manual' %}active{% endif %}">⊕ Entrada Manual</a>
+  <div class="nav-section">TI{% if ti_tem_alerta() %} <span class="badge badge-danger" style="font-size:9px;padding:1px 5px;margin-left:4px;vertical-align:middle;">!</span>{% endif %}</div>
+  <a href="/ti" class="{% if page=='ti' %}active{% endif %}">⚙ Segurança &amp; Qualidade</a>
   <div class="nav-section">Infraestrutura</div>
   <a href="/llm" class="{% if page=='llm' %}active{% endif %}">◎ LLM / Custos</a>
   <a href="/scheduler" class="{% if page=='scheduler' %}active{% endif %}">⏱ Scheduler</a>

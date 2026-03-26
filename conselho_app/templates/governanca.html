@@ -295,4 +295,143 @@
 
   </div>
 </div>
+
+<!-- ── Políticas de TI ───────────────────────────────────────────────── -->
+{% if politicas_ti %}
+<h2 style="margin-top:28px;">Políticas de TI</h2>
+<div class="row">
+  <!-- Executor -->
+  <div class="col">
+    <div class="card" style="margin-bottom:16px;padding:14px 16px;">
+      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">
+        Executor de Melhorias
+        <span class="badge {% if politicas_ti.executor.ativo %}badge-success{% else %}badge-muted{% endif %}" style="margin-left:6px;">
+          {% if politicas_ti.executor.ativo %}ativo{% else %}desativado{% endif %}
+        </span>
+        <span class="badge {% if politicas_ti.executor.modo == 'dry-run' %}badge-muted{% else %}badge-warning{% endif %}" style="margin-left:4px;">
+          {{ politicas_ti.executor.modo }}
+        </span>
+      </div>
+      <div style="display:flex;gap:20px;flex-wrap:wrap;font-size:11px;margin-bottom:12px;">
+        <div><span class="text-muted">Max mudanças/exec:</span> <b>{{ politicas_ti.executor.max_mudancas_por_execucao }}</b></div>
+        <div><span class="text-muted">Risco máximo auto:</span>
+          <b style="color:{% if politicas_ti.executor.risco_maximo_automatico == 'alto' %}var(--danger){% elif politicas_ti.executor.risco_maximo_automatico == 'medio' %}var(--warning){% else %}var(--success){% endif %};">
+            {{ politicas_ti.executor.risco_maximo_automatico }}
+          </b>
+        </div>
+        <div><span class="text-muted">Cooldown pós-rollback:</span> <b>{{ politicas_ti.executor.cooldown_apos_rollback_horas }}h</b></div>
+      </div>
+      <!-- Pausar / retomar executor via governança -->
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+        <form method="POST" action="/acao/governanca" style="display:inline;">
+          <input type="hidden" name="tipo_comando" value="pausar_agente">
+          <input type="hidden" name="alvo_id" value="executor_melhorias">
+          <input type="hidden" name="justificativa" value="Pausado via painel TI">
+          <button type="submit" onclick="return confirm('Pausar executor de melhorias?')"
+            style="background:#2d2108;border:1px solid var(--warning);color:var(--warning);padding:4px 12px;border-radius:3px;cursor:pointer;font-size:11px;font-family:inherit;">
+            ⏸ Pausar executor
+          </button>
+        </form>
+        <form method="POST" action="/acao/governanca" style="display:inline;">
+          <input type="hidden" name="tipo_comando" value="retomar_agente">
+          <input type="hidden" name="alvo_id" value="executor_melhorias">
+          <input type="hidden" name="justificativa" value="Retomado via painel TI">
+          <button type="submit"
+            style="background:#1a3626;border:1px solid var(--success);color:var(--success);padding:4px 12px;border-radius:3px;cursor:pointer;font-size:11px;font-family:inherit;">
+            ▶ Retomar executor
+          </button>
+        </form>
+      </div>
+      <!-- Alterar risco máximo -->
+      <form method="POST" action="/acao/ti_politica" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <input type="hidden" name="secao" value="executor">
+        <input type="hidden" name="campo" value="risco_maximo_automatico">
+        <span style="font-size:11px;color:var(--muted);">Risco máximo:</span>
+        {% for r in riscos_ti %}
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:11px;">
+          <input type="radio" name="valor" value="{{ r }}" {% if r == politicas_ti.executor.risco_maximo_automatico %}checked{% endif %}>
+          <span class="badge {% if r == 'alto' %}badge-danger{% elif r == 'medio' %}badge-warning{% else %}badge-success{% endif %}">{{ r }}</span>
+        </label>
+        {% endfor %}
+        <button type="submit" onclick="return confirm('Alterar risco máximo do executor?')"
+          style="background:#0e2039;border:1px solid var(--accent);color:var(--accent);padding:4px 12px;border-radius:3px;cursor:pointer;font-family:inherit;font-size:11px;">
+          Aplicar
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Auditor e Qualidade -->
+  <div class="col">
+    <div class="card" style="margin-bottom:16px;padding:14px 16px;">
+      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">Auditor de Segurança</div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:11px;margin-bottom:10px;">
+        <div><span class="text-muted">Ativo:</span>
+          <span class="badge {% if politicas_ti.auditor.ativo %}badge-success{% else %}badge-muted{% endif %}">
+            {% if politicas_ti.auditor.ativo %}sim{% else %}não{% endif %}
+          </span>
+        </div>
+        <div><span class="text-muted">Varrer dados sensíveis:</span>
+          <span class="badge {% if politicas_ti.auditor.varrer_dados_sensiveis %}badge-success{% else %}badge-muted{% endif %}">
+            {% if politicas_ti.auditor.varrer_dados_sensiveis %}sim{% else %}não{% endif %}
+          </span>
+        </div>
+        <div><span class="text-muted">Sev. mínima alerta:</span> <b>{{ politicas_ti.auditor.severidade_minima_alerta }}</b></div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <form method="POST" action="/acao/governanca" style="display:inline;">
+          <input type="hidden" name="tipo_comando" value="pausar_agente">
+          <input type="hidden" name="alvo_id" value="auditor_seguranca">
+          <input type="hidden" name="justificativa" value="Pausado via painel TI">
+          <button type="submit" onclick="return confirm('Pausar auditor de segurança?')"
+            style="background:#2d2108;border:1px solid var(--warning);color:var(--warning);padding:4px 10px;border-radius:3px;cursor:pointer;font-size:11px;font-family:inherit;">
+            ⏸ Pausar
+          </button>
+        </form>
+        <form method="POST" action="/acao/governanca" style="display:inline;">
+          <input type="hidden" name="tipo_comando" value="retomar_agente">
+          <input type="hidden" name="alvo_id" value="auditor_seguranca">
+          <input type="hidden" name="justificativa" value="Retomado via painel TI">
+          <button type="submit"
+            style="background:#1a3626;border:1px solid var(--success);color:var(--success);padding:4px 10px;border-radius:3px;cursor:pointer;font-size:11px;font-family:inherit;">
+            ▶ Retomar
+          </button>
+        </form>
+      </div>
+    </div>
+    <div class="card" style="padding:14px 16px;">
+      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">Agente de Qualidade</div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:11px;margin-bottom:10px;">
+        <div><span class="text-muted">Ativo:</span>
+          <span class="badge {% if politicas_ti.qualidade.ativo %}badge-success{% else %}badge-muted{% endif %}">
+            {% if politicas_ti.qualidade.ativo %}sim{% else %}não{% endif %}
+          </span>
+        </div>
+        <div><span class="text-muted">Timeout teste:</span> <b>{{ politicas_ti.qualidade.timeout_teste_segundos }}s</b></div>
+        <div><span class="text-muted">Score mín. alerta:</span> <b>{{ politicas_ti.qualidade.score_minimo_alerta }}</b></div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <form method="POST" action="/acao/governanca" style="display:inline;">
+          <input type="hidden" name="tipo_comando" value="pausar_agente">
+          <input type="hidden" name="alvo_id" value="qualidade">
+          <input type="hidden" name="justificativa" value="Pausado via painel TI">
+          <button type="submit" onclick="return confirm('Pausar agente de qualidade?')"
+            style="background:#2d2108;border:1px solid var(--warning);color:var(--warning);padding:4px 10px;border-radius:3px;cursor:pointer;font-size:11px;font-family:inherit;">
+            ⏸ Pausar
+          </button>
+        </form>
+        <form method="POST" action="/acao/governanca" style="display:inline;">
+          <input type="hidden" name="tipo_comando" value="retomar_agente">
+          <input type="hidden" name="alvo_id" value="qualidade">
+          <input type="hidden" name="justificativa" value="Retomado via painel TI">
+          <button type="submit"
+            style="background:#1a3626;border:1px solid var(--success);color:var(--success);padding:4px 10px;border-radius:3px;cursor:pointer;font-size:11px;font-family:inherit;">
+            ▶ Retomar
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
 {% endblock %}

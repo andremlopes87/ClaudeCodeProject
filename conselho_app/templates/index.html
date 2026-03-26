@@ -103,6 +103,48 @@
   </a>
 </div>
 
+<!-- ── Bloco TI ───────────────────────────────────────────────────── -->
+<h2 style="margin-top:24px;margin-bottom:12px;font-size:13px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);">TI</h2>
+<div class="kpi-grid" style="margin-bottom:16px;">
+  <!-- Card Segurança -->
+  <a href="/ti#seguranca" style="text-decoration:none;">
+    <div class="kpi {% if ti_resumo and ti_resumo.get('score_seguranca') is not none %}{% if ti_resumo.score_seguranca >= 80 %}success{% elif ti_resumo.score_seguranca >= 60 %}{% else %}danger{% endif %}{% endif %}" style="cursor:pointer;">
+      <div class="label">Segurança</div>
+      <div class="value" style="font-size:18px;">
+        {% if ti_resumo and ti_resumo.get('score_seguranca') is not none %}{{ ti_resumo.score_seguranca }}{% else %}—{% endif %}
+      </div>
+      <div class="sub">
+        {% if ti_resumo and ti_resumo.get('total_vulns') is not none %}{{ ti_resumo.total_vulns }} vulnerabilidades{% else %}auditoria não realizada{% endif %}
+      </div>
+    </div>
+  </a>
+  <!-- Card Qualidade -->
+  <a href="/ti#qualidade" style="text-decoration:none;">
+    <div class="kpi {% if ti_resumo and ti_resumo.get('score_qualidade') is not none %}{% if ti_resumo.score_qualidade >= 80 %}success{% elif ti_resumo.score_qualidade >= 60 %}{% else %}warning{% endif %}{% endif %}" style="cursor:pointer;">
+      <div class="label">Qualidade</div>
+      <div class="value" style="font-size:18px;">
+        {% if ti_resumo and ti_resumo.get('score_qualidade') is not none %}{{ ti_resumo.score_qualidade }}{% else %}—{% endif %}
+      </div>
+      <div class="sub">
+        {% if ti_resumo and ti_resumo.get('taxa_testes') is not none %}testes: {{ ti_resumo.taxa_testes }}%{% else %}análise não realizada{% endif %}
+      </div>
+    </div>
+  </a>
+  <!-- Card Melhorias -->
+  <a href="/ti#melhorias" style="text-decoration:none;">
+    <div class="kpi" style="cursor:pointer;">
+      <div class="label">Melhorias</div>
+      <div class="value" style="font-size:18px;">
+        {{ ti_resumo.get('melhorias_aplic', 0) if ti_resumo else 0 }}
+      </div>
+      <div class="sub">
+        aplicadas &middot; {{ ti_resumo.get('pendentes_llm', 0) if ti_resumo else 0 }} pendentes
+        {% if ti_resumo and ti_resumo.get('modo_executor') == 'dry-run' %}&middot; <span style="color:var(--muted)">dry-run</span>{% endif %}
+      </div>
+    </div>
+  </a>
+</div>
+
 <!-- Card de saúde da empresa -->
 {% if saude %}
 <div class="card" style="margin-bottom:16px;display:flex;gap:20px;align-items:center;flex-wrap:wrap;">

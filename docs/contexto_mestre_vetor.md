@@ -43,6 +43,9 @@
 | gerador_insumos | Gera insumos necessários para execução | Alta | insumos_entrega.json |
 | avaliador_fechamento | Avalia se oportunidade está pronta para fechar | Alta | pipeline_comercial.json |
 | agente_customer_success | Saúde de contas, NPS, playbooks de retenção, expansão | Alta | relatorio_customer_success.json, acoes_customer_success.json, nps_pendentes.json, oportunidades_expansao.json |
+| agente_auditor_seguranca | Varredura estática de vulnerabilidades de segurança | Zero (dry-run) | relatorio_seguranca.json, historico_auditorias_seguranca.json |
+| agente_qualidade | Testes, cobertura e qualidade de código | Zero (dry-run) | relatorio_qualidade.json, historico_qualidade.json |
+| agente_executor_melhorias | Aplica melhorias com backup/rollback automático | Zero em dry-run | relatorio_melhorias.json, historico_melhorias.json, backups/ |
 
 ---
 
@@ -185,7 +188,59 @@ Entrega:
 
 ---
 
-## 9. Formato padrão das respostas
+## 9. Agentes de TI — visão técnica
+
+Os agentes de TI operam de forma autônoma 2–3x por semana, na madrugada, sem interferir na operação diária.
+
+### agente_auditor_seguranca (`agentes/ti/`)
+- Varredura estática de todos os `.py` do projeto buscando 9 categorias de vulnerabilidades
+- Nunca modifica código, nunca executa código encontrado, nunca loga dados sensíveis
+- Escalona críticas/altas para deliberação do conselho
+- Saída: `dados/relatorio_seguranca.json`, `dados/historico_auditorias_seguranca.json`
+- Schedule: segunda e quinta às 02:00
+
+### agente_qualidade (`agentes/ti/`)
+- Roda todos os `test_*.py` via subprocess com timeout configurável
+- Analisa cobertura de módulos (quais têm teste), arquivos grandes, funções sem docstring, TODOs
+- Gera recomendações priorizadas e handoffs para o executor
+- Saída: `dados/relatorio_qualidade.json`, `dados/historico_qualidade.json`
+- Schedule: terça e sexta às 03:00
+
+### agente_executor_melhorias (`agentes/ti/`)
+- **Único agente que modifica código** no projeto
+- Guardas obrigatórias: backup pré-mudança → aplicar → testes → rollback automático se falhar
+- Máximo 3 mudanças por execução; nunca aplica risco alto sem aprovação do conselho
+- Em `LLM_MODO=dry-run` (padrão): planeja mas não aplica — registra como "simulada"
+- Saída: `dados/relatorio_melhorias.json`, `dados/historico_melhorias.json`, `dados/backups/`
+- Schedule: quarta e sábado às 04:00
+
+### core/guardas_codigo.py
+- `criar_backup_pre_mudanca()` — copia todos os `.py` para `dados/backups/backup_TIMESTAMP/`
+- `verificar_integridade_pos_mudanca()` — py_compile + suite de testes completa
+- `reverter_mudanca()` — restaura todos os arquivos do backup, registra incidente
+- `validar_mudanca_proposta()` — whitelist/blacklist de arquivos, limite de linhas
+
+### core/politicas_ti.py + dados/politicas_ti.json
+- Governança centralizada dos 3 agentes de TI
+- `executor_pode_aplicar(tipo, arquivo, risco)` — valida whitelist, blacklist, tipo permitido, risco máximo
+- `executor_em_cooldown()` — 24h de cooldown após qualquer rollback
+- `auditor_ativo()` / `qualidade_ativo()` — respeitam agentes_pausados e modo_empresa
+- Modo conservador → executor limitado a risco_maximo=baixo
+- Modo manutenção → apenas auditor roda; executor e qualidade bloqueados
+- Conselho pode alterar via `atualizar_politica_ti(secao, campo, valor)` ou painel `/governanca`
+
+### Painel — rota /ti
+- Score de segurança + score de qualidade + modo executor em cards principais
+- Seção Segurança: vulnerabilidades por severidade, top 10 achados, histórico de auditorias
+- Seção Qualidade: barras de testes e cobertura, recomendações por prioridade, módulos sem teste, evolução do score
+- Seção Melhorias: mudanças aplicadas/revertidas/simuladas, histórico, backups disponíveis
+- Cards TI no dashboard `/`: Segurança (score + vulns), Qualidade (score + testes%), Melhorias (aplicadas + pendentes)
+- Seção TI no `/governanca`: pausar/retomar cada agente, alterar risco_maximo do executor
+- Badge `!` no menu de navegação quando há vulnerabilidade crítica ou rollback recente
+
+---
+
+## 10. Formato padrão das respostas
 
 - Resumo curtíssimo (1–3 linhas)
 - Arquivos criados/alterados (lista)

@@ -1,0 +1,393 @@
+{% extends "base.html" %}
+{% block title %}TI — Segurança & Qualidade{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>TI — Segurança &amp; Qualidade</h1>
+  <p>Observabilidade dos agentes de TI: auditor, qualidade e executor de melhorias.</p>
+</div>
+
+<!-- ── KPIs Resumo ──────────────────────────────────────────────────── -->
+<div class="kpi-grid">
+  <!-- Score Segurança -->
+  {% if rel_seg %}
+  {% set sc_seg = rel_seg.resumo.score_seguranca %}
+  <div class="kpi {% if sc_seg >= 80 %}success{% elif sc_seg >= 60 %}{% else %}danger{% endif %}">
+    <div class="label">Score Segurança</div>
+    <div class="value" style="font-size:28px;color:{% if sc_seg >= 80 %}var(--success){% elif sc_seg >= 60 %}var(--text){% else %}var(--danger){% endif %};">{{ sc_seg }}</div>
+    <div class="sub">{{ rel_seg.resumo.total_vulnerabilidades }} achados</div>
+  </div>
+  {% else %}
+  <div class="kpi">
+    <div class="label">Score Segurança</div>
+    <div class="value" style="font-size:18px;color:var(--muted);">—</div>
+    <div class="sub">auditoria não realizada</div>
+  </div>
+  {% endif %}
+
+  <!-- Score Qualidade -->
+  {% if rel_qual %}
+  {% set sc_qual = rel_qual.score_qualidade %}
+  <div class="kpi {% if sc_qual >= 80 %}success{% elif sc_qual >= 60 %}{% else %}warning{% endif %}">
+    <div class="label">Score Qualidade</div>
+    <div class="value" style="font-size:28px;color:{% if sc_qual >= 80 %}var(--success){% elif sc_qual >= 60 %}var(--text){% else %}var(--warning){% endif %};">{{ sc_qual }}</div>
+    <div class="sub">testes: {{ rel_qual.testes.taxa_sucesso }}%</div>
+  </div>
+  {% else %}
+  <div class="kpi">
+    <div class="label">Score Qualidade</div>
+    <div class="value" style="font-size:18px;color:var(--muted);">—</div>
+    <div class="sub">análise não realizada</div>
+  </div>
+  {% endif %}
+
+  <!-- Melhorias Aplicadas -->
+  {% set total_aplic = hist_mel | selectattr('aplicadas', 'defined') | map(attribute='aplicadas') | sum %}
+  <div class="kpi">
+    <div class="label">Melhorias Aplicadas</div>
+    <div class="value">{{ total_aplic }}</div>
+    <div class="sub">histórico total</div>
+  </div>
+
+  <!-- Modo Executor -->
+  {% set modo_exec = politicas_ti.executor.modo if politicas_ti else 'dry-run' %}
+  <div class="kpi {% if modo_exec != 'dry-run' %}warning{% endif %}">
+    <div class="label">Executor</div>
+    <div class="value" style="font-size:14px;">{{ modo_exec }}</div>
+    <div class="sub">
+      risco max: {{ politicas_ti.executor.risco_maximo_automatico if politicas_ti else '—' }}
+      &middot; max {{ politicas_ti.executor.max_mudancas_por_execucao if politicas_ti else 3 }}/exec
+    </div>
+  </div>
+
+  <!-- Backups -->
+  <div class="kpi">
+    <div class="label">Backups</div>
+    <div class="value">{{ backups | length }}</div>
+    <div class="sub">disponíveis (últimos 5)</div>
+  </div>
+
+  <!-- Pendentes LLM -->
+  {% if rel_mel %}
+  <div class="kpi {% if rel_mel.pendentes_llm_real > 0 %}warning{% endif %}">
+    <div class="label">Pend. LLM Real</div>
+    <div class="value">{{ rel_mel.pendentes_llm_real }}</div>
+    <div class="sub">aguardando modo real</div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- ── SEGURANÇA ────────────────────────────────────────────────────── -->
+<h2 id="seguranca" style="margin-top:28px;">Segurança</h2>
+
+{% if rel_seg %}
+<div class="row">
+  <!-- Vulnerabilidades por severidade -->
+  <div class="col">
+    <div class="card" style="padding:14px 16px;margin-bottom:16px;">
+      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">
+        Vulnerabilidades por Severidade
+        <span style="float:right;font-size:10px;color:var(--muted);">{{ rel_seg.data_auditoria[:16].replace('T',' ') if rel_seg.data_auditoria else '—' }}</span>
+      </div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;">
+        <div style="text-align:center;">
+          <div style="font-size:22px;font-weight:bold;color:var(--danger);">{{ rel_seg.resumo.criticas }}</div>
+          <div style="font-size:10px;color:var(--muted);">Críticas</div>
+        </div>
+        <div style="text-align:center;">
+          <div style="font-size:22px;font-weight:bold;color:var(--warning);">{{ rel_seg.resumo.altas }}</div>
+          <div style="font-size:10px;color:var(--muted);">Altas</div>
+        </div>
+        <div style="text-align:center;">
+          <div style="font-size:22px;font-weight:bold;color:var(--accent);">{{ rel_seg.resumo.medias }}</div>
+          <div style="font-size:10px;color:var(--muted);">Médias</div>
+        </div>
+        <div style="text-align:center;">
+          <div style="font-size:22px;font-weight:bold;">{{ rel_seg.resumo.baixas }}</div>
+          <div style="font-size:10px;color:var(--muted);">Baixas</div>
+        </div>
+        <div style="text-align:center;">
+          <div style="font-size:22px;font-weight:bold;color:var(--muted);">{{ rel_seg.resumo.informativas }}</div>
+          <div style="font-size:10px;color:var(--muted);">Info</div>
+        </div>
+      </div>
+      {% if rel_seg.narrativa_llm %}
+      <div style="font-size:11px;color:var(--muted);margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
+        {{ rel_seg.narrativa_llm[:300] }}{% if rel_seg.narrativa_llm | length > 300 %}…{% endif %}
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Histórico de auditorias -->
+    {% if hist_seg %}
+    <div class="card" style="padding:14px 16px;">
+      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Histórico de Auditorias</div>
+      <table style="width:100%;font-size:11px;border-collapse:collapse;">
+        <thead>
+          <tr>
+            <th style="text-align:left;padding:4px 6px;color:var(--muted);font-weight:normal;border-bottom:1px solid var(--border);">Data</th>
+            <th style="text-align:center;padding:4px 6px;color:var(--muted);font-weight:normal;border-bottom:1px solid var(--border);">Score</th>
+            <th style="text-align:center;padding:4px 6px;color:var(--muted);font-weight:normal;border-bottom:1px solid var(--border);">Críticas</th>
+            <th style="text-align:center;padding:4px 6px;color:var(--muted);font-weight:normal;border-bottom:1px solid var(--border);">Altas</th>
+            <th style="text-align:center;padding:4px 6px;color:var(--muted);font-weight:normal;border-bottom:1px solid var(--border);">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for h in hist_seg %}
+          <tr style="border-bottom:1px solid var(--border);">
+            <td style="padding:4px 6px;">{{ h.get('data','—')[:16].replace('T',' ') }}</td>
+            <td style="padding:4px 6px;text-align:center;font-weight:bold;color:{% if h.get('score',0) >= 80 %}var(--success){% elif h.get('score',0) >= 60 %}var(--text){% else %}var(--danger){% endif %};">{{ h.get('score','—') }}</td>
+            <td style="padding:4px 6px;text-align:center;color:{% if h.get('criticas',0) > 0 %}var(--danger){% else %}var(--muted){% endif %};">{{ h.get('criticas',0) }}</td>
+            <td style="padding:4px 6px;text-align:center;color:{% if h.get('altas',0) > 0 %}var(--warning){% else %}var(--muted){% endif %};">{{ h.get('altas',0) }}</td>
+            <td style="padding:4px 6px;text-align:center;">{{ h.get('total_vulnerabilidades',0) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Top 10 vulnerabilidades -->
+  <div class="col">
+    <div class="card" style="padding:14px 16px;">
+      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Top Vulnerabilidades</div>
+      {% set sev_order = {'critico':0,'alto':1,'medio':2,'baixo':3,'informativo':4} %}
+      {% set top_vulns = rel_seg.vulnerabilidades | sort(attribute='severidade') %}
+      {% for v in rel_seg.vulnerabilidades[:10] %}
+      <div style="padding:7px 0;border-bottom:1px solid var(--border);font-size:11px;">
+        <div style="display:flex;align-items:flex-start;gap:6px;">
+          <span class="badge {% if v.severidade == 'critico' %}badge-danger{% elif v.severidade == 'alto' %}badge-warning{% elif v.severidade == 'medio' %}badge-accent{% else %}badge-muted{% endif %}" style="flex-shrink:0;">{{ v.severidade }}</span>
+          <div style="flex:1;">
+            <div>{{ v.descricao[:90] }}{% if v.descricao | length > 90 %}…{% endif %}</div>
+            <div style="color:var(--muted);margin-top:2px;">
+              {{ v.arquivo | replace('\\','/') }}{% if v.linha %}:{{ v.linha }}{% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+      {% if rel_seg.vulnerabilidades | length > 10 %}
+      <div style="font-size:10px;color:var(--muted);margin-top:6px;">
+        + {{ rel_seg.vulnerabilidades | length - 10 }} mais em relatorio_seguranca.json
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+{% else %}
+<div class="card" style="padding:16px;color:var(--muted);font-size:12px;">Auditoria de segurança não realizada. Execute <code>python main_agente_auditor_seguranca.py</code></div>
+{% endif %}
+
+
+<!-- ── QUALIDADE ─────────────────────────────────────────────────────── -->
+<h2 id="qualidade" style="margin-top:28px;">Qualidade</h2>
+
+{% if rel_qual %}
+<div class="row">
+  <!-- Métricas principais -->
+  <div class="col">
+    <div class="card" style="padding:14px 16px;margin-bottom:16px;">
+      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">
+        Visão Geral
+        <span style="float:right;font-size:10px;color:var(--muted);">{{ rel_qual.data_analise[:16].replace('T',' ') if rel_qual.data_analise else '—' }}</span>
+      </div>
+      <!-- Barra de testes -->
+      <div style="margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px;">
+          <span>Testes passando</span>
+          <span style="font-weight:bold;">{{ rel_qual.testes.taxa_sucesso }}%</span>
+        </div>
+        <div style="background:var(--surface2);border-radius:3px;height:6px;">
+          <div style="background:{% if rel_qual.testes.taxa_sucesso >= 90 %}var(--success){% elif rel_qual.testes.taxa_sucesso >= 70 %}var(--warning){% else %}var(--danger){% endif %};width:{{ rel_qual.testes.taxa_sucesso }}%;height:6px;border-radius:3px;"></div>
+        </div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px;">
+          {{ rel_qual.testes.passaram }}/{{ rel_qual.testes.total_arquivos }} arquivos
+          {% if rel_qual.testes.falharam > 0 %}&middot; <span style="color:var(--danger);">{{ rel_qual.testes.falharam }} falhando</span>{% endif %}
+          {% if rel_qual.testes.timeout > 0 %}&middot; {{ rel_qual.testes.timeout }} timeout{% endif %}
+        </div>
+      </div>
+      <!-- Barra de cobertura -->
+      <div style="margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px;">
+          <span>Cobertura de módulos</span>
+          <span style="font-weight:bold;">{{ rel_qual.cobertura.taxa_cobertura_modulos }}%</span>
+        </div>
+        <div style="background:var(--surface2);border-radius:3px;height:6px;">
+          <div style="background:{% if rel_qual.cobertura.taxa_cobertura_modulos >= 75 %}var(--success){% elif rel_qual.cobertura.taxa_cobertura_modulos >= 50 %}var(--warning){% else %}var(--danger){% endif %};width:{{ rel_qual.cobertura.taxa_cobertura_modulos }}%;height:6px;border-radius:3px;"></div>
+        </div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px;">
+          {{ rel_qual.cobertura.modulos_com_teste }}/{{ rel_qual.cobertura.modulos_total }} módulos com teste
+        </div>
+      </div>
+    </div>
+
+    <!-- Evolução do score -->
+    {% if hist_qual %}
+    <div class="card" style="padding:14px 16px;">
+      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Evolução do Score</div>
+      <table style="width:100%;font-size:11px;border-collapse:collapse;">
+        <thead>
+          <tr>
+            <th style="text-align:left;padding:3px 6px;color:var(--muted);font-weight:normal;border-bottom:1px solid var(--border);">Data</th>
+            <th style="text-align:center;padding:3px 6px;color:var(--muted);font-weight:normal;border-bottom:1px solid var(--border);">Score</th>
+            <th style="text-align:center;padding:3px 6px;color:var(--muted);font-weight:normal;border-bottom:1px solid var(--border);">Testes</th>
+            <th style="text-align:center;padding:3px 6px;color:var(--muted);font-weight:normal;border-bottom:1px solid var(--border);">Cobertura</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for h in hist_qual %}
+          <tr style="border-bottom:1px solid var(--border);">
+            <td style="padding:3px 6px;">{{ h.get('data','—')[:16].replace('T',' ') }}</td>
+            <td style="padding:3px 6px;text-align:center;font-weight:bold;color:{% if h.get('score',0) >= 80 %}var(--success){% elif h.get('score',0) >= 60 %}var(--text){% else %}var(--warning){% endif %};">{{ h.get('score','—') }}</td>
+            <td style="padding:3px 6px;text-align:center;">{{ h.get('taxa_testes','—') }}%</td>
+            <td style="padding:3px 6px;text-align:center;">{{ h.get('taxa_cobertura_modulos','—') }}%</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Recomendações e módulos sem teste -->
+  <div class="col">
+    <div class="card" style="padding:14px 16px;margin-bottom:16px;">
+      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Recomendações Pendentes</div>
+      {% set recs_alta  = rel_qual.recomendacoes | selectattr('prioridade','eq','alta')  | list %}
+      {% set recs_media = rel_qual.recomendacoes | selectattr('prioridade','eq','media') | list %}
+      {% set recs_baixa = rel_qual.recomendacoes | selectattr('prioridade','eq','baixa') | list %}
+      {% if recs_alta %}
+      <div style="margin-bottom:6px;">
+        {% for r in recs_alta %}
+        <div style="font-size:11px;padding:4px 0;border-bottom:1px solid var(--border);">
+          <span class="badge badge-danger" style="margin-right:4px;">alta</span>{{ r.descricao[:70] }}{% if r.descricao|length > 70 %}…{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+      {% if recs_media %}
+      {% for r in recs_media[:4] %}
+      <div style="font-size:11px;padding:4px 0;border-bottom:1px solid var(--border);">
+        <span class="badge badge-warning" style="margin-right:4px;">média</span>{{ r.descricao[:70] }}{% if r.descricao|length > 70 %}…{% endif %}
+      </div>
+      {% endfor %}
+      {% if recs_media|length > 4 %}
+      <div style="font-size:10px;color:var(--muted);margin-top:4px;">+ {{ recs_media|length - 4 }} médias</div>
+      {% endif %}
+      {% endif %}
+      {% if not recs_alta and not recs_media %}
+      <div style="font-size:11px;color:var(--success);">Nenhuma recomendação pendente de alta/média prioridade.</div>
+      {% endif %}
+    </div>
+
+    {% if rel_qual.cobertura.modulos_sem_teste %}
+    <div class="card" style="padding:14px 16px;">
+      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">
+        Módulos sem Teste ({{ rel_qual.cobertura.modulos_sem_teste | length }})
+      </div>
+      {% for mod in rel_qual.cobertura.modulos_sem_teste[:12] %}
+      <div style="font-size:10px;color:var(--muted);padding:2px 0;">{{ mod | replace('\\','/') }}</div>
+      {% endfor %}
+      {% if rel_qual.cobertura.modulos_sem_teste | length > 12 %}
+      <div style="font-size:10px;color:var(--muted);margin-top:4px;">+ {{ rel_qual.cobertura.modulos_sem_teste | length - 12 }} mais</div>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{% else %}
+<div class="card" style="padding:16px;color:var(--muted);font-size:12px;">Análise de qualidade não realizada. Execute <code>python main_agente_qualidade.py</code></div>
+{% endif %}
+
+
+<!-- ── MELHORIAS ─────────────────────────────────────────────────────── -->
+<h2 id="melhorias" style="margin-top:28px;">Melhorias</h2>
+
+{% if rel_mel %}
+<div class="row">
+  <div class="col">
+    <div class="card" style="padding:14px 16px;margin-bottom:16px;">
+      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">
+        Última Execução
+        <span style="float:right;font-size:10px;color:var(--muted);">{{ rel_mel.data_execucao[:16].replace('T',' ') if rel_mel.data_execucao else '—' }}</span>
+      </div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:11px;">
+        <div><span class="text-muted">Processadas:</span> <b>{{ rel_mel.recomendacoes_processadas }}</b></div>
+        <div><span class="text-muted">Aplicadas:</span> <b style="color:var(--success);">{{ rel_mel.aplicadas_com_sucesso }}</b></div>
+        <div><span class="text-muted">Revertidas:</span> <b style="color:{% if rel_mel.revertidas > 0 %}var(--danger){% else %}var(--muted){% endif %};">{{ rel_mel.revertidas }}</b></div>
+        <div><span class="text-muted">Simuladas:</span> <b>{{ rel_mel.simuladas }}</b></div>
+        <div><span class="text-muted">Pend. LLM:</span> <b style="color:{% if rel_mel.pendentes_llm_real > 0 %}var(--warning){% else %}var(--muted){% endif %};">{{ rel_mel.pendentes_llm_real }}</b></div>
+        <div><span class="text-muted">Modo:</span>
+          <span class="badge {% if rel_mel.modo == 'dry-run' %}badge-muted{% else %}badge-success{% endif %}">{{ rel_mel.modo }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Histórico de execuções -->
+    {% if hist_mel %}
+    <div class="card" style="padding:14px 16px;">
+      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Histórico de Execuções</div>
+      <table style="width:100%;font-size:11px;border-collapse:collapse;">
+        <thead>
+          <tr>
+            <th style="text-align:left;padding:3px 6px;color:var(--muted);font-weight:normal;border-bottom:1px solid var(--border);">Data</th>
+            <th style="text-align:center;padding:3px 6px;color:var(--muted);font-weight:normal;border-bottom:1px solid var(--border);">Modo</th>
+            <th style="text-align:center;padding:3px 6px;color:var(--muted);font-weight:normal;border-bottom:1px solid var(--border);">Aplic.</th>
+            <th style="text-align:center;padding:3px 6px;color:var(--muted);font-weight:normal;border-bottom:1px solid var(--border);">Revert.</th>
+            <th style="text-align:center;padding:3px 6px;color:var(--muted);font-weight:normal;border-bottom:1px solid var(--border);">Simul.</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for h in hist_mel %}
+          <tr style="border-bottom:1px solid var(--border);">
+            <td style="padding:3px 6px;">{{ h.get('data','—')[:16].replace('T',' ') }}</td>
+            <td style="padding:3px 6px;text-align:center;"><span class="badge {% if h.get('modo','') == 'dry-run' %}badge-muted{% else %}badge-success{% endif %}">{{ h.get('modo','—') }}</span></td>
+            <td style="padding:3px 6px;text-align:center;color:{% if h.get('aplicadas',0) > 0 %}var(--success){% else %}var(--muted){% endif %};">{{ h.get('aplicadas',0) }}</td>
+            <td style="padding:3px 6px;text-align:center;color:{% if h.get('revertidas',0) > 0 %}var(--danger){% else %}var(--muted){% endif %};">{{ h.get('revertidas',0) }}</td>
+            <td style="padding:3px 6px;text-align:center;color:var(--muted);">{{ h.get('simuladas',0) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Mudanças desta execução + backups -->
+  <div class="col">
+    {% if rel_mel.mudancas %}
+    <div class="card" style="padding:14px 16px;margin-bottom:16px;">
+      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Mudanças Desta Execução</div>
+      {% for m in rel_mel.mudancas %}
+      <div style="font-size:11px;padding:5px 0;border-bottom:1px solid var(--border);">
+        <span class="badge {% if m.status == 'aplicada' %}badge-success{% elif m.status == 'revertida' %}badge-danger{% elif m.status == 'simulada' %}badge-muted{% else %}badge-accent{% endif %}" style="margin-right:4px;">{{ m.status }}</span>
+        {{ m.descricao[:65] if m.descricao else m.rec_id }}{% if m.descricao and m.descricao|length > 65 %}…{% endif %}
+        {% if m.motivo and m.status not in ('aplicada','simulada') %}
+        <div style="font-size:10px;color:var(--muted);margin-top:2px;">{{ m.motivo[:80] }}</div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if backups %}
+    <div class="card" style="padding:14px 16px;">
+      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Backups Disponíveis</div>
+      {% for b in backups %}
+      <div style="font-size:11px;padding:3px 0;color:var(--muted);">
+        ◈ {{ b | replace('backup_','') | replace('_',' ') }}
+      </div>
+      {% endfor %}
+      <div style="font-size:10px;color:var(--muted);margin-top:6px;">em dados/backups/</div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{% else %}
+<div class="card" style="padding:16px;color:var(--muted);font-size:12px;">Executor não rodou ainda. Execute <code>python main_agente_executor_melhorias.py --dry-run</code></div>
+{% endif %}
+
+{% endblock %}
