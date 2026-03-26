@@ -264,6 +264,10 @@ class Scheduler:
             import main_agente_secretario
             return main_agente_secretario.main
 
+        if agente == "customer_success":
+            import main_agente_customer_success
+            return main_agente_customer_success.main
+
         if agente == "ciclo_completo":
             import main_empresa
             return main_empresa.main

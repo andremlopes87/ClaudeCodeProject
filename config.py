@@ -221,13 +221,14 @@ SCHEDULER_ATIVO = True
 # horarios: lista de "HH:MM" (24h). dias: lista de abreviaturas PT-BR.
 # Dias válidos: seg, ter, qua, qui, sex, sab, dom
 AGENDA_AGENTES = {
-    "prospeccao":      {"horarios": ["03:00"], "dias": ["seg", "qua", "sex"]},
-    "marketing":       {"horarios": ["04:00"], "dias": ["seg", "qua", "sex"]},
-    "comercial":       {"horarios": ["08:00", "14:00"], "dias": ["seg", "ter", "qua", "qui", "sex"]},
-    "executor_contato":{"horarios": ["09:00", "15:00"], "dias": ["seg", "ter", "qua", "qui", "sex"]},
-    "financeiro":      {"horarios": ["17:00"], "dias": ["seg", "ter", "qua", "qui", "sex"]},
-    "secretario":      {"horarios": ["07:30", "12:00", "18:00"], "dias": ["seg", "ter", "qua", "qui", "sex"]},
-    "ciclo_completo":  {"horarios": ["06:00", "19:00"], "dias": ["seg", "ter", "qua", "qui", "sex"]},
+    "prospeccao":        {"horarios": ["03:00"], "dias": ["seg", "qua", "sex"]},
+    "marketing":         {"horarios": ["04:00"], "dias": ["seg", "qua", "sex"]},
+    "comercial":         {"horarios": ["08:00", "14:00"], "dias": ["seg", "ter", "qua", "qui", "sex"]},
+    "executor_contato":  {"horarios": ["09:00", "15:00"], "dias": ["seg", "ter", "qua", "qui", "sex"]},
+    "financeiro":        {"horarios": ["17:00"], "dias": ["seg", "ter", "qua", "qui", "sex"]},
+    "secretario":        {"horarios": ["07:30", "12:00", "18:00"], "dias": ["seg", "ter", "qua", "qui", "sex"]},
+    "customer_success":  {"horarios": ["10:00"], "dias": ["seg", "ter", "qua", "qui", "sex"]},
+    "ciclo_completo":    {"horarios": ["06:00", "19:00"], "dias": ["seg", "ter", "qua", "qui", "sex"]},
 }
 
 # Segundos entre cada verificação da agenda

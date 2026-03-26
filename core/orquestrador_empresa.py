@@ -5,7 +5,7 @@ Executa todos os agentes na ordem correta, registra cada etapa e produz
 um ciclo operacional auditável. Não cria agentes novos. Não faz chamadas
 externas. Apenas orquestra os agentes existentes.
 
-Ordem do ciclo (14 etapas):
+Ordem do ciclo (15 etapas):
   1. agente_financeiro
   2. agente_prospeccao
   3. agente_marketing
@@ -19,7 +19,8 @@ Ordem do ciclo (14 etapas):
   11. gerador_insumos_desde_contato
   12. avaliador_fechamento_comercial
   13. agente_operacao_entrega
-  14. agente_secretario        (fechar retrato final do ciclo)
+  14. agente_customer_success  (saude e retencao de contas ativas)
+  15. agente_secretario        (fechar retrato final do ciclo)
 """
 
 import json
@@ -151,20 +152,21 @@ def executar_ciclo_empresa() -> dict:
 
         # ── Sequência do ciclo ────────────────────────────────────────────────
         sequencia = [
-            ("agente_financeiro",               _importar_financeiro,       "1/14"),
-            ("agente_prospeccao",               _importar_prospeccao,       "2/14"),
-            ("agente_marketing",                _importar_marketing,        "3/14"),
-            ("agente_comercial",                _importar_comercial,        "4/14"),
-            ("agente_operacao_entrega",         _importar_entrega,          "5/14"),
-            ("agente_secretario",               _importar_secretario,       "6/14"),
-            ("agente_executor_contato",         _importar_executor,         "7/14"),
-            ("integrador_email",                _importar_integrador_email, "8/14"),
-            ("integrador_canais",               _importar_integrador,       "9/14"),
-            ("agente_comercial",                _importar_comercial,        "10/14"),
-            ("gerador_insumos_desde_contato",   _importar_gerador,          "11/14"),
-            ("avaliador_fechamento_comercial",  _importar_avaliador,        "12/14"),
-            ("agente_operacao_entrega",         _importar_entrega,          "13/14"),
-            ("agente_secretario",               _importar_secretario,       "14/14"),
+            ("agente_financeiro",               _importar_financeiro,          "1/15"),
+            ("agente_prospeccao",               _importar_prospeccao,          "2/15"),
+            ("agente_marketing",                _importar_marketing,           "3/15"),
+            ("agente_comercial",                _importar_comercial,           "4/15"),
+            ("agente_operacao_entrega",         _importar_entrega,             "5/15"),
+            ("agente_secretario",               _importar_secretario,          "6/15"),
+            ("agente_executor_contato",         _importar_executor,            "7/15"),
+            ("integrador_email",                _importar_integrador_email,    "8/15"),
+            ("integrador_canais",               _importar_integrador,          "9/15"),
+            ("agente_comercial",                _importar_comercial,           "10/15"),
+            ("gerador_insumos_desde_contato",   _importar_gerador,             "11/15"),
+            ("avaliador_fechamento_comercial",  _importar_avaliador,           "12/15"),
+            ("agente_operacao_entrega",         _importar_entrega,             "13/15"),
+            ("agente_customer_success",         _importar_customer_success,    "14/15"),
+            ("agente_secretario",               _importar_secretario,          "15/15"),
         ]
 
         for nome, importador, posicao in sequencia:
@@ -356,6 +358,7 @@ def montar_resumo_final_ciclo(etapas: list) -> dict:
     intg = por_agente.get("integrador_canais", {})
     eml  = por_agente.get("integrador_email", {})
     aval = por_agente.get("avaliador_fechamento_comercial", {})
+    cs   = por_agente.get("agente_customer_success", {})
 
     return {
         "deliberacoes_pendentes":          _contar_deliberacoes_pendentes(),
@@ -395,6 +398,11 @@ def montar_resumo_final_ciclo(etapas: list) -> dict:
         "acompanhamentos_abertos":           ent.get("acompanhamentos_criados", 0),
         "expansoes_sugeridas_no_ciclo":      ent.get("expansoes_sugeridas", 0),
         "expansoes_convertidas_no_ciclo":    com.get("expansoes_convertidas", 0),
+        "cs_contas_avaliadas":               cs.get("contas_avaliadas", 0),
+        "cs_saude_media":                    cs.get("saude_media", 0),
+        "cs_contas_risco":                   cs.get("contas_risco", 0),
+        "cs_acoes_geradas":                  cs.get("acoes_geradas", 0),
+        "cs_expansoes_sugeridas":            cs.get("expansoes_sugeridas", 0),
         "erros_no_ciclo":                  sum(1 for e in etapas if e["status"] == "erro"),
     }
 
@@ -458,6 +466,10 @@ def _importar_gerador():
 
 def _importar_avaliador():
     from modulos.comercial.avaliador_fechamento_comercial import executar
+    return executar
+
+def _importar_customer_success():
+    from agentes.customer_success.agente_customer_success import executar
     return executar
 
 
@@ -594,6 +606,7 @@ _AREA_DO_AGENTE = {
     "agente_operacao_entrega":        "entrega",
     "gerador_insumos_desde_contato":  "entrega",
     "avaliador_fechamento_comercial": "comercial",
+    "agente_customer_success":        "entrega",
 }
 
 
