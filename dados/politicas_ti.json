@@ -1,0 +1,59 @@
+{
+  "executor": {
+    "ativo": true,
+    "modo": "dry-run",
+    "max_mudancas_por_execucao": 3,
+    "risco_maximo_automatico": "baixo",
+    "arquivos_protegidos": [
+      "core/orquestrador_empresa.py",
+      "core/governanca_conselho.py",
+      "core/scheduler.py",
+      "main_scheduler.py",
+      "main_empresa.py",
+      ".env",
+      "config.py"
+    ],
+    "arquivos_permitidos_patterns": [
+      "core/*.py",
+      "modulos/**/*.py",
+      "agentes/**/*.py",
+      "tests/**/*.py",
+      "conectores/*.py"
+    ],
+    "tipos_mudanca_permitidos": [
+      "adicionar_docstring",
+      "fixar_versao_dependencia",
+      "adicionar_gitignore_entry",
+      "mascarar_dado_sensivel_em_log",
+      "adicionar_tratamento_erro",
+      "criar_teste",
+      "remover_import_nao_usado"
+    ],
+    "tipos_mudanca_bloqueados": [
+      "alterar_fluxo_agente",
+      "alterar_modelo_dados",
+      "alterar_arquitetura",
+      "remover_funcionalidade",
+      "alterar_governanca"
+    ],
+    "cooldown_apos_rollback_horas": 24,
+    "notificar_conselho_em": [
+      "rollback",
+      "vulnerabilidade_critica",
+      "teste_falhou"
+    ]
+  },
+  "auditor": {
+    "ativo": true,
+    "varrer_dados_sensiveis": true,
+    "incluir_analise_llm": true,
+    "severidade_minima_alerta": "alto"
+  },
+  "qualidade": {
+    "ativo": true,
+    "rodar_testes": true,
+    "timeout_teste_segundos": 60,
+    "incluir_analise_llm": true,
+    "score_minimo_alerta": 60
+  }
+}

@@ -3,5 +3,6 @@ __pycache__/
 *.pyo
 .env
 dados/
+!dados/politicas_ti.json
 logs/
 .claude/

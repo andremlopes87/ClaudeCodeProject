@@ -40,6 +40,7 @@ import config
 from core.llm_router import LLMRouter
 from core.llm_memoria import atualizar_memoria_agente
 from core.controle_agente import configurar_log_agente
+from core.politicas_ti import qualidade_ativo, carregar_politicas_ti
 
 # ─── Constantes ───────────────────────────────────────────────────────────────
 
@@ -64,11 +65,22 @@ def executar() -> dict:
     """Executa o ciclo completo do agente de qualidade. Retorna resumo."""
 
     _, arq_log = configurar_log_agente(NOME_AGENTE)
+
+    if not qualidade_ativo():
+        log.warning("[qualidade] agente desativado pelas politicas de TI ou governanca — abortando")
+        return {"score_qualidade": 0, "taxa_sucesso": 0, "abortado": True,
+                "motivo": "qualidade desativado"}
+
+    pol_qual = carregar_politicas_ti().get("qualidade", {})
+    # Timeout e flag LLM vem das politicas (com fallback para constante local)
+    timeout_s    = int(pol_qual.get("timeout_teste_segundos", _TIMEOUT_TESTE_S))
+    incluir_llm  = bool(pol_qual.get("incluir_analise_llm", True))
+
     log.info("[qualidade] iniciando ciclo")
 
     # ETAPA 1 — Testes
     log.info("[qualidade] etapa 1 — rodando testes")
-    resultado_testes = _etapa1_rodar_testes()
+    resultado_testes = _etapa1_rodar_testes(timeout_s=timeout_s)
 
     # ETAPA 2 — Cobertura
     log.info("[qualidade] etapa 2 — analisando cobertura")
@@ -82,10 +94,12 @@ def executar() -> dict:
     log.info("[qualidade] etapa 4 — analisando dependencias")
     resultado_deps = _etapa4_dependencias()
 
-    # ETAPA 5 — LLM
+    # ETAPA 5 — LLM (respeitando politica incluir_analise_llm)
     log.info("[qualidade] etapa 5 — analise LLM")
-    narrativa = _etapa5_llm(resultado_testes, resultado_cobertura,
-                            resultado_qualidade, resultado_deps)
+    narrativa = (
+        _etapa5_llm(resultado_testes, resultado_cobertura, resultado_qualidade, resultado_deps)
+        if incluir_llm else _narrativa_mecanica(resultado_testes, resultado_cobertura, resultado_qualidade)
+    )
 
     # ETAPA 6 — Gerar relatorio
     log.info("[qualidade] etapa 6 — gerando relatorio")
@@ -119,7 +133,7 @@ def executar() -> dict:
 
 # ─── ETAPA 1 — Rodar testes ───────────────────────────────────────────────────
 
-def _etapa1_rodar_testes() -> dict:
+def _etapa1_rodar_testes(timeout_s: int = _TIMEOUT_TESTE_S) -> dict:
     """Descobre e executa todos os test_*.py em tests/ com subprocess."""
 
     dir_testes = _ROOT / "tests"
@@ -136,7 +150,7 @@ def _etapa1_rodar_testes() -> dict:
 
     for arq in arquivos:
         rel = str(arq.relative_to(_ROOT))
-        resultado_arq = _executar_teste(arq)
+        resultado_arq = _executar_teste(arq, timeout_s=timeout_s)
         detalhes.append({
             "arquivo": rel,
             "status": resultado_arq["status"],
@@ -164,7 +178,7 @@ def _etapa1_rodar_testes() -> dict:
     }
 
 
-def _executar_teste(arq: Path) -> dict:
+def _executar_teste(arq: Path, timeout_s: int = _TIMEOUT_TESTE_S) -> dict:
     """Executa um arquivo de teste com subprocess e retorna status."""
 
     inicio = datetime.now()
@@ -173,7 +187,7 @@ def _executar_teste(arq: Path) -> dict:
             [sys.executable, str(arq)],
             capture_output=True,
             text=True,
-            timeout=_TIMEOUT_TESTE_S,
+            timeout=timeout_s,
             cwd=str(_ROOT),
         )
         duracao_ms = int((datetime.now() - inicio).total_seconds() * 1000)
@@ -187,7 +201,7 @@ def _executar_teste(arq: Path) -> dict:
     except subprocess.TimeoutExpired:
         duracao_ms = int((datetime.now() - inicio).total_seconds() * 1000)
         return {"status": "timeout", "duracao_ms": duracao_ms,
-                "saida_resumo": f"Timeout apos {_TIMEOUT_TESTE_S}s"}
+                "saida_resumo": f"Timeout apos {timeout_s}s"}
     except Exception as exc:
         duracao_ms = int((datetime.now() - inicio).total_seconds() * 1000)
         return {"status": "erro", "duracao_ms": duracao_ms,

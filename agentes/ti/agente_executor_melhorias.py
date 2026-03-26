@@ -44,6 +44,11 @@ import config
 from core.llm_router import LLMRouter
 from core.llm_memoria import atualizar_memoria_agente
 from core.controle_agente import configurar_log_agente
+from core.politicas_ti import (
+    carregar_politicas_ti,
+    executor_pode_aplicar,
+    executor_em_cooldown,
+)
 from core.guardas_codigo import (
     criar_backup_pre_mudanca,
     verificar_integridade_pos_mudanca,
@@ -81,14 +86,33 @@ def executar(dry_run: bool = False, max_mudancas: int = _MAX_MUDANCAS_PADRAO) ->
     """
     _, _ = configurar_log_agente(NOME_AGENTE)
 
-    # Garantir limite de seguranca
+    # Politicas de TI — fonte de verdade para configuracoes
+    pol_exec = carregar_politicas_ti().get("executor", {})
+
+    if not pol_exec.get("ativo", True):
+        log.warning("[executor] agente desativado pelas politicas de TI — abortando")
+        return {"abortado": True, "motivo": "executor desativado nas politicas de TI",
+                "aplicadas_com_sucesso": 0, "revertidas": 0}
+
+    # Verificar cooldown apos rollback
+    em_cooldown, motivo_cd = executor_em_cooldown()
+    if em_cooldown:
+        log.warning(f"[executor] em cooldown — {motivo_cd} — abortando")
+        return {"abortado": True, "motivo": motivo_cd,
+                "aplicadas_com_sucesso": 0, "revertidas": 0}
+
+    # max_mudancas: argumento > politica > padrao
+    max_politica = int(pol_exec.get("max_mudancas_por_execucao", _MAX_MUDANCAS_PADRAO))
+    if max_mudancas == _MAX_MUDANCAS_PADRAO:
+        max_mudancas = max_politica
     max_mudancas = min(max_mudancas, _MAX_MUDANCAS_LIMITE)
 
-    # Forcar dry-run se LLM em modo simulado
-    modo_llm = getattr(config, "LLM_MODO", "dry-run")
-    if modo_llm == "dry-run":
+    # Forcar dry-run se LLM em modo simulado OU politica diz dry-run
+    modo_llm     = getattr(config, "LLM_MODO", "dry-run")
+    modo_politica = pol_exec.get("modo", "dry-run")
+    if modo_llm == "dry-run" or modo_politica == "dry-run":
         dry_run = True
-        log.info("[executor] LLM em dry-run — modo simulacao ativado automaticamente")
+        log.info("[executor] dry-run ativo (LLM ou politica)")
 
     modo_str = "DRY-RUN" if dry_run else "REAL"
     log.info(f"[executor] iniciando ciclo | modo={modo_str} | max_mudancas={max_mudancas}")
@@ -256,7 +280,12 @@ def _etapa2_classificar(pendentes: list) -> dict:
     Separa recomendações em três grupos por risco_correcao.
     Também aplica prioridade: critico > alto > medio.
     Nunca inclui baixo/informativo no grupo automatico.
+    Respeita risco_maximo_automatico das politicas de TI.
     """
+    pol_exec   = carregar_politicas_ti().get("executor", {})
+    risco_max  = pol_exec.get("risco_maximo_automatico", "baixo")
+    _risco_ord = {"baixo": 0, "medio": 1, "alto": 2}
+
     baixo: list  = []
     medio: list  = []
     alto:  list  = []
@@ -269,7 +298,10 @@ def _etapa2_classificar(pendentes: list) -> dict:
         if prio in ("baixo", "informativo"):
             continue
 
-        if risco == "baixo":
+        # Risco acima do maximo configurado -> escalar ao alto (nao executar)
+        if _risco_ord.get(risco, 1) > _risco_ord.get(risco_max, 0):
+            alto.append(rec)
+        elif risco == "baixo":
             baixo.append(rec)
         elif risco == "medio":
             medio.append(rec)
@@ -435,17 +467,35 @@ def _aplicar_com_guardas(rec: dict, mudanca: dict, descricao_plano: str) -> dict
     mel_id       = f"mel_{uuid.uuid4().hex[:8]}"
     agora        = datetime.now().isoformat(timespec="seconds")
 
-    # a) Validar
-    validacao = validar_mudanca_proposta(arquivo_alvo, mudanca)
-    if not validacao["permitida"]:
-        log.warning(f"[executor] mudanca bloqueada: {validacao['motivo']}")
+    # a) Validar via politicas de TI (mais completo que guardas_codigo isolado)
+    tipo_mud = mudanca.get("tipo", "desconhecido")
+    risco_rec = rec.get("risco_correcao", "medio")
+    permitida, motivo_pol = executor_pode_aplicar(tipo_mud, arquivo_alvo, risco_rec)
+    if not permitida:
+        log.warning(f"[executor] mudanca bloqueada pelas politicas: {motivo_pol}")
         return {
             "id":           mel_id,
             "rec_id":       rec["id"],
             "arquivo":      arquivo_alvo,
             "descricao":    descricao_plano,
             "status":       "pulada",
-            "motivo":       validacao["motivo"],
+            "motivo":       motivo_pol,
+            "backup_path":  None,
+            "testes_pos":   None,
+            "timestamp":    agora,
+        }
+
+    # Validacao de baixo nivel (tamanho, existencia) via guardas_codigo
+    validacao_gc = validar_mudanca_proposta(arquivo_alvo, mudanca)
+    if not validacao_gc["permitida"]:
+        log.warning(f"[executor] mudanca bloqueada pelas guardas: {validacao_gc['motivo']}")
+        return {
+            "id":           mel_id,
+            "rec_id":       rec["id"],
+            "arquivo":      arquivo_alvo,
+            "descricao":    descricao_plano,
+            "status":       "pulada",
+            "motivo":       validacao_gc["motivo"],
             "backup_path":  None,
             "testes_pos":   None,
             "timestamp":    agora,

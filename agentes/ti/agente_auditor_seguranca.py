@@ -38,6 +38,7 @@ import config
 from core.llm_router import LLMRouter
 from core.llm_memoria import atualizar_memoria_agente
 from core.controle_agente import configurar_log_agente
+from core.politicas_ti import auditor_ativo, carregar_politicas_ti
 
 # ─── Constantes ───────────────────────────────────────────────────────────────
 
@@ -139,6 +140,7 @@ def _etapa1_inventario() -> dict:
     py_files = [p for p in _ROOT.rglob("*.py")
                 if ".git" not in p.parts
                 and "__pycache__" not in p.parts
+                and "backups" not in p.parts
                 and p.resolve() != _self]
 
     # Linhas de código (conta linhas não vazias)
@@ -844,6 +846,14 @@ def executar() -> dict:
     Retorna resumo do relatório gerado.
     """
     configurar_log_agente(NOME_AGENTE)
+
+    if not auditor_ativo():
+        log.warning("[auditor] agente desativado pelas politicas de TI ou governanca — abortando")
+        return {"score_seguranca": 0, "total_vulnerabilidades": 0, "abortado": True,
+                "motivo": "auditor desativado"}
+
+    pol_aud = carregar_politicas_ti().get("auditor", {})
+
     log.info("=" * 60)
     log.info(f"AUDITOR DE SEGURANÇA ✦ {_agora()}")
     log.info("=" * 60)
@@ -860,8 +870,8 @@ def executar() -> dict:
 
     todas_vulns = vulns_exposicao + vulns_codigo + vulns_config + vulns_resiliencia
 
-    # Etapa 6 — LLM
-    narrativa = _etapa6_llm(snapshot, todas_vulns)
+    # Etapa 6 — LLM (respeitando politica incluir_analise_llm)
+    narrativa = _etapa6_llm(snapshot, todas_vulns) if pol_aud.get("incluir_analise_llm", True) else ""
 
     # Etapa 7 — Relatório
     relatorio = _etapa7_relatorio(snapshot, todas_vulns, narrativa)
