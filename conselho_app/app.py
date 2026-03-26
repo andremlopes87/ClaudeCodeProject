@@ -129,6 +129,12 @@ async def pagina_index(request: Request):
         llm_resumo["modo"] = getattr(config, "LLM_MODO", "dry-run")
     except Exception:
         llm_resumo = {}
+    # Resumo NPS para card da homepage
+    try:
+        from core.nps_feedback import calcular_nps_empresa as _calc_nps
+        nps_resumo = _calc_nps()
+    except Exception:
+        nps_resumo = {}
     # Resumo scheduler para card da homepage
     try:
         from datetime import datetime as _dt
@@ -169,6 +175,7 @@ async def pagina_index(request: Request):
         "contratos_resumo": contratos_resumo,
         "llm_resumo":       llm_resumo,
         "scheduler_resumo": scheduler_resumo,
+        "nps_resumo":       nps_resumo,
     })
 
 
@@ -1371,6 +1378,47 @@ async def download_documento(doc_id: str):
         filename=doc.get("nome_arquivo", "documento.html"),
         media_type="text/html",
     )
+
+
+@app.get("/nps", response_class=HTMLResponse)
+async def pagina_nps(request: Request):
+    from core.nps_feedback import calcular_nps_empresa
+    from core.contas_empresa import carregar_contas
+
+    metricas = calcular_nps_empresa()
+    contas   = {c["id"]: c for c in carregar_contas()}
+
+    respostas = _ler("nps_respostas.json", [])
+    pendentes = _ler("nps_pendentes.json", [])
+
+    detratores  = sorted(
+        [r for r in respostas if r.get("score", 10) <= 6],
+        key=lambda r: r.get("respondido_em", ""), reverse=True,
+    )
+    promotores  = sorted(
+        [r for r in respostas if r.get("score", 0) >= 9],
+        key=lambda r: r.get("respondido_em", ""), reverse=True,
+    )
+    pendentes_envio = [n for n in pendentes if n.get("status") in ("pendente", "preparado")]
+    respostas_recentes = sorted(respostas, key=lambda r: r.get("respondido_em", ""), reverse=True)[:20]
+
+    return templates.TemplateResponse("nps.html", {
+        "request":           request,
+        "page":              "nps",
+        "metricas":          metricas,
+        "detratores":        detratores,
+        "promotores":        promotores,
+        "pendentes":         pendentes_envio,
+        "pendentes_count":   len(pendentes_envio),
+        "respostas_recentes": respostas_recentes,
+        "contas_map":        contas,
+    })
+
+
+@app.get("/api/nps/resumo")
+async def api_nps_resumo():
+    from core.nps_feedback import calcular_nps_empresa
+    return JSONResponse(calcular_nps_empresa())
 
 
 @app.get("/api/governanca/resumo")

@@ -142,6 +142,11 @@ def executar() -> dict:
     saude_media = round(sum(scores) / len(scores), 1) if scores else 0
     log.info(f"  saude media do portfolio: {saude_media}")
 
+    # ── ETAPA 2b: NPS — programar pesquisas para contas elegíveis ─────────────
+    log.info("  [ETAPA 2b] Verificando NPS devidos...")
+    nps_programados = _programar_nps_ciclo(contas_ativas, saudes, log)
+    log.info(f"  NPS programados: {nps_programados}")
+
     # ── ETAPA 3: LLM — diagnóstico para contas não-excelentes ─────────────────
     log.info("  [ETAPA 3] Diagnostico LLM para contas em atencao/risco...")
     for conta in contas_ativas:
@@ -211,6 +216,7 @@ def executar() -> dict:
         "contas_risco":        contas_risco,
         "acoes_geradas":       acoes_geradas,
         "expansoes_sugeridas": expansoes_criadas,
+        "nps_programados":     nps_programados,
         "narrativa_llm":       narrativa_llm,
         "agente":              NOME_AGENTE,
     }
@@ -245,6 +251,7 @@ def executar() -> dict:
         "contas_risco":        contas_risco,
         "acoes_geradas":       acoes_geradas,
         "expansoes_sugeridas": expansoes_criadas,
+        "nps_programados":     nps_programados,
         "narrativa_llm":       narrativa_llm,
     }
 
@@ -465,6 +472,32 @@ def _montar_contexto_cs(conta: dict, saude: dict, pipeline_entrega: list) -> dic
         "nps_score":                  nps_score,
         "feedback_sentimento":        feedback_sentimento,
     }
+
+
+# ─── ETAPA 2b: NPS ────────────────────────────────────────────────────────────
+
+def _programar_nps_ciclo(contas: list, saudes: dict, log) -> int:
+    """
+    Chama verificar_nps_devidos() e programa NPS para contas elegíveis.
+    Não envia para contas em risco/critico.
+    Retorna quantidade de NPS programados neste ciclo.
+    """
+    try:
+        from core.nps_feedback import verificar_nps_devidos, programar_nps
+        devidos = verificar_nps_devidos()
+        n = 0
+        for item in devidos:
+            resultado = programar_nps(item["conta_id"], item["gatilho"])
+            if resultado:
+                n += 1
+                log.info(
+                    f"  [nps] programado: conta={item['conta_id']} "
+                    f"gatilho={item['gatilho']} motivo={item.get('motivo','')[:50]}"
+                )
+        return n
+    except Exception as exc:
+        log.warning(f"  [nps] falha ao programar ciclo NPS: {exc}")
+        return 0
 
 
 # ─── ETAPA 5: Detectar expansões ──────────────────────────────────────────────

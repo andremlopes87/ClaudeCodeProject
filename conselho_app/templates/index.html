@@ -53,6 +53,27 @@
   </div>
 </div>
 
+<!-- Card NPS -->
+{% if nps_resumo and nps_resumo.get('total') %}
+<div class="card" style="margin-bottom:16px;display:flex;gap:24px;align-items:center;flex-wrap:wrap;">
+  <div>
+    <div class="label" style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">NPS da Empresa</div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <span style="font-size:28px;font-weight:bold;color:{% if nps_resumo.score_nps >= 50 %}var(--success){% elif nps_resumo.score_nps >= 0 %}var(--warning){% else %}var(--danger){% endif %};">{{ nps_resumo.score_nps }}</span>
+      <span style="font-size:12px;color:var(--muted);">{{ nps_resumo.total }} respostas</span>
+    </div>
+  </div>
+  <div style="font-size:12px;display:flex;gap:12px;">
+    <span>🟢 {{ nps_resumo.promotores }} promotores</span>
+    <span>⚪ {{ nps_resumo.neutros }} neutros</span>
+    <span>🔴 {{ nps_resumo.detratores }} detratores</span>
+  </div>
+  <div style="margin-left:auto;">
+    <a href="/nps" style="font-size:12px;color:var(--accent);">Ver NPS completo →</a>
+  </div>
+</div>
+{% endif %}
+
 <!-- Card de saúde da empresa -->
 {% if saude %}
 <div class="card" style="margin-bottom:16px;display:flex;gap:20px;align-items:center;flex-wrap:wrap;">

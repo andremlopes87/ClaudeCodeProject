@@ -1,0 +1,214 @@
+{% extends "base.html" %}
+{% block title %}NPS & Feedback — Painel do Conselho{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>NPS & Feedback</h1>
+  <p>Score NPS da empresa · respostas recentes · detratores e promotores</p>
+</div>
+
+<!-- Score NPS principal -->
+<div class="kpi-grid" style="margin-bottom:20px;">
+  <div class="kpi {% if metricas.score_nps is not none and metricas.score_nps >= 50 %}success{% elif metricas.score_nps is not none and metricas.score_nps >= 0 %}warning{% elif metricas.score_nps is not none %}danger{% endif %}">
+    <div class="label">NPS da Empresa</div>
+    <div class="value">{% if metricas.score_nps is not none %}{{ metricas.score_nps }}{% else %}—{% endif %}</div>
+    <div class="sub">{% if metricas.total %}{{ metricas.total }} respostas{% else %}sem dados{% endif %}</div>
+  </div>
+  <div class="kpi success">
+    <div class="label">Promotores</div>
+    <div class="value">{{ metricas.promotores or 0 }}</div>
+    <div class="sub">score ≥ 9 · {{ metricas.pct_promotor or 0 }}%</div>
+  </div>
+  <div class="kpi">
+    <div class="label">Neutros</div>
+    <div class="value">{{ metricas.neutros or 0 }}</div>
+    <div class="sub">score 7–8</div>
+  </div>
+  <div class="kpi {% if (metricas.detratores or 0) > 0 %}danger{% endif %}">
+    <div class="label">Detratores</div>
+    <div class="value">{{ metricas.detratores or 0 }}</div>
+    <div class="sub">score ≤ 6 · {{ metricas.pct_detrator or 0 }}%</div>
+  </div>
+  <div class="kpi">
+    <div class="label">Média Score</div>
+    <div class="value">{{ metricas.media_score or "—" }}</div>
+    <div class="sub">todas as respostas</div>
+  </div>
+  <div class="kpi {% if pendentes_count > 0 %}warning{% endif %}">
+    <div class="label">NPS Pendentes</div>
+    <div class="value">{{ pendentes_count }}</div>
+    <div class="sub">aguardando envio</div>
+  </div>
+</div>
+
+<!-- Detratores com ação pendente -->
+{% if detratores %}
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+    <h3 style="margin:0;">Detratores — Ação Necessária</h3>
+    <span class="badge badge-danger">{{ detratores|length }}</span>
+  </div>
+  <table style="width:100%;border-collapse:collapse;margin-top:12px;">
+    <thead>
+      <tr style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);">
+        <th style="text-align:left;padding:6px;">Conta</th>
+        <th style="text-align:center;padding:6px;">Score</th>
+        <th style="text-align:left;padding:6px;">Comentário</th>
+        <th style="text-align:left;padding:6px;">Sentimento</th>
+        <th style="text-align:left;padding:6px;">Respondido em</th>
+        <th style="text-align:left;padding:6px;">Ação</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in detratores %}
+      <tr style="border-top:1px solid var(--border);font-size:12px;">
+        <td style="padding:8px;">{{ contas_map.get(r.conta_id, {}).get('nome_empresa', r.conta_id) }}</td>
+        <td style="padding:8px;text-align:center;">
+          <span class="badge badge-danger">{{ r.score }}</span>
+        </td>
+        <td style="padding:8px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ r.comentario or '—' }}</td>
+        <td style="padding:8px;">
+          <span class="badge {% if 'negativo_grave' in (r.sentimento_llm or '') %}badge-danger{% elif 'negativo' in (r.sentimento_llm or '') %}badge-warning{% else %}badge-muted{% endif %}">
+            {{ r.sentimento_llm or '—' }}
+          </span>
+        </td>
+        <td style="padding:8px;color:var(--muted);">{{ r.respondido_em[:10] if r.respondido_em else '—' }}</td>
+        <td style="padding:8px;">
+          {% if r.acoes_derivadas %}
+            <span class="badge badge-accent">{{ r.acoes_derivadas[0] }}</span>
+          {% else %}
+            <span class="text-muted">—</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<!-- Promotores -->
+{% if promotores %}
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+    <h3 style="margin:0;">Promotores — Oportunidade de Indicação</h3>
+    <span class="badge badge-success">{{ promotores|length }}</span>
+  </div>
+  <table style="width:100%;border-collapse:collapse;margin-top:12px;">
+    <thead>
+      <tr style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);">
+        <th style="text-align:left;padding:6px;">Conta</th>
+        <th style="text-align:center;padding:6px;">Score</th>
+        <th style="text-align:left;padding:6px;">Comentário</th>
+        <th style="text-align:left;padding:6px;">Respondido em</th>
+        <th style="text-align:left;padding:6px;">Expansão</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in promotores %}
+      <tr style="border-top:1px solid var(--border);font-size:12px;">
+        <td style="padding:8px;">{{ contas_map.get(r.conta_id, {}).get('nome_empresa', r.conta_id) }}</td>
+        <td style="padding:8px;text-align:center;">
+          <span class="badge badge-success">{{ r.score }}</span>
+        </td>
+        <td style="padding:8px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ r.comentario or '—' }}</td>
+        <td style="padding:8px;color:var(--muted);">{{ r.respondido_em[:10] if r.respondido_em else '—' }}</td>
+        <td style="padding:8px;">
+          {% if 'expansao_indicacao_sugerida' in (r.acoes_derivadas or []) %}
+            <span class="badge badge-success">indicação sugerida</span>
+          {% else %}
+            <span class="text-muted">—</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<!-- NPS pendentes de envio -->
+{% if pendentes %}
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+    <h3 style="margin:0;">NPS Pendentes de Envio</h3>
+    <span class="badge badge-warning">{{ pendentes|length }}</span>
+  </div>
+  <table style="width:100%;border-collapse:collapse;margin-top:12px;">
+    <thead>
+      <tr style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);">
+        <th style="text-align:left;padding:6px;">Conta</th>
+        <th style="text-align:left;padding:6px;">Gatilho</th>
+        <th style="text-align:left;padding:6px;">Programado</th>
+        <th style="text-align:left;padding:6px;">Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for n in pendentes %}
+      <tr style="border-top:1px solid var(--border);font-size:12px;">
+        <td style="padding:8px;">{{ contas_map.get(n.conta_id, {}).get('nome_empresa', n.conta_id) }}</td>
+        <td style="padding:8px;">
+          <span class="badge badge-muted">{{ n.gatilho }}</span>
+          <span style="font-size:10px;color:var(--muted);margin-left:4px;">{{ n.gatilho_descricao or '' }}</span>
+        </td>
+        <td style="padding:8px;color:var(--muted);">{{ n.data_programada or '—' }}</td>
+        <td style="padding:8px;">
+          <span class="badge {% if n.status == 'preparado' %}badge-accent{% else %}badge-warning{% endif %}">
+            {{ n.status }}
+          </span>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<!-- Respostas recentes (todas) -->
+{% if respostas_recentes %}
+<div class="card">
+  <div class="card-header">
+    <h3 style="margin:0;">Respostas Recentes (últimas {{ respostas_recentes|length }})</h3>
+  </div>
+  <table style="width:100%;border-collapse:collapse;margin-top:12px;">
+    <thead>
+      <tr style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);">
+        <th style="text-align:left;padding:6px;">Conta</th>
+        <th style="text-align:center;padding:6px;">Score</th>
+        <th style="text-align:left;padding:6px;">Tipo</th>
+        <th style="text-align:left;padding:6px;">Sentimento</th>
+        <th style="text-align:left;padding:6px;">Comentário</th>
+        <th style="text-align:left;padding:6px;">Data</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in respostas_recentes %}
+      <tr style="border-top:1px solid var(--border);font-size:12px;">
+        <td style="padding:8px;">{{ contas_map.get(r.conta_id, {}).get('nome_empresa', r.conta_id) }}</td>
+        <td style="padding:8px;text-align:center;">
+          <span class="badge {% if r.score >= 9 %}badge-success{% elif r.score >= 7 %}badge-muted{% else %}badge-danger{% endif %}">
+            {{ r.score }}
+          </span>
+        </td>
+        <td style="padding:8px;">
+          <span class="badge {% if r.tipo_respondente == 'promotor' %}badge-success{% elif r.tipo_respondente == 'detrator' %}badge-danger{% else %}badge-muted{% endif %}">
+            {{ r.tipo_respondente or '—' }}
+          </span>
+        </td>
+        <td style="padding:8px;font-size:11px;">{{ r.sentimento_llm or '—' }}</td>
+        <td style="padding:8px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);">{{ r.comentario or '—' }}</td>
+        <td style="padding:8px;color:var(--muted);">{{ r.respondido_em[:10] if r.respondido_em else '—' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% if not detratores and not promotores and not pendentes and not respostas_recentes %}
+<div class="card" style="text-align:center;padding:40px;color:var(--muted);">
+  <div style="font-size:24px;margin-bottom:8px;">◎</div>
+  <div>Sem dados de NPS ainda.</div>
+  <div style="font-size:12px;margin-top:8px;">O agente_customer_success programa NPS automaticamente a cada ciclo.</div>
+</div>
+{% endif %}
+{% endblock %}
