@@ -272,6 +272,10 @@ class Scheduler:
             import main_empresa
             return main_empresa.main
 
+        if agente == "auditor_seguranca":
+            import main_agente_auditor_seguranca
+            return main_agente_auditor_seguranca.main
+
         raise ValueError(f"Agente desconhecido no scheduler: '{agente}'")
 
     # ─── Estado e log ─────────────────────────────────────────────────────────
