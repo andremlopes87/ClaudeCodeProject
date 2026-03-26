@@ -28,6 +28,7 @@ from datetime import datetime
 from pathlib import Path
 
 import config
+from core.llm_router import LLMRouter
 from core.controle_agente import (
     carregar_estado,
     salvar_estado,
@@ -58,6 +59,8 @@ def executar() -> dict:
         f"Estado: ultima_execucao={estado['ultima_execucao']} | "
         f"processados={len(estado.get('itens_processados', []))}"
     )
+
+    router = LLMRouter()
 
     # ── ETAPA 0: Carregar identidade da empresa ────────────────────────────
     try:
@@ -92,6 +95,11 @@ def executar() -> dict:
         f"{len(followups)} follow-ups | {len(pipeline)} opps"
     )
 
+    # ── ETAPA 1b: Classificar respostas recebidas via LLM (ponto 5) ───────
+    n_classif_llm = _classificar_resultados_contato_llm(router, log)
+    if n_classif_llm:
+        log.info(f"  [llm] {n_classif_llm} resposta(s) de contato classificada(s)")
+
     # ── ETAPA 2: Processar cada handoff ───────────────────────────────────
     n_preparados = 0
     n_bloqueados = 0
@@ -121,6 +129,33 @@ def executar() -> dict:
             abordagem = detectar_abordagem_execucao(fu, opp)
             payload   = montar_payload_execucao(fu, opp)
             enriquecer_payload_execucao(payload, abordagem, fu, opp)
+
+            # LLM: Redigir corpo de email personalizado (ponto 4 — fallback = roteiro_base existente)
+            if payload.get("canal") == "email":
+                _ctx_email = {
+                    "empresa":       fu.get("contraparte", ""),
+                    "abordagem":     abordagem,
+                    "canal":         "email",
+                    "roteiro_base":  payload.get("roteiro_base", "")[:200],
+                    "linha_servico": payload.get("linha_servico_sugerida", ""),
+                    "instrucao":     "Redigir corpo de email profissional para primeiro contato com empresa.",
+                }
+                _empresa_id_email = opp.get("conta_id", "") if opp else ""
+                try:
+                    from core.contatos_contas import obter_contato_principal
+                    if _empresa_id_email:
+                        _ct = obter_contato_principal(_empresa_id_email)
+                        if _ct:
+                            _ctx_email["nome_contato"] = _ct.get("nome", "")
+                except Exception:
+                    pass
+                _res_email = router.redigir(_ctx_email, empresa_id=_empresa_id_email or None)
+                _usou_llm_email = _res_email["sucesso"] and not _res_email["fallback_usado"]
+                if _usou_llm_email:
+                    payload["corpo_email_llm"] = _res_email["resultado"]
+                    payload["roteiro_base"]    = _res_email["resultado"]
+                log.info(f"  [llm] email={'LLM' if _usou_llm_email else 'regra'} | {fu.get('contraparte','?')[:40]}")
+
             # Enriquecer com identidade da empresa (remetente, assinatura)
             if _remetente:
                 payload["remetente"] = {
@@ -581,6 +616,54 @@ def _registrar_evento_historico_abordagens(hist_abord: list, fu: dict, opp, exec
         "agente_responsavel": NOME_AGENTE,
         "registrado_em":   agora,
     })
+
+
+# ─── Classificação LLM de resultados de contato ──────────────────────────────
+
+def _classificar_resultados_contato_llm(router, log) -> int:
+    """
+    Enriquece resultados_contato.json com classificação LLM para entradas com
+    resposta_cliente preenchida e sem classificacao_llm.
+    Fallback automático: se LLM falhar ou dry-run retornar fallback, ignora e continua.
+    Retorna número de classificações realizadas.
+    """
+    caminho = config.PASTA_DADOS / "resultados_contato.json"
+    if not caminho.exists():
+        return 0
+    try:
+        with open(caminho, "r", encoding="utf-8") as f:
+            resultados = json.load(f)
+    except Exception as exc:
+        log.warning(f"  [llm_classif] erro ao carregar resultados_contato: {exc}")
+        return 0
+
+    n_classificados = 0
+    modificado = False
+    for res in resultados:
+        resposta = res.get("resposta_cliente", "") or ""
+        if not resposta or res.get("classificacao_llm"):
+            continue
+        _ctx_classif = {
+            "texto":      resposta[:500],
+            "categorias": ["interessado", "nao_agora", "recusa", "pedido_info", "spam", "ambiguo"],
+            "instrucao":  "Classificar resposta de cliente potencial em uma das categorias.",
+        }
+        _res_classif = router.classificar(_ctx_classif)
+        _usou_llm = _res_classif["sucesso"] and not _res_classif["fallback_usado"]
+        if _usou_llm:
+            res["classificacao_llm"] = _res_classif["resultado"]
+            n_classificados += 1
+            modificado = True
+        log.info(f"  [llm] classif={'LLM' if _usou_llm else 'regra'} | {resposta[:40]!r}")
+
+    if modificado:
+        try:
+            with open(caminho, "w", encoding="utf-8") as f:
+                json.dump(resultados, f, ensure_ascii=False, indent=2)
+        except Exception as exc:
+            log.warning(f"  [llm_classif] erro ao salvar resultados_contato: {exc}")
+
+    return n_classificados
 
 
 # ─── Persistência ─────────────────────────────────────────────────────────────

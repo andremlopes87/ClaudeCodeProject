@@ -23,6 +23,7 @@ from datetime import datetime
 from pathlib import Path
 
 import config
+from core.llm_router import LLMRouter
 from core.controle_agente import (
     carregar_estado,
     salvar_estado,
@@ -83,6 +84,8 @@ def executar() -> dict:
     foco_curto_prazo   = politicas.get("comercial", {}).get("foco_curto_prazo", False)
     modo_empresa = politicas.get("modo_empresa", "normal")
     log.info(f"Politicas carregadas: modo={modo_empresa} | linhas_prio={linhas_priorizadas} | foco_curto={foco_curto_prazo}")
+
+    router = LLMRouter()
 
     try:
         from core.identidade_empresa import obter_contexto_comercial
@@ -193,6 +196,23 @@ def executar() -> dict:
 
         # Vincular follow-up à oportunidade
         opp["depende_de"] = fu["id"]
+
+        # LLM: Personalizar mensagem de abordagem (ponto 1 — fallback = regra existente)
+        _ctx_redigir = {
+            "empresa":         opp.get("contraparte", ""),
+            "categoria":       opp.get("categoria", ""),
+            "canal":           opp.get("canal_sugerido", ""),
+            "prioridade":      opp.get("prioridade", ""),
+            "linha_servico":   opp.get("linha_servico_sugerida", ""),
+            "abordagem":       opp.get("abordagem_inicial_tipo", ""),
+            "contexto_origem": (opp.get("contexto_origem", "") or "")[:200],
+            "instrucao":       "Redigir mensagem de abordagem inicial para empresa com baixa digitalização.",
+        }
+        _res_redigir = router.redigir(_ctx_redigir, empresa_id=opp.get("conta_id"))
+        _usou_llm_abord = _res_redigir["sucesso"] and not _res_redigir["fallback_usado"]
+        if _usou_llm_abord:
+            fu["descricao"] = _res_redigir["resultado"]
+        log.info(f"  [llm] abordagem={'LLM' if _usou_llm_abord else 'regra'} | {opp.get('contraparte','?')[:40]}")
 
         # Enriquecer com oferta do catálogo (melhor esforço — não bloqueia)
         try:
@@ -307,6 +327,31 @@ def executar() -> dict:
             caso["motivo"],
         ))
 
+    # ── ETAPA 7b: Recomendar próximo passo via LLM (ponto 2) ─────────────
+    _n_rec_llm = 0
+    for _opp_llm in pipeline:
+        if _opp_llm.get("estagio") not in ("qualificado", "negociacao", "proposta_enviada"):
+            continue
+        if _opp_llm.get("recomendacao_llm"):
+            continue  # já anotado neste ciclo
+        _ctx_decidir = {
+            "empresa":        _opp_llm.get("contraparte", ""),
+            "estagio":        _opp_llm.get("estagio", ""),
+            "prioridade":     _opp_llm.get("prioridade", ""),
+            "tentativas":     _opp_llm.get("tentativas", 0),
+            "valor_estimado": _opp_llm.get("valor_estimado", 0),
+            "opcoes":         ["avançar_proposta", "mais_followup", "esfriar", "escalar_conselho"],
+            "instrucao":      "Recomendar próximo passo comercial para esta oportunidade.",
+        }
+        _res_decidir = router.decidir(_ctx_decidir, empresa_id=_opp_llm.get("conta_id"))
+        _usou_llm_dec = _res_decidir["sucesso"] and not _res_decidir["fallback_usado"]
+        if _usou_llm_dec:
+            _opp_llm["recomendacao_llm"] = _res_decidir["resultado"]
+            _n_rec_llm += 1
+        log.info(f"  [llm] decisao={'LLM' if _usou_llm_dec else 'regra'} | {_opp_llm.get('contraparte','?')[:40]}")
+    if _n_rec_llm:
+        log.info(f"  [llm] {_n_rec_llm} oportunidade(s) com recomendacao LLM de proximo passo")
+
     # ── ETAPA 8: Detectar e escalar deliberações para o conselho ──────────
     escalamentos = detectar_casos_para_escalamento(pipeline)
     itens_para_consolidada = []
@@ -348,6 +393,20 @@ def executar() -> dict:
                 continue  # já vinculada
             if not opp.get("oferta_id"):
                 continue  # sem oferta — não gerar ainda
+            # LLM: analisar perfil e sugerir oferta personalizada (ponto 3 — fallback = matching por regra)
+            _ctx_analisar = {
+                "empresa":       opp.get("contraparte", ""),
+                "categoria":     opp.get("categoria", ""),
+                "linha_servico": opp.get("linha_servico_sugerida", ""),
+                "estagio":       opp.get("estagio", ""),
+                "oferta_atual":  opp.get("oferta_id", ""),
+                "instrucao":     "Analisar perfil da empresa e sugerir oferta mais adequada com justificativa.",
+            }
+            _res_analisar = router.analisar(_ctx_analisar, empresa_id=opp.get("conta_id"))
+            _usou_llm_prop = _res_analisar["sucesso"] and not _res_analisar["fallback_usado"]
+            if _usou_llm_prop:
+                opp["analise_llm"] = _res_analisar["resultado"]
+            log.info(f"  [llm] proposta={'LLM' if _usou_llm_prop else 'regra'} | {opp.get('contraparte','?')[:40]}")
             proposta = gerar_proposta_comercial(opp, origem="agente_comercial")
             if proposta:
                 vincular_proposta_ao_pipeline(opp, proposta)
