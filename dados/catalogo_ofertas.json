@@ -1,0 +1,172 @@
+{
+  "empresa": "Vetor Operações Ltda",
+  "versao": "2.0",
+  "criado_em": "2026-03-26",
+  "ofertas": [
+    {
+      "id": "agendamento_digital",
+      "nome": "Agendamento pelo WhatsApp",
+      "descricao_curta": "O cliente marca horário pelo WhatsApp sem precisar ligar",
+      "aplicavel_a": ["barbearia", "salao_de_beleza"],
+      "modelo_receita": "projeto",
+      "preco_implementacao": 800,
+      "preco_mensal_manutencao": 0,
+      "prazo_entrega_dias": 7,
+      "o_que_e_entregue": [
+        "WhatsApp Business configurado com cardápio de serviços",
+        "Bot de agendamento com horários disponíveis em tempo real",
+        "Integração com Google Agenda do estabelecimento",
+        "Confirmação automática de agendamento por WhatsApp",
+        "Lembrete automático 2h antes do horário"
+      ],
+      "o_que_o_cliente_faz_no_dia_a_dia": [
+        "Abre o Google Agenda de manhã e vê os horários preenchidos",
+        "Se precisar bloquear horário, marca no Google Agenda — o bot já entende",
+        "Se cliente remarcar pelo WhatsApp, a agenda atualiza sozinha"
+      ],
+      "o_que_a_vetor_faz_depois": [
+        "Suporte por 30 dias para ajustes",
+        "Após 30 dias: cliente opera sozinho (a ferramenta é dele)"
+      ],
+      "por_que_nao_tem_mensalidade": "A ferramenta instalada é do cliente. A Vetor implementa, configura e entrega funcionando. Não há dependência contínua.",
+      "checklist_entrega": [
+        {"item": "Criar WhatsApp Business para o estabelecimento", "responsavel": "vetor"},
+        {"item": "Configurar bot de agendamento", "responsavel": "vetor"},
+        {"item": "Criar Google Agenda compartilhada", "responsavel": "vetor"},
+        {"item": "Integrar bot com agenda", "responsavel": "vetor"},
+        {"item": "Configurar mensagens automáticas (confirmação + lembrete)", "responsavel": "vetor"},
+        {"item": "Testar fluxo completo com 3 agendamentos simulados", "responsavel": "vetor"},
+        {"item": "Treinar equipe do cliente (vídeo curto de 5min)", "responsavel": "vetor"},
+        {"item": "Entregar e validar com o cliente", "responsavel": "vetor + cliente"}
+      ],
+      "ferramentas_usadas": ["WhatsApp Business API", "Google Calendar API", "bot próprio ou n8n"],
+      "custo_ferramentas_para_vetor": "zero (APIs gratuitas no volume inicial)",
+      "resultado_esperado": "Cliente marca sozinho pelo WhatsApp. Cadeira menos vazia. Barbeiro mais ocupado.",
+      "sinais_qualificadores": ["sem_whatsapp", "sem_agendamento_online", "sem_google_agenda"],
+      "linha_servico": "automacao_atendimento"
+    },
+    {
+      "id": "atendimento_whatsapp",
+      "nome": "Atendimento automatizado por WhatsApp",
+      "descricao_curta": "Bot que responde perguntas frequentes e direciona o cliente",
+      "aplicavel_a": ["oficina_mecanica", "autopecas", "borracharia", "acougue", "padaria"],
+      "modelo_receita": "projeto",
+      "preco_implementacao": 600,
+      "preco_mensal_manutencao": 0,
+      "prazo_entrega_dias": 5,
+      "o_que_e_entregue": [
+        "WhatsApp Business configurado",
+        "Bot de atendimento com menu de opções (horário, serviços, orçamento, localização)",
+        "Respostas automáticas para perguntas frequentes",
+        "Encaminhamento para humano quando necessário",
+        "Mensagem de ausência fora do horário"
+      ],
+      "o_que_o_cliente_faz_no_dia_a_dia": [
+        "O bot responde as perguntas repetitivas (horário, preço, endereço)",
+        "Quando o cliente precisa de algo complexo, o bot avisa o dono pelo WhatsApp",
+        "O dono só intervém quando é realmente necessário"
+      ],
+      "o_que_a_vetor_faz_depois": [
+        "Suporte por 30 dias para ajustes nas respostas",
+        "Após 30 dias: cliente opera sozinho"
+      ],
+      "por_que_nao_tem_mensalidade": "Bot configurado é do cliente. A Vetor entrega funcionando.",
+      "checklist_entrega": [
+        {"item": "Levantar perguntas frequentes com o cliente", "responsavel": "vetor"},
+        {"item": "Criar WhatsApp Business", "responsavel": "vetor"},
+        {"item": "Configurar bot com menu e respostas", "responsavel": "vetor"},
+        {"item": "Configurar encaminhamento para humano", "responsavel": "vetor"},
+        {"item": "Testar com 5 cenários simulados", "responsavel": "vetor"},
+        {"item": "Treinar equipe (vídeo de 5min)", "responsavel": "vetor"},
+        {"item": "Entregar e validar", "responsavel": "vetor + cliente"}
+      ],
+      "ferramentas_usadas": ["WhatsApp Business API", "bot próprio ou n8n"],
+      "custo_ferramentas_para_vetor": "zero",
+      "resultado_esperado": "Dono para de responder as mesmas 10 perguntas todo dia. Cliente tem resposta na hora.",
+      "sinais_qualificadores": ["sem_whatsapp", "sem_atendimento_automatico", "perguntas_repetitivas"],
+      "linha_servico": "automacao_atendimento"
+    },
+    {
+      "id": "presenca_digital_basica",
+      "nome": "Presença digital organizada",
+      "descricao_curta": "Google Meu Negócio, WhatsApp e informações atualizadas",
+      "aplicavel_a": ["barbearia", "salao_de_beleza", "oficina_mecanica", "autopecas", "borracharia", "acougue", "padaria"],
+      "modelo_receita": "projeto",
+      "preco_implementacao": 400,
+      "preco_mensal_manutencao": 0,
+      "prazo_entrega_dias": 3,
+      "o_que_e_entregue": [
+        "Google Meu Negócio criado ou atualizado (fotos, horários, serviços, telefone)",
+        "WhatsApp Business configurado com mensagem de boas-vindas",
+        "Link direto para WhatsApp no Google Meu Negócio",
+        "Horário de funcionamento correto em todas as plataformas",
+        "Orientação sobre como manter atualizado"
+      ],
+      "o_que_o_cliente_faz_no_dia_a_dia": [
+        "Nada diferente — tudo já está configurado",
+        "Se mudar horário ou serviço, atualiza num lugar só"
+      ],
+      "o_que_a_vetor_faz_depois": [
+        "Suporte por 15 dias para dúvidas",
+        "Após 15 dias: cliente mantém sozinho (é simples)"
+      ],
+      "por_que_nao_tem_mensalidade": "São perfis do cliente em plataformas gratuitas. A Vetor configura e entrega.",
+      "checklist_entrega": [
+        {"item": "Criar ou atualizar Google Meu Negócio", "responsavel": "vetor"},
+        {"item": "Configurar WhatsApp Business com boas-vindas", "responsavel": "vetor"},
+        {"item": "Vincular WhatsApp ao Google Meu Negócio", "responsavel": "vetor"},
+        {"item": "Atualizar horários e serviços em todas as plataformas", "responsavel": "vetor"},
+        {"item": "Entregar com orientação escrita de como manter", "responsavel": "vetor"}
+      ],
+      "ferramentas_usadas": ["Google Meu Negócio", "WhatsApp Business"],
+      "custo_ferramentas_para_vetor": "zero",
+      "resultado_esperado": "Quando o cliente pesquisar no Google, encontra o negócio com informação certa e WhatsApp direto.",
+      "sinais_qualificadores": ["sem_google_business", "sem_presenca_digital", "informacoes_desatualizadas"],
+      "linha_servico": "marketing_presenca_digital"
+    },
+    {
+      "id": "operacao_continua",
+      "nome": "Operação digital contínua",
+      "descricao_curta": "A Vetor opera o digital do cliente — posts, respostas, métricas",
+      "aplicavel_a": ["barbearia", "salao_de_beleza", "oficina_mecanica", "padaria"],
+      "modelo_receita": "assinatura",
+      "preco_implementacao": 0,
+      "preco_mensal": 497,
+      "prazo_entrega_dias": 7,
+      "o_que_e_entregue": [
+        "Gestão do WhatsApp Business (a Vetor responde os clientes)",
+        "Posts semanais no Instagram/Google (se aplicável)",
+        "Relatório mensal: atendimentos, agendamentos, métricas",
+        "Ajustes contínuos no bot e nas respostas",
+        "Suporte prioritário"
+      ],
+      "o_que_o_cliente_faz_no_dia_a_dia": [
+        "Faz o trabalho dele (corta cabelo, conserta carro, etc)",
+        "A Vetor cuida do digital — o cliente só vê o resultado"
+      ],
+      "o_que_a_vetor_faz_depois": [
+        "Tudo acima, continuamente",
+        "Este é o serviço que justifica mensalidade"
+      ],
+      "por_que_tem_mensalidade": "Porque a Vetor está operando ativamente. Não é ferramenta entregue — é serviço contínuo.",
+      "checklist_entrega": [
+        {"item": "Setup inicial (agendamento + atendimento WhatsApp)", "responsavel": "vetor"},
+        {"item": "Assumir operação do WhatsApp", "responsavel": "vetor"},
+        {"item": "Criar calendário de posts do primeiro mês", "responsavel": "vetor"},
+        {"item": "Entregar primeiro relatório em 30 dias", "responsavel": "vetor"}
+      ],
+      "ferramentas_usadas": ["WhatsApp Business API", "Google Calendar", "Canva/templates", "métricas internas"],
+      "custo_ferramentas_para_vetor": "baixo (ferramentas gratuitas + tempo de operação)",
+      "resultado_esperado": "O dono esquece que tem digital. A Vetor cuida. Ele só vê mais clientes aparecendo.",
+      "sinais_qualificadores": ["cliente_quer_delegar", "sem_tempo_para_gerenciar_digital"],
+      "linha_servico": "automacao_atendimento"
+    }
+  ],
+  "logica_sugestao": {
+    "presenca_zero": "presenca_digital_basica",
+    "presenca_basica_sem_whatsapp": "atendimento_whatsapp",
+    "barbearia_ou_salao_sem_agendamento": "agendamento_digital",
+    "cliente_quer_nao_se_preocupar": "operacao_continua",
+    "upsell_natural": "presenca_digital_basica → atendimento_whatsapp → agendamento_digital → operacao_continua"
+  }
+}

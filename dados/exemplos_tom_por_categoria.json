@@ -1,0 +1,97 @@
+{
+  "versao": "1.0",
+  "criado_em": "2026-03-26",
+  "nichos": [
+    {
+      "nicho": "barbearia",
+      "categoria_ids": ["barbearia"],
+      "cena_problema": "Cadeira vazia, barbeiro parado no meio da tarde. O cliente entrou no site, viu o telefone, pensou em ligar depois e seguiu o dia. Nunca ligou.",
+      "perda_concreta": "Barbeiro parado mais custos fixos rodando = dinheiro perdido a cada horário vazio. E isso se repete todo dia.",
+      "comportamento_consumidor": "A pessoa entra no site já com a intenção de agendar. Vê o telefone. Pensa em ligar depois. Segue o dia. Às vezes esquece. Às vezes escolhe outra barbearia onde conseguiu resolver na hora.",
+      "gancho_solucao": "Agendamento pelo WhatsApp na hora em que o cliente decidiu, sem adiar e sem desistir no caminho",
+      "objecao_comum": "Já tenho agenda no papel / meus clientes ligam mesmo / isso deve ser caro demais",
+      "assunto_email": "Como um cliente tenta agendar na Barbearia [NOME]",
+      "abertura_contexto": "Encontrei a [NOME] pela internet e fui verificar como um cliente faz para marcar um horário. Percebi que, hoje, ele ainda precisa ligar para conseguir agendar.",
+      "cena_perda_elaborada": "a perda não está apenas no horário que deixou de ser marcado. Está no barbeiro que já está ali, pronto para trabalhar, mas fica sem atender naquele momento, enquanto poderia estar com mais um cliente na cadeira. E, quando isso se repete, a cadeira fica vazia, o barbeiro fica sem atender, e a barbearia deixa de ganhar dinheiro justamente enquanto continua pagando salários, aluguel, luz, internet e todo o resto.",
+      "porta_aberta": "Considerei importante escrever porque esse é o tipo de ajuste que pode evitar perdas no dia a dia. Se fizer sentido, posso mostrar como isso funcionaria na [NOME]."
+    },
+    {
+      "nicho": "salao_de_beleza",
+      "categoria_ids": ["salao_de_beleza"],
+      "cena_problema": "Profissional esperando na cadeira, horário marcado por ligação que não confirmou. No final do dia, dois horários vazios que poderiam estar ocupados.",
+      "perda_concreta": "Hora de profissional parado é custo direto — salário, aluguel da cabine, produtos comprados que não foram usados.",
+      "comportamento_consumidor": "A cliente liga, marca, desliga. Três dias depois esqueceu. Não avisou que não viria. O profissional esperou, atendeu menos, ganhou menos.",
+      "gancho_solucao": "Confirmação automática pelo WhatsApp no dia anterior, para que a cliente confirme com um clique ou remarque com antecedência",
+      "objecao_comum": "Já mando mensagem para confirmar / minha clientela é fiel / não tenho tempo de aprender sistema novo",
+      "assunto_email": "O horário que o salão reservou mas não foi ocupado",
+      "abertura_contexto": "Encontrei o [NOME] pela internet e fui verificar como uma cliente faz para marcar um horário. Percebi que, hoje, o processo ainda passa por ligação — e que a confirmação do horário depende de a cliente se lembrar de aparecer.",
+      "cena_perda_elaborada": "quando a cliente não aparece e não avisa, a profissional já estava ali, separou o tempo, talvez tenha recusado outro atendimento. O horário vazio vira prejuízo direto — e não tem como recuperar aquela hora depois.",
+      "porta_aberta": "Considerei importante escrever porque esse tipo de perda acontece silenciosamente toda semana. Se fizer sentido, posso mostrar como funcionaria no [NOME]."
+    },
+    {
+      "nicho": "oficina_mecanica",
+      "categoria_ids": ["oficina_mecanica"],
+      "cena_problema": "Cliente deixou o carro de manhã, ligou duas vezes perguntando se ficou pronto. O mecânico parou o serviço para responder. No final do dia, o cliente foi embora sem receber um retorno claro sobre quando voltar para a revisão.",
+      "perda_concreta": "Mecânico interrompido perde ritmo de trabalho. Cliente sem follow-up não volta para revisão. Cada revisão que não acontece é uma ordem de serviço a menos no fim do mês.",
+      "comportamento_consumidor": "O cliente deixa o carro e fica no escuro. Quando não recebe retorno, começa a ligar. Quando o atendimento parece desorganizado, leva para outra oficina da próxima vez.",
+      "gancho_solucao": "Aviso automático quando o carro ficar pronto, mais lembrete de revisão no prazo certo — sem ocupar o mecânico com ligações de acompanhamento",
+      "objecao_comum": "Já aviso por telefone / meus clientes sabem quando voltar / não tenho tempo para configurar sistema",
+      "assunto_email": "O que acontece quando o cliente não recebe retorno sobre o carro",
+      "abertura_contexto": "Encontrei a [NOME] pela internet e fui verificar como um cliente acompanha o andamento do serviço do carro. Percebi que, hoje, esse contato ainda depende de o cliente ligar para saber.",
+      "cena_perda_elaborada": "quando o cliente precisa ligar para saber se o carro ficou pronto, ele já começou a perder a confiança no processo. Sem um aviso claro e um lembrete de revisão no prazo certo, parte desses clientes não volta — e cada revisão que não acontece é uma receita que sumiu sem que ninguém percebeu.",
+      "porta_aberta": "Considerei importante escrever porque esse tipo de cliente que não retorna quase nunca reclama — ele simplesmente vai embora. Se fizer sentido, posso mostrar como funcionaria na [NOME]."
+    },
+    {
+      "nicho": "padaria",
+      "categoria_ids": ["padaria"],
+      "cena_problema": "Domingo à tarde, cliente manda mensagem pelo WhatsApp pedindo um bolo para sábado que vem. Ninguém viu a mensagem. Na sexta, o cliente liga perguntando. O bolo não foi feito.",
+      "perda_concreta": "Encomenda perdida é receita perdida. Ingredientes que poderiam ter sido separados não foram. E o cliente que encomendava com frequência passou a buscar outra padaria.",
+      "comportamento_consumidor": "O cliente manda a encomenda pelo WhatsApp porque é mais fácil do que ligar. Espera uma confirmação. Quando não recebe, assume que está anotado. Descobre na véspera que não está.",
+      "gancho_solucao": "Confirmação automática de encomenda com prazo e detalhes, para que nenhum pedido se perca no volume de mensagens do dia",
+      "objecao_comum": "Já tenho caderninho de encomendas / minha equipe anota tudo / nunca perdi encomenda importante",
+      "assunto_email": "A encomenda que chegou pelo WhatsApp e não foi confirmada",
+      "abertura_contexto": "Encontrei a [NOME] pela internet e fui verificar como um cliente faz uma encomenda. Percebi que, hoje, o caminho passa pelo WhatsApp — e que a confirmação depende de alguém da equipe ver a mensagem no momento certo.",
+      "cena_perda_elaborada": "quando a encomenda não é confirmada, o cliente não sabe se foi registrada. Às vezes descobre na véspera que não foi. Perde a encomenda, fica sem o produto que planejou e, dependendo da ocasião, não esquece. A padaria perde a venda e, em casos de clientes recorrentes, às vezes perde o cliente.",
+      "porta_aberta": "Considerei importante escrever porque encomendas perdidas raramente aparecem como reclamação — aparecem como cliente que sumiu. Se fizer sentido, posso mostrar como funcionaria na [NOME]."
+    },
+    {
+      "nicho": "acougue",
+      "categoria_ids": ["acougue"],
+      "cena_problema": "Cliente manda lista pelo WhatsApp pedindo cortes específicos para o fim de semana. Ninguém organizou o pedido. O cliente chegou na sexta à tarde, os cortes não estavam separados, ficou esperando na fila enquanto o atendente buscava o que tinha.",
+      "perda_concreta": "Tempo perdido na hora do pico, cliente insatisfeito na fila, corte que talvez não estivesse disponível. Cliente que pedia toda semana passou a comprar em outro açougue onde resolve com antecedência.",
+      "comportamento_consumidor": "O cliente com pedido frequente quer resolver com antecedência para não depender do que tem no momento. Se não encontra essa facilidade, vai para quem oferece.",
+      "gancho_solucao": "Pedido antecipado pelo WhatsApp com confirmação de disponibilidade, para que o cliente chegue e encontre o que pediu separado",
+      "objecao_comum": "Meus clientes preferem comprar na hora / já anoto no caderno / minha equipe dá conta",
+      "assunto_email": "O cliente que pede pelo WhatsApp mas não recebe confirmação",
+      "abertura_contexto": "Encontrei o [NOME] pela internet e fui verificar como um cliente com pedido frequente organiza as compras. Percebi que, hoje, o caminho passa pelo WhatsApp — e que a confirmação do pedido nem sempre chega.",
+      "cena_perda_elaborada": "quando o pedido pelo WhatsApp não é confirmado, o cliente não sabe se foi anotado. Chega esperando encontrar o corte separado e muitas vezes não encontra. Com o tempo, o cliente que comprava toda semana começa a buscar um lugar onde o processo é mais previsível.",
+      "porta_aberta": "Considerei importante escrever porque clientes frequentes que somem raramente reclamam — eles simplesmente vão embora. Se fizer sentido, posso mostrar como funcionaria no [NOME]."
+    },
+    {
+      "nicho": "autopecas",
+      "categoria_ids": ["autopecas"],
+      "cena_problema": "Mecânico liga para consultar se uma peça está disponível. O atendente parou o que estava fazendo, foi até o estoque verificar, voltou para confirmar. Enquanto isso, dois outros clientes esperando na linha. Ao final do dia, o mecânico havia ligado três vezes para três peças diferentes — comprou em outro lugar antes da terceira resposta chegar.",
+      "perda_concreta": "Atendente interrompido várias vezes ao dia para responder consultas que poderiam ter resposta automática. Cliente que não recebeu resposta rápida comprou online ou no concorrente.",
+      "comportamento_consumidor": "O mecânico precisa da resposta rápido. Se demorar para ouvir de volta, liga para o próximo fornecedor ou pesquisa online. Quem responde primeiro, vende.",
+      "gancho_solucao": "Consulta de disponibilidade e orçamento por mensagem, com resposta imediata, sem ocupar o atendente com perguntas repetitivas",
+      "objecao_comum": "Meus clientes já me conhecem e ligam direto / tenho sistema de estoque / isso é caro demais para o meu volume",
+      "assunto_email": "A consulta que chegou e a venda que foi para o concorrente",
+      "abertura_contexto": "Encontrei a [NOME] pela internet e fui verificar como um mecânico faz para consultar a disponibilidade de uma peça. Percebi que, hoje, esse processo ainda depende de uma ligação — e que a resposta leva um tempo que, no caso de peça urgente, pode custar a venda.",
+      "cena_perda_elaborada": "quando o mecânico precisa de uma peça com urgência e não recebe resposta imediata, ele não espera — vai para o próximo fornecedor. Cada vez que isso acontece, é uma venda que foi embora sem fazer barulho. Com o tempo, o mecânico para de consultar e passa a comprar direto de quem responde mais rápido.",
+      "porta_aberta": "Considerei importante escrever porque essas vendas perdidas não aparecem em lugar nenhum — o cliente simplesmente não ligou mais. Se fizer sentido, posso mostrar como funcionaria na [NOME]."
+    },
+    {
+      "nicho": "borracharia",
+      "categoria_ids": ["borracharia"],
+      "cena_problema": "Segunda-feira de manhã, cliente com pneu furado na beira da estrada. Procurou borracharia no Google. Não tinha horário de funcionamento atualizado. Ligou — ninguém atendeu ainda. Foi para outra borracharia que apareceu com o WhatsApp direto no Google.",
+      "perda_concreta": "Cliente em emergência não espera. Vai para quem responde primeiro. Sem informação de funcionamento e WhatsApp visível no Google, o cliente em apuros vai para o concorrente.",
+      "comportamento_consumidor": "Na emergência, o cliente não tem paciência para descobrir se está aberto. Quer o WhatsApp na tela, manda mensagem e aguarda enquanto já está se movendo. Quem aparece com as informações certas no Google, recebe o cliente.",
+      "gancho_solucao": "Horário de funcionamento correto no Google com WhatsApp direto para que o cliente em emergência encontre e entre em contato na hora",
+      "objecao_comum": "Meus clientes me conhecem / já tenho WhatsApp / Google é complicado de mexer",
+      "assunto_email": "O cliente que te procurou no Google mas foi para o concorrente",
+      "abertura_contexto": "Procurei a [NOME] no Google simulando um cliente com pneu furado que precisava de atendimento imediato. Percebi que as informações de funcionamento não estão completas e que não há um caminho direto para contato pelo WhatsApp.",
+      "cena_perda_elaborada": "o cliente em emergência não liga duas vezes. Se não encontra o horário de funcionamento ou um contato imediato, vai para a próxima opção no Google. Quem aparece com as informações certas recebe esse cliente. Quem não aparece, simplesmente não é considerado.",
+      "porta_aberta": "Considerei importante escrever porque clientes em emergência são os mais fáceis de perder e os mais difíceis de recuperar — eles não voltam para reclamar. Se fizer sentido, posso mostrar como ficaria na [NOME]."
+    }
+  ]
+}

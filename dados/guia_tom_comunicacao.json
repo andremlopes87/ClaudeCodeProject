@@ -1,0 +1,64 @@
+{
+  "versao": "2.0",
+  "criado_em": "2026-03-26",
+  "principios": [
+    "Nunca buzzwords — proibido: transformação digital, soluções, inovação, potencializar, alavancar",
+    "Sempre do ponto de vista do cliente, nunca da Vetor",
+    "Mostrar o problema como cena do dia a dia do dono",
+    "Conectar problema a perda concreta: dinheiro, tempo, cliente",
+    "Solução como consequência natural, não como venda",
+    "Formal mas simples, sem intimidade forçada",
+    "Porta aberta no final, nunca pressão",
+    "Assinatura: Equipe Vetor"
+  ],
+  "proibido": [
+    "transformação digital",
+    "soluções digitais",
+    "inovação",
+    "IA revolucionária",
+    "potencializar",
+    "alavancar",
+    "otimizar",
+    "disruptivo",
+    "escalável",
+    "sinergias",
+    "empoderar",
+    "oportunidade única",
+    "não perca tempo",
+    "entre em contato agora",
+    "eu sou o João",
+    "eu sou o Pedro",
+    "eu sou a Maria",
+    "solução completa",
+    "plataforma integrada",
+    "ecossistema digital"
+  ],
+  "estrutura_abordagem": {
+    "paragrafo_1": "Contexto: como encontrou, o que verificou (real, não inventado)",
+    "paragrafo_2": "Comportamento do consumidor que o dono reconhece como verdadeiro",
+    "paragrafo_3": "Cena da perda: consequência concreta no dia a dia do negócio",
+    "paragrafo_4": "Solução em uma frase, sem detalhes técnicos, como consequência natural",
+    "paragrafo_5": "Porta aberta, sem pressão, respeito",
+    "assinatura": "Equipe Vetor"
+  },
+  "regras_negativas": [
+    "Nunca inventar dados sobre a empresa — só usar o que foi verificado",
+    "Nunca usar nome fictício de atendente (não assinar como João, Maria, etc.)",
+    "Nunca criar urgência artificial (promoção por tempo limitado, vagas limitadas)",
+    "Nunca desqualificar o concorrente — só mostrar a oportunidade",
+    "Nunca usar exclamação ou emoji em comunicação formal",
+    "Nunca tutear — usar 'você' ou 'senhor/senhora' conforme contexto"
+  ],
+  "modelo_referencia": {
+    "titulo": "Exemplo padrão-ouro — barbearia sem agendamento digital",
+    "texto": "Carlos, boa tarde.\n\nEncontrei a Barbearia Estilo pela internet e fui verificar como um cliente faz para marcar um horário. Percebi que, hoje, ele ainda precisa ligar para conseguir agendar.\n\nIsso parece um detalhe, mas costuma fazer muita diferença. Muitas pessoas entram no site já com a intenção de marcar, veem o telefone, pensam em ligar depois e seguem o dia. Algumas esquecem. Outras acabam escolhendo uma barbearia em que consigam resolver tudo na mesma hora.\n\nQuando isso acontece, a perda não está apenas no horário que deixou de ser marcado. Está no barbeiro que já está ali, pronto para trabalhar, mas fica sem atender naquele momento, enquanto poderia estar com mais um cliente na cadeira. E, quando isso se repete, a cadeira fica vazia, o barbeiro fica sem atender, e a barbearia deixa de ganhar dinheiro justamente enquanto continua pagando salários, aluguel, luz, internet e todo o resto.\n\nA Vetor ajuda a resolver isso com uma forma mais simples de marcação e atendimento pelo WhatsApp, para que o cliente consiga marcar na hora em que decidiu, sem adiar e sem desistir no caminho.\n\nConsiderei importante lhe escrever porque esse é o tipo de ajuste que pode evitar perdas no dia a dia. Se fizer sentido, posso lhe mostrar como isso funcionaria na Barbearia Estilo.\n\nEquipe Vetor",
+    "analise": {
+      "paragrafo_1": "Contexto real — 'fui verificar como o cliente faz' — não inventado",
+      "paragrafo_2": "Comportamento do consumidor que o dono reconhece como verdadeiro",
+      "paragrafo_3": "Cena da perda — cadeira vazia, barbeiro parado, custos fixos correndo",
+      "paragrafo_4": "Solução como consequência natural, uma frase, sem detalhes técnicos",
+      "paragrafo_5": "Porta aberta, sem pressão, respeito",
+      "tom": "Formal simples, sem gíria, sem exclamação, sem emoji"
+    }
+  }
+}

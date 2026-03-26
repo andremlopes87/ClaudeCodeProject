@@ -38,9 +38,132 @@ _ARQ_HISTORICO  = config.PASTA_DADOS / "historico_ofertas_empresa.json"
 
 _CATALOGO_PADRAO: dict = {
     "empresa": "Vetor Operações Ltda",
-    "versao":  "1.0",
-    "criado_em": "2026-03-23",
+    "versao":  "2.0",
+    "criado_em": "2026-03-26",
     "ofertas": [
+        {
+            "id": "agendamento_digital",
+            "nome": "Agendamento pelo WhatsApp",
+            "descricao_curta": "O cliente marca horário pelo WhatsApp sem precisar ligar",
+            "aplicavel_a": ["barbearia", "salao_de_beleza"],
+            "modelo_receita": "projeto",
+            "preco_implementacao": 800,
+            "preco_mensal_manutencao": 0,
+            "prazo_entrega_dias": 7,
+            "o_que_e_entregue": [
+                "WhatsApp Business configurado com cardápio de serviços",
+                "Bot de agendamento com horários disponíveis em tempo real",
+                "Integração com Google Agenda do estabelecimento",
+                "Confirmação automática de agendamento por WhatsApp",
+                "Lembrete automático 2h antes do horário",
+            ],
+            "checklist_entrega": [
+                {"item": "Criar WhatsApp Business para o estabelecimento", "responsavel": "vetor"},
+                {"item": "Configurar bot de agendamento", "responsavel": "vetor"},
+                {"item": "Criar Google Agenda compartilhada", "responsavel": "vetor"},
+                {"item": "Integrar bot com agenda", "responsavel": "vetor"},
+                {"item": "Configurar mensagens automáticas (confirmação + lembrete)", "responsavel": "vetor"},
+                {"item": "Testar fluxo completo com 3 agendamentos simulados", "responsavel": "vetor"},
+                {"item": "Treinar equipe do cliente (vídeo curto de 5min)", "responsavel": "vetor"},
+                {"item": "Entregar e validar com o cliente", "responsavel": "vetor + cliente"},
+            ],
+            "sinais_qualificadores": ["sem_whatsapp", "sem_agendamento_online"],
+            "linha_servico": "automacao_atendimento",
+            "resultado_esperado": "Cliente marca sozinho pelo WhatsApp. Cadeira menos vazia.",
+        },
+        {
+            "id": "atendimento_whatsapp",
+            "nome": "Atendimento automatizado por WhatsApp",
+            "descricao_curta": "Bot que responde perguntas frequentes e direciona o cliente",
+            "aplicavel_a": ["oficina_mecanica", "autopecas", "borracharia", "acougue", "padaria"],
+            "modelo_receita": "projeto",
+            "preco_implementacao": 600,
+            "preco_mensal_manutencao": 0,
+            "prazo_entrega_dias": 5,
+            "o_que_e_entregue": [
+                "WhatsApp Business configurado",
+                "Bot de atendimento com menu de opções",
+                "Respostas automáticas para perguntas frequentes",
+                "Encaminhamento para humano quando necessário",
+                "Mensagem de ausência fora do horário",
+            ],
+            "checklist_entrega": [
+                {"item": "Levantar perguntas frequentes com o cliente", "responsavel": "vetor"},
+                {"item": "Criar WhatsApp Business", "responsavel": "vetor"},
+                {"item": "Configurar bot com menu e respostas", "responsavel": "vetor"},
+                {"item": "Configurar encaminhamento para humano", "responsavel": "vetor"},
+                {"item": "Testar com 5 cenários simulados", "responsavel": "vetor"},
+                {"item": "Treinar equipe (vídeo de 5min)", "responsavel": "vetor"},
+                {"item": "Entregar e validar", "responsavel": "vetor + cliente"},
+            ],
+            "sinais_qualificadores": ["sem_whatsapp", "sem_atendimento_automatico"],
+            "linha_servico": "automacao_atendimento",
+            "resultado_esperado": "Dono para de responder as mesmas perguntas todo dia.",
+        },
+        {
+            "id": "presenca_digital_basica",
+            "nome": "Presença digital organizada",
+            "descricao_curta": "Google Meu Negócio, WhatsApp e informações atualizadas",
+            "aplicavel_a": ["barbearia", "salao_de_beleza", "oficina_mecanica", "autopecas", "borracharia", "acougue", "padaria"],
+            "modelo_receita": "projeto",
+            "preco_implementacao": 400,
+            "preco_mensal_manutencao": 0,
+            "prazo_entrega_dias": 3,
+            "o_que_e_entregue": [
+                "Google Meu Negócio criado ou atualizado",
+                "WhatsApp Business configurado com mensagem de boas-vindas",
+                "Link direto para WhatsApp no Google Meu Negócio",
+                "Horário de funcionamento correto em todas as plataformas",
+                "Orientação sobre como manter atualizado",
+            ],
+            "checklist_entrega": [
+                {"item": "Criar ou atualizar Google Meu Negócio", "responsavel": "vetor"},
+                {"item": "Configurar WhatsApp Business com boas-vindas", "responsavel": "vetor"},
+                {"item": "Vincular WhatsApp ao Google Meu Negócio", "responsavel": "vetor"},
+                {"item": "Atualizar horários e serviços em todas as plataformas", "responsavel": "vetor"},
+                {"item": "Entregar com orientação escrita de como manter", "responsavel": "vetor"},
+            ],
+            "sinais_qualificadores": ["sem_google_business", "sem_presenca_digital"],
+            "linha_servico": "marketing_presenca_digital",
+            "resultado_esperado": "Quando o cliente pesquisar no Google, encontra com informação certa.",
+        },
+        {
+            "id": "operacao_continua",
+            "nome": "Operação digital contínua",
+            "descricao_curta": "A Vetor opera o digital do cliente — posts, respostas, métricas",
+            "aplicavel_a": ["barbearia", "salao_de_beleza", "oficina_mecanica", "padaria"],
+            "modelo_receita": "assinatura",
+            "preco_implementacao": 0,
+            "preco_mensal": 497,
+            "prazo_entrega_dias": 7,
+            "o_que_e_entregue": [
+                "Gestão do WhatsApp Business",
+                "Posts semanais no Instagram/Google",
+                "Relatório mensal: atendimentos, agendamentos, métricas",
+                "Ajustes contínuos no bot e nas respostas",
+                "Suporte prioritário",
+            ],
+            "checklist_entrega": [
+                {"item": "Setup inicial (agendamento + atendimento WhatsApp)", "responsavel": "vetor"},
+                {"item": "Assumir operação do WhatsApp", "responsavel": "vetor"},
+                {"item": "Criar calendário de posts do primeiro mês", "responsavel": "vetor"},
+                {"item": "Entregar primeiro relatório em 30 dias", "responsavel": "vetor"},
+            ],
+            "sinais_qualificadores": ["cliente_quer_delegar"],
+            "linha_servico": "automacao_atendimento",
+            "resultado_esperado": "O dono esquece que tem digital. A Vetor cuida.",
+        },
+    ],
+    "logica_sugestao": {
+        "presenca_zero": "presenca_digital_basica",
+        "presenca_basica_sem_whatsapp": "atendimento_whatsapp",
+        "barbearia_ou_salao_sem_agendamento": "agendamento_digital",
+        "cliente_quer_nao_se_preocupar": "operacao_continua",
+    },
+}
+
+# Legacy catalog kept for reference only — replaced by _CATALOGO_PADRAO above
+_CATALOGO_LEGADO = [
         {
             "id":          "diagnostico_presenca_digital",
             "nome":        "Diagnóstico de Presença Digital",
@@ -315,40 +438,54 @@ _CATALOGO_PADRAO: dict = {
                 },
             ],
         },
-    ],
-}
+]  # end _CATALOGO_LEGADO
+
 
 _REGRAS_PADRAO: dict = {
-    "versao": "1.0",
-    "criado_em": "2026-03-23",
+    "versao": "2.0",
+    "criado_em": "2026-03-26",
     "desconto_maximo_sem_aprovacao_percentual": 15,
     "valor_minimo_sem_deliberacao": 0,
     "valor_maximo_sem_deliberacao": 5000.0,
     "grau_customizacao_alto_exige_deliberacao": True,
-    "pacotes_customizaveis": True,
     "prazo_minimo_proposta_dias": 2,
+    "regra_recebiveis": {
+        "projeto": "Gera recebível único no valor de preco_implementacao. Não gera recebível mensal.",
+        "assinatura": "Gera recebível mensal recorrente. Primeiro recebível no início da operação.",
+    },
     "regras_por_oferta": {
-        "diagnostico_presenca_digital": {
+        "agendamento_digital": {
+            "modelo_receita": "projeto",
+            "valor_referencia": 800,
+            "desconto_maximo_percentual": 15,
+            "exige_escopo_antes_de_ganho": False,
+            "permite_parcelamento": False,
+            "gera_recebivel_mensal": False,
+        },
+        "atendimento_whatsapp": {
+            "modelo_receita": "projeto",
+            "valor_referencia": 600,
+            "desconto_maximo_percentual": 15,
+            "exige_escopo_antes_de_ganho": False,
+            "permite_parcelamento": False,
+            "gera_recebivel_mensal": False,
+        },
+        "presenca_digital_basica": {
+            "modelo_receita": "projeto",
+            "valor_referencia": 400,
             "desconto_maximo_percentual": 20,
             "exige_escopo_antes_de_ganho": False,
             "permite_parcelamento": False,
+            "gera_recebivel_mensal": False,
         },
-        "operacao_comercial_base": {
-            "desconto_maximo_percentual": 15,
-            "exige_escopo_antes_de_ganho": True,
-            "permite_parcelamento": True,
-            "max_parcelas": 3,
-        },
-        "estruturacao_financeira_operacional": {
+        "operacao_continua": {
+            "modelo_receita": "assinatura",
+            "valor_mensal": 497,
             "desconto_maximo_percentual": 10,
             "exige_escopo_antes_de_ganho": True,
-            "permite_parcelamento": True,
-            "max_parcelas": 3,
-        },
-        "acompanhamento_implantacao_operacional": {
-            "desconto_maximo_percentual": 10,
-            "exige_escopo_antes_de_ganho": False,
             "permite_parcelamento": False,
+            "gera_recebivel_mensal": True,
+            "prazo_minimo_contrato_meses": 3,
         },
     },
 }
@@ -495,26 +632,106 @@ def _oferta_por_linha(catalogo: dict, linha: str):
 
 # ─── Sugestão de oferta ───────────────────────────────────────────────────────
 
+def sugerir_oferta(empresa: dict) -> dict:
+    """
+    Sugere oferta baseada nos sinais digitais e categoria da empresa.
+
+    Lógica de priorização:
+      1. Sem Google/presença nenhuma → presenca_digital_basica (base de tudo)
+      2. Barbearia/Salão sem agendamento → agendamento_digital
+      3. Demais categorias sem WhatsApp → atendimento_whatsapp
+      4. Já tem presença e WhatsApp → sugestão por categoria
+
+    Retorna dict com oferta_id, nome, valor, prazo e motivo.
+    """
+    catalogo    = carregar_catalogo()
+    indice      = _indice_por_id(catalogo)
+    categoria   = empresa.get("categoria_id", "")
+    sinais      = empresa.get("sinais", {})
+
+    # Sinais de presença digital
+    tem_site     = bool(sinais.get("tem_website") or empresa.get("website"))
+    tem_google   = bool(sinais.get("tem_google_business") or empresa.get("google_business"))
+    tem_whatsapp = bool(sinais.get("tem_whatsapp") or empresa.get("whatsapp"))
+    score        = empresa.get("score_presenca_digital", empresa.get("score_presenca_consolidado", 0)) or 0
+
+    def _resultado(oferta_id: str, motivo: str, confianca: str = "media") -> dict:
+        oferta = indice.get(oferta_id, {})
+        valor  = oferta.get("preco_implementacao") or oferta.get("preco_mensal", 0)
+        return {
+            "oferta_id":        oferta_id,
+            "pacote_id":        None,  # novo catálogo não usa pacotes
+            "nome_oferta":      oferta.get("nome", oferta_id),
+            "nome_pacote":      "—",
+            "valor_referencia": valor,
+            "prazo_dias":       oferta.get("prazo_entrega_dias"),
+            "modelo_receita":   oferta.get("modelo_receita", "projeto"),
+            "confianca":        confianca,
+            "motivo":           motivo,
+        }
+
+    # 1. Barbearia / Salão → agendamento é o produto core, sempre (independente de presença)
+    if categoria in ("barbearia", "salao_de_beleza"):
+        return _resultado(
+            "agendamento_digital",
+            f"categoria={categoria} | produto_core=agendamento_digital",
+            "alta",
+        )
+
+    # 2. Presença zero nas demais categorias → base obrigatória primeiro
+    if not tem_site and not tem_google and not tem_whatsapp and score < 15:
+        return _resultado(
+            "presenca_digital_basica",
+            f"sem_presenca_digital | score={score} | categoria={categoria}",
+            "alta",
+        )
+
+    # 3. Sem WhatsApp → atendimento automatizado
+    if not tem_whatsapp:
+        aplicavel = indice.get("atendimento_whatsapp", {}).get("aplicavel_a", [])
+        if categoria in aplicavel:
+            return _resultado(
+                "atendimento_whatsapp",
+                f"sem_whatsapp | categoria={categoria}",
+                "alta",
+            )
+
+    # 4. Sem Google → presença básica como upsell
+    if not tem_google:
+        return _resultado(
+            "presenca_digital_basica",
+            f"sem_google_business | categoria={categoria}",
+            "media",
+        )
+
+    # 5. Fallback: atendimento WhatsApp se aplicável, senão presença
+    aplicavel_atend = indice.get("atendimento_whatsapp", {}).get("aplicavel_a", [])
+    if categoria in aplicavel_atend:
+        return _resultado(
+            "atendimento_whatsapp",
+            f"fallback_por_categoria={categoria}",
+            "baixa",
+        )
+    return _resultado(
+        "presenca_digital_basica",
+        f"fallback_generico | categoria={categoria} | score={score}",
+        "baixa",
+    )
+
+
 def sugerir_oferta_por_oportunidade(opp: dict) -> dict:
     """
-    Dado um dict de oportunidade, retorna:
-    {
-      "oferta_id":         str | None,
-      "pacote_id":         str | None,
-      "nome_oferta":       str,
-      "nome_pacote":       str,
-      "valor_referencia":  float | None,
-      "prazo_dias":        int | None,
-      "confianca":         "alta" | "media" | "baixa",
-      "motivo":            str,
-    }
+    Compatibilidade retroativa. Delega para sugerir_oferta() se possível,
+    mantendo fallback pela linha_servico para oportunidades antigas.
     """
+    # Se o dict tiver sinais digitais (novo formato), usar nova lógica
+    if opp.get("sinais") or opp.get("score_presenca_digital") or opp.get("categoria_id"):
+        return sugerir_oferta(opp)
+
+    # Fallback para lógica antiga por linha_servico
     catalogo = carregar_catalogo()
     linha    = opp.get("linha_servico_sugerida", "")
-    prioridade = opp.get("prioridade", "media")
-    score_opp  = opp.get("score_qualificacao", 0)
-
-    oferta = _oferta_por_linha(catalogo, linha)
+    oferta   = _oferta_por_linha(catalogo, linha)
     if not oferta:
         return {
             "oferta_id": None, "pacote_id": None,
@@ -523,40 +740,27 @@ def sugerir_oferta_por_oportunidade(opp: dict) -> dict:
             "confianca": "baixa",
             "motivo": f"nenhuma oferta mapeada para linha={linha}",
         }
-
-    pacotes = oferta.get("pacotes", [])
-    if not pacotes:
-        return {
-            "oferta_id": oferta["id"], "pacote_id": None,
-            "nome_oferta": oferta["nome"], "nome_pacote": "—",
-            "valor_referencia": None, "prazo_dias": None,
-            "confianca": "media",
-            "motivo": "oferta encontrada mas sem pacotes definidos",
-        }
-
-    # Selecionar pacote por prioridade / score
-    # alta prioridade ou score alto → padrão; muito alta → avancado; baixa → essencial
-    if prioridade == "alta" and score_opp >= 6:
-        idx_pacote = min(2, len(pacotes) - 1)  # avancado se existir
-        confianca  = "alta"
-    elif prioridade == "alta" or score_opp >= 3:
-        idx_pacote = min(1, len(pacotes) - 1)  # padrao
-        confianca  = "alta"
-    else:
-        idx_pacote = 0   # essencial
-        confianca  = "media"
-
-    pacote = pacotes[idx_pacote]
+    valor = oferta.get("preco_implementacao") or oferta.get("preco_mensal", 0)
     return {
         "oferta_id":        oferta["id"],
-        "pacote_id":        pacote["id"],
+        "pacote_id":        None,
         "nome_oferta":      oferta["nome"],
-        "nome_pacote":      pacote["nome"],
-        "valor_referencia": pacote.get("valor_referencia"),
-        "prazo_dias":       pacote.get("prazo_dias"),
-        "confianca":        confianca,
-        "motivo":           f"linha={linha} | prioridade={prioridade} | score={score_opp}",
+        "nome_pacote":      "—",
+        "valor_referencia": valor,
+        "prazo_dias":       oferta.get("prazo_entrega_dias"),
+        "confianca":        "media",
+        "motivo":           f"linha_servico={linha}",
     }
+
+
+def detalhar_oferta(oferta_id: str) -> dict:
+    """
+    Retorna tudo sobre a oferta: entrega, checklist, preço, ferramentas, resultado esperado.
+    Retorna {} se não encontrada.
+    """
+    catalogo = carregar_catalogo()
+    indice   = _indice_por_id(catalogo)
+    return dict(indice.get(oferta_id, {}))
 
 
 # ─── Enriquecimento de oportunidade ──────────────────────────────────────────
@@ -597,21 +801,40 @@ def enriquecer_oportunidade_com_oferta(opp: dict) -> dict:
 
 # ─── Checklist de entrega por oferta/pacote ──────────────────────────────────
 
-def obter_checklist_por_oferta_e_pacote(oferta_id: str, pacote_id: str) -> list:
+def obter_checklist_por_oferta_e_pacote(oferta_id: str, pacote_id: str = None) -> list:
     """
-    Retorna lista de strings (descrição dos itens) do checklist de entrega
-    para a combinação oferta/pacote. Retorna [] se não encontrado.
+    Retorna checklist de entrega da oferta.
+
+    No novo catálogo v2, o checklist está diretamente na oferta (não em pacotes).
+    Cada item é um dict {item, responsavel} ou string (formato legado).
+    pacote_id é ignorado no novo formato mas mantido para compatibilidade.
+
+    Retorna lista de dicts {item, responsavel} ou [] se não encontrado.
     """
     catalogo = carregar_catalogo()
     idx      = _indice_por_id(catalogo)
     oferta   = idx.get(oferta_id)
     if not oferta:
         return []
+
+    checklist = oferta.get("checklist_entrega", [])
+    if checklist:
+        # Normalizar: se for lista de strings (legado), converter para dicts
+        normalizado = []
+        for item in checklist:
+            if isinstance(item, dict):
+                normalizado.append(item)
+            else:
+                normalizado.append({"item": str(item), "responsavel": "vetor"})
+        return normalizado
+
+    # Fallback: tentar no pacote (legado)
     pacotes = _indice_pacotes(oferta)
-    pacote  = pacotes.get(pacote_id)
+    pacote  = pacotes.get(pacote_id or "")
     if not pacote:
         return []
-    return pacote.get("checklist_entrega", [])
+    legado = pacote.get("checklist_entrega", [])
+    return [{"item": i, "responsavel": "vetor"} if isinstance(i, str) else i for i in legado]
 
 
 # ─── Grau de customização ─────────────────────────────────────────────────────

@@ -1,0 +1,48 @@
+{
+  "versao": "2.0",
+  "criado_em": "2026-03-26",
+  "desconto_maximo_sem_aprovacao_percentual": 15,
+  "valor_minimo_sem_deliberacao": 0,
+  "valor_maximo_sem_deliberacao": 5000.0,
+  "grau_customizacao_alto_exige_deliberacao": true,
+  "prazo_minimo_proposta_dias": 2,
+  "regra_recebiveis": {
+    "projeto": "Gera recebível único no valor de preco_implementacao. Não gera recebível mensal.",
+    "assinatura": "Gera recebível mensal recorrente no valor de preco_mensal. Primeiro recebível no início da operação."
+  },
+  "regras_por_oferta": {
+    "agendamento_digital": {
+      "modelo_receita": "projeto",
+      "valor_referencia": 800,
+      "desconto_maximo_percentual": 15,
+      "exige_escopo_antes_de_ganho": false,
+      "permite_parcelamento": false,
+      "gera_recebivel_mensal": false
+    },
+    "atendimento_whatsapp": {
+      "modelo_receita": "projeto",
+      "valor_referencia": 600,
+      "desconto_maximo_percentual": 15,
+      "exige_escopo_antes_de_ganho": false,
+      "permite_parcelamento": false,
+      "gera_recebivel_mensal": false
+    },
+    "presenca_digital_basica": {
+      "modelo_receita": "projeto",
+      "valor_referencia": 400,
+      "desconto_maximo_percentual": 20,
+      "exige_escopo_antes_de_ganho": false,
+      "permite_parcelamento": false,
+      "gera_recebivel_mensal": false
+    },
+    "operacao_continua": {
+      "modelo_receita": "assinatura",
+      "valor_mensal": 497,
+      "desconto_maximo_percentual": 10,
+      "exige_escopo_antes_de_ganho": true,
+      "permite_parcelamento": false,
+      "gera_recebivel_mensal": true,
+      "prazo_minimo_contrato_meses": 3
+    }
+  }
+}

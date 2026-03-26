@@ -101,29 +101,60 @@ class LLMRouter:
         Redação de emails, propostas e mensagens personalizadas.
         Modelo completo (Sonnet).
 
-        Exemplo de uso:
-          router.redigir({
-              "agente": "agente_comercial",
-              "tarefa": "redigir_email_proposta",
-              "dados": {"empresa": "X", "oferta": "Y"},
-          })
+        Para tarefas de comunicação comercial (abordagem, email, proposta),
+        injeta automaticamente o guia de tom e exemplos por categoria.
         """
         if empresa_id:
             self._enriquecer_com_memoria(contexto, empresa_id)
+
+        # Injetar guia de tom em tarefas de comunicação comercial
+        _tarefas_comunicacao = (
+            "redigir_email", "redigir_abordagem", "redigir_proposta",
+            "redigir_mensagem", "abordagem", "email", "copy",
+        )
+        agente = contexto.get("agente", "")
         tarefa = contexto.get("tarefa", "conteúdo solicitado")
+        _eh_comunicacao = (
+            agente in ("agente_comercial", "agente_marketing", "agente_executor_contato")
+            or any(t in tarefa.lower() for t in _tarefas_comunicacao)
+        )
+
+        if _eh_comunicacao:
+            self._injetar_guia_tom(contexto)
+
         if self._modo == "dry-run":
+            # Em dry-run, mostrar preview do padrão storytelling se tiver guia
+            guia = contexto.get("contexto_extra", {}).get("guia_tom", {})
+            categoria = contexto.get("dados", {}).get("categoria", "")
+            exemplo = contexto.get("contexto_extra", {}).get("exemplo_tom_categoria", {})
+            if guia and exemplo:
+                preview = (
+                    f"[DRY-RUN] Seguiria padrão storytelling — "
+                    f"cena: {exemplo.get('cena_problema', '?')[:80]} | "
+                    f"perda: {exemplo.get('perda_concreta', '?')[:80]}"
+                )
+            else:
+                preview = (
+                    f"[DRY-RUN] Texto simulado para: {tarefa}. "
+                    "Em modo real, o LLM redigiria uma mensagem personalizada baseada no contexto."
+                )
             return self._resposta_dry_run("redigir", contexto, {
-                "texto": f"[DRY-RUN] Texto simulado para: {tarefa}. "
-                         "Em modo real, o LLM redigiria uma mensagem personalizada "
-                         "baseada no contexto.",
+                "texto": preview,
                 "canal": "simulado",
             }, modelo_simulado=_MODELO_COMPLETO)
+
+        instrucao = (
+            "Redija o conteúdo solicitado em português brasileiro seguindo RIGOROSAMENTE "
+            "o guia de tom e o modelo de referência injetados no contexto. "
+            "Tom: formal mas simples, sem buzzwords, do ponto de vista do cliente. "
+            "Retorne JSON com texto e canal."
+        )
         return self._chamar_real(
             metodo="redigir",
             contexto=contexto,
             modelo=_MODELO_COMPLETO,
             max_tokens=_MAX_TOK_COMPL,
-            instrucao_sistema="Redija o conteúdo solicitado em português brasileiro. Tom profissional e direto. Retorne JSON com texto e canal.",
+            instrucao_sistema=instrucao,
         )
 
     def decidir(self, contexto: dict, empresa_id: str = None) -> dict:
@@ -341,6 +372,67 @@ class LLMRouter:
             return resp_err
 
     # ─── Auxiliares ──────────────────────────────────────────────────────────
+
+    def _injetar_guia_tom(self, contexto: dict) -> None:
+        """
+        Injeta guia_tom_comunicacao.json e exemplo_tom por categoria no contexto.
+        Não lança exceção — é auxiliar.
+        """
+        try:
+            extra = contexto.setdefault("contexto_extra", {})
+            if extra.get("guia_tom"):
+                return  # já injetado
+
+            guia = self._carregar_guia_tom()
+            if guia:
+                extra["guia_tom"] = {
+                    "principios": guia.get("principios", []),
+                    "proibido": guia.get("proibido", []),
+                    "estrutura_abordagem": guia.get("estrutura_abordagem", {}),
+                    "modelo_referencia_texto": guia.get("modelo_referencia", {}).get("texto", ""),
+                }
+
+            categoria = (
+                contexto.get("dados", {}).get("categoria_id")
+                or contexto.get("dados", {}).get("categoria")
+                or contexto.get("categoria")
+                or ""
+            )
+            if categoria:
+                exemplo = self._carregar_exemplo_tom(categoria)
+                if exemplo:
+                    extra["exemplo_tom_categoria"] = exemplo
+        except Exception as exc:
+            log.warning(f"[llm_router] falha ao injetar guia_tom: {exc}")
+
+    def _carregar_guia_tom(self) -> dict:
+        """Carrega guia_tom_comunicacao.json com cache simples."""
+        if not hasattr(self, "_guia_tom_cache"):
+            arq = config.PASTA_DADOS / "guia_tom_comunicacao.json"
+            try:
+                if arq.exists():
+                    with open(arq, encoding="utf-8") as f:
+                        self._guia_tom_cache = json.load(f)
+                else:
+                    self._guia_tom_cache = {}
+            except Exception:
+                self._guia_tom_cache = {}
+        return self._guia_tom_cache
+
+    def _carregar_exemplo_tom(self, categoria: str) -> dict:
+        """Carrega exemplo de tom para a categoria do negócio."""
+        arq = config.PASTA_DADOS / "exemplos_tom_por_categoria.json"
+        try:
+            if arq.exists():
+                with open(arq, encoding="utf-8") as f:
+                    dados = json.load(f)
+                for nicho in dados.get("nichos", []):
+                    if (nicho.get("nicho") == categoria
+                            or categoria in nicho.get("categoria_ids", [])):
+                        return nicho
+        except Exception as exc:
+            log.warning(f"[llm_router] falha ao carregar exemplo_tom ({categoria}): {exc}")
+        return {}
 
     def _enriquecer_com_memoria(self, contexto: dict, empresa_id: str) -> None:
         """
