@@ -19,6 +19,7 @@ import logging
 from datetime import datetime
 
 import config
+from core.llm_router import LLMRouter
 from core.controle_agente import (
     carregar_estado,
     salvar_estado,
@@ -66,6 +67,9 @@ def executar() -> dict:
     modo_empresa = politicas.get("modo_empresa", "normal")
     log.info(f"Politicas carregadas: modo={modo_empresa} | urgencias_riscos={sorted(urgencias_escalar)} | urgencias_alertas={sorted(urgencias_alertas)}")
 
+    router = LLMRouter()
+    _narrativa_llm = None
+
     # ── ETAPA 1: Carregar estado anterior ─────────────────────────────────
     estado = carregar_estado(NOME_AGENTE)
     log.info(
@@ -110,6 +114,25 @@ def executar() -> dict:
         f"alertas={len(alertas)} | riscos={len(fila_riscos)}"
     )
 
+    # ── ETAPA 4b: Narrativa financeira via LLM (ponto 5) ─────────────────
+    _ctx_narrativa = {
+        "saldo_atual":    posicao.get("saldo_atual_estimado", 0),
+        "saldo_previsto": posicao.get("saldo_previsto", 0),
+        "risco_caixa":    posicao.get("risco_caixa", False),
+        "total_riscos":   len(fila_riscos),
+        "total_alertas":  len(alertas),
+        "contas_a_receber": len(contas_receber),
+        "contas_a_pagar":   len(contas_pagar),
+        "modo_empresa":   modo_empresa,
+        "instrucao":      "Gerar narrativa financeira executiva para o conselho. Mencionar saldo, recebíveis e principal risco.",
+    }
+    _res_narrativa = router.resumir(_ctx_narrativa)
+    _usou_llm_narrativa = _res_narrativa["sucesso"] and not _res_narrativa["fallback_usado"]
+    if _usou_llm_narrativa:
+        _narrativa_llm = _res_narrativa["resultado"]
+        log.info(f"  [llm] narrativa financeira: {str(_narrativa_llm)[:80]}")
+    log.info(f"  [llm] narrativa={'LLM' if _usou_llm_narrativa else 'regra'}")
+
     # ── ETAPA 5: Processar riscos — autônomo vs escalamento ───────────────
     log.info("Classificando riscos e alertas...")
     itens_escalados  = []
@@ -128,6 +151,23 @@ def executar() -> dict:
         if esta_pendente(estado, item_id):
             log.info(f"  [aguardando] {item_id} — escalado, sem resposta ainda")
             continue
+
+        # LLM: enriquecer classificação de risco (ponto 4 — fallback = threshold existente)
+        _ctx_risco_llm = {
+            "tipo":        risco.get("tipo", ""),
+            "descricao":   risco.get("descricao", "")[:200],
+            "urgencia":    risco.get("urgencia", ""),
+            "saldo_atual": posicao.get("saldo_atual_estimado", 0),
+            "risco_caixa": posicao.get("risco_caixa", False),
+            "categorias":  ["risco_critico", "risco_moderado", "atencao", "normal"],
+            "modo_empresa": modo_empresa,
+            "instrucao":   "Classificar risco financeiro considerando posição de caixa e modo da empresa.",
+        }
+        _res_risco_llm = router.classificar(_ctx_risco_llm)
+        _usou_llm_risco = _res_risco_llm["sucesso"] and not _res_risco_llm["fallback_usado"]
+        if _usou_llm_risco:
+            risco["classificacao_llm"] = _res_risco_llm["resultado"]
+        log.info(f"  [llm] risco={'LLM' if _usou_llm_risco else 'regra'} | {item_id}")
 
         if _deve_escalar_risco(risco, posicao, previsao, urgencias_escalar):
             item_consolidado = _formatar_item_consolidado(risco, NOME_AGENTE)
@@ -242,6 +282,7 @@ def executar() -> dict:
         "contratos_reconciliados":      n_contratos_rec,
         "modo_empresa":       modo_empresa,
         "urgencias_escalar":  sorted(urgencias_escalar),
+        "narrativa_llm":      _narrativa_llm,
         "caminho_log":        str(caminho_log),
     }
 

@@ -30,6 +30,7 @@ from datetime import date, datetime
 from pathlib import Path
 
 import config
+from core.llm_router import LLMRouter
 from core.controle_agente import (
     carregar_estado,
     salvar_estado,
@@ -64,6 +65,8 @@ def executar() -> dict:
 
     estado = carregar_estado(NOME_AGENTE)
     log.info(f"Estado: ultima_execucao={estado['ultima_execucao']} | processados={len(estado['itens_processados'])}")
+
+    router = LLMRouter()
 
     # ── ETAPA 1: Carregar todos os insumos ────────────────────────────────
     insumos = _carregar_insumos_operacionais(log)
@@ -111,6 +114,29 @@ def executar() -> dict:
     if mistas_prio:
         log.info(f"  [mistas]    {len(mistas_prio)} oportunidades mistas prioritarias")
 
+    # ── ETAPA 5c: Contextualizar deliberações via LLM (ponto 3) ──────────
+    _n_delib_enriq = 0
+    for _delib in deliberacoes_dados.get("pendentes", []):
+        if _delib.get("contexto_llm"):
+            continue  # já enriquecida
+        _ctx_delib = {
+            "tipo":           _delib.get("tipo", ""),
+            "urgencia":       _delib.get("urgencia", ""),
+            "descricao":      str(_delib.get("descricao", ""))[:300],
+            "contraparte":    _delib.get("contraparte", ""),
+            "pipeline_total": len(insumos["pipeline"]),
+            "saldo_caixa":    insumos["estado_financeiro"].get("ultimo_saldo"),
+            "instrucao":      "Analisar deliberação, adicionar contexto expandido, riscos e recomendação preliminar.",
+        }
+        _res_delib = router.analisar(_ctx_delib)
+        _usou_llm_delib = _res_delib["sucesso"] and not _res_delib["fallback_usado"]
+        if _usou_llm_delib:
+            _delib["contexto_llm"] = _res_delib["resultado"]
+            _n_delib_enriq += 1
+        log.info(f"  [llm] delib={'LLM' if _usou_llm_delib else 'regra'} | {_delib.get('tipo','?')[:40]}")
+    if _n_delib_enriq:
+        log.info(f"  [llm] {_n_delib_enriq} deliberacao(oes) enriquecida(s) com contexto LLM")
+
     # ── ETAPA 6: Itens operacionais prioritários ───────────────────────────
     ids_delib = {
         d.get("id", "")
@@ -118,6 +144,25 @@ def executar() -> dict:
         for d in deliberacoes_dados.get(bucket, [])
     }
     operacionais = _itens_operacionais(insumos, ids_delib)
+
+    # ── ETAPA 6b: Classificar gargalos operacionais via LLM (ponto 1) ────
+    _gargalos_llm = None
+    _snapshot_op = {
+        "pipeline_total":         len(insumos["pipeline"]),
+        "followups_pendentes":    sum(1 for f in insumos["followups"] if f.get("status") == "pendente_execucao"),
+        "operacionais":           len(operacionais),
+        "bloqueios":              len(bloqueios),
+        "handoffs_pendentes":     sum(1 for h in todos_handoffs if h.get("status") == "pendente"),
+        "deliberacoes_pendentes": len(deliberacoes_dados.get("pendentes", [])),
+        "estagnadas_marketing":   len(estagnadas_mkt),
+        "instrucao":              "Classificar e priorizar gargalos operacionais por severidade com sugestão de ação.",
+    }
+    _res_classif_op = router.classificar(_snapshot_op)
+    _usou_llm_garg = _res_classif_op["sucesso"] and not _res_classif_op["fallback_usado"]
+    if _usou_llm_garg:
+        _gargalos_llm = _res_classif_op["resultado"]
+        log.info(f"  [llm] gargalos LLM: {str(_gargalos_llm)[:80]}")
+    log.info(f"  [llm] triagem={'LLM' if _usou_llm_garg else 'regra'}")
 
     # ── ETAPA 7: Status por agente ─────────────────────────────────────────
     status_por_agente = _status_por_agente(insumos)
@@ -129,6 +174,32 @@ def executar() -> dict:
         estagnadas_prs=estagnadas_prs,
         mistas_prio=mistas_prio,
     )
+
+    # ── ETAPA 8b: Resumo narrativo do ciclo via LLM (ponto 2) ────────────
+    _sf = status_por_agente.get("agente_financeiro", {})
+    _sc = status_por_agente.get("agente_comercial", {})
+    _ctx_resumir = {
+        "pipeline_total":         _sc.get("pipeline_total", 0),
+        "followups_pendentes":    _sc.get("followups_pendentes", 0),
+        "saldo_caixa":            _sf.get("ultimo_saldo"),
+        "operacionais":           len(operacionais),
+        "bloqueios":              len(bloqueios),
+        "deliberacoes_pendentes": len(deliberacoes_dados.get("pendentes", [])),
+        "estagnadas_marketing":   len(estagnadas_mkt),
+        "estagnadas_prospeccao":  len(estagnadas_prs),
+        "handoffs_pendentes":     sum(1 for h in todos_handoffs if h.get("status") == "pendente"),
+        "instrucao":              "Gerar resumo executivo do ciclo operacional em linguagem natural para o conselho.",
+    }
+    _res_resumir = router.resumir(_ctx_resumir)
+    _usou_llm_resumo = _res_resumir["sucesso"] and not _res_resumir["fallback_usado"]
+    if _usou_llm_resumo:
+        _resumo_narrativo = _res_resumir["resultado"]
+        painel["resumo_llm"] = _resumo_narrativo
+        _salvar_resumo_diario_llm(_resumo_narrativo)
+        log.info(f"  [llm] resumo narrativo: {str(_resumo_narrativo)[:80]}")
+    if _gargalos_llm:
+        painel["gargalos_llm"] = _gargalos_llm
+    log.info(f"  [llm] resumo={'LLM' if _usou_llm_resumo else 'regra'}")
 
     # ── ETAPA 9: Persistir ────────────────────────────────────────────────
     _salvar_json("painel_operacional.json", painel)
@@ -619,6 +690,30 @@ def _resumo_geral(operacionais, bloqueios, deliberacoes_dados, status_por_agente
         partes.append(f"{fu_pend} follow-up(s) prontos para execucao")
 
     return " | ".join(partes) if partes else "Sistema inicializado"
+
+
+# ─── Resumo diário LLM ───────────────────────────────────────────────────────
+
+def _salvar_resumo_diario_llm(resumo: str) -> None:
+    """Append resumo narrativo do ciclo a dados/resumo_diario_llm.json (por data)."""
+    caminho = config.PASTA_DADOS / "resumo_diario_llm.json"
+    try:
+        if caminho.exists():
+            with open(caminho, "r", encoding="utf-8") as f:
+                historico = json.load(f)
+        else:
+            historico = []
+        historico.append({
+            "data":      date.today().isoformat(),
+            "timestamp": datetime.now().isoformat(timespec="seconds"),
+            "resumo":    resumo,
+            "agente":    NOME_AGENTE,
+        })
+        config.PASTA_DADOS.mkdir(parents=True, exist_ok=True)
+        with open(caminho, "w", encoding="utf-8") as f:
+            json.dump(historico, f, ensure_ascii=False, indent=2)
+    except Exception as exc:
+        logging.getLogger(__name__).warning(f"  [llm] erro ao salvar resumo_diario_llm: {exc}")
 
 
 # ─── Persistência ────────────────────────────────────────────────────────────
