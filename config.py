@@ -233,6 +233,8 @@ AGENDA_AGENTES = {
     "auditor_seguranca": {"horarios": ["02:00"], "dias": ["seg", "qui"]},
     # Agente de qualidade — roda 2x/semana após o auditor (não incluso no ciclo normal)
     "qualidade":         {"horarios": ["03:00"], "dias": ["ter", "sex"]},
+    # Executor de melhorias — roda 2x/semana APÓS auditor e QA (horário de menor risco)
+    "executor_melhorias": {"horarios": ["04:00"], "dias": ["qua", "sab"]},
 }
 
 # Segundos entre cada verificação da agenda

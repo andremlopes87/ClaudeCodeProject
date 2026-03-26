@@ -280,6 +280,10 @@ class Scheduler:
             import main_agente_qualidade
             return main_agente_qualidade.main
 
+        if agente == "executor_melhorias":
+            import main_agente_executor_melhorias
+            return main_agente_executor_melhorias.main
+
         raise ValueError(f"Agente desconhecido no scheduler: '{agente}'")
 
     # ─── Estado e log ─────────────────────────────────────────────────────────
