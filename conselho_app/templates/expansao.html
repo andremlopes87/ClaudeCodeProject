@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+{% block title %}Expansão — Painel do Conselho{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Pipeline de Expansão</h1>
+  <p>Upsell · cross-sell · indicações · renovações em contas ativas</p>
+</div>
+
+<!-- KPIs -->
+<div class="kpi-grid" style="margin-bottom:20px;">
+  <div class="kpi {% if resumo.ativas > 0 %}success{% endif %}">
+    <div class="label">Oportunidades Ativas</div>
+    <div class="value">{{ resumo.ativas or 0 }}</div>
+    <div class="sub">no funil</div>
+  </div>
+  <div class="kpi success">
+    <div class="label">Convertidas</div>
+    <div class="value">{{ resumo.convertidas or 0 }}</div>
+    <div class="sub">taxa {{ resumo.taxa_conversao or 0 }}%</div>
+  </div>
+  <div class="kpi {% if (resumo.quentes or 0) > 0 %}warning{% endif %}">
+    <div class="label">Quentes (score ≥ 70)</div>
+    <div class="value">{{ resumo.quentes or 0 }}</div>
+    <div class="sub">prontas para ação</div>
+  </div>
+  <div class="kpi">
+    <div class="label">Mornas (50–70)</div>
+    <div class="value">{{ resumo.mornas or 0 }}</div>
+    <div class="sub">em qualificação</div>
+  </div>
+  <div class="kpi">
+    <div class="label">Handoffs Criados</div>
+    <div class="value">{{ resumo.handoffs or 0 }}</div>
+    <div class="sub">para agente_comercial</div>
+  </div>
+  <div class="kpi {% if valor_estimado > 0 %}success{% endif %}">
+    <div class="label">Valor Estimado</div>
+    <div class="value">{% if valor_estimado > 0 %}R$ {{ "%.0f"|format(valor_estimado) }}{% else %}—{% endif %}</div>
+    <div class="sub">pipeline total</div>
+  </div>
+</div>
+
+<!-- Top 5 oportunidades quentes -->
+{% if top5 %}
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+    <h3 style="margin:0;">Top 5 — Maior Potencial</h3>
+    <span class="badge badge-accent">{{ top5|length }}</span>
+  </div>
+  <table style="width:100%;border-collapse:collapse;margin-top:12px;">
+    <thead>
+      <tr style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);">
+        <th style="text-align:left;padding:6px;">Conta</th>
+        <th style="text-align:center;padding:6px;">Score</th>
+        <th style="text-align:left;padding:6px;">Tipo</th>
+        <th style="text-align:left;padding:6px;">Oferta Sugerida</th>
+        <th style="text-align:left;padding:6px;">Status</th>
+        <th style="text-align:left;padding:6px;">Motivo</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for x in top5 %}
+      <tr style="border-top:1px solid var(--border);font-size:12px;">
+        <td style="padding:8px;font-weight:600;">{{ x._nome }}</td>
+        <td style="padding:8px;text-align:center;">
+          {% if x.score_expansao is defined and x.score_expansao is not none %}
+          <span class="badge {% if x.score_expansao >= 70 %}badge-success{% elif x.score_expansao >= 50 %}badge-warning{% else %}badge-muted{% endif %}">
+            {{ x.score_expansao }}
+          </span>
+          {% else %}
+          <span class="text-muted">—</span>
+          {% endif %}
+        </td>
+        <td style="padding:8px;">
+          <span class="badge badge-muted">{{ x.tipo_oportunidade or '—' }}</span>
+        </td>
+        <td style="padding:8px;font-size:11px;">{{ x.oferta_sugerida or '—' }}</td>
+        <td style="padding:8px;">
+          <span class="badge {% if x.status == 'preparada' %}badge-success{% elif x.status == 'qualificada' %}badge-accent{% else %}badge-muted{% endif %}">
+            {{ x.status }}
+          </span>
+        </td>
+        <td style="padding:8px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);font-size:11px;">{{ x.motivo or '—' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<!-- Pipeline completo (ativas) -->
+{% if expansoes_ativas %}
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+    <h3 style="margin:0;">Pipeline Completo</h3>
+    <span class="badge badge-muted">{{ expansoes_ativas|length }}</span>
+  </div>
+  <table style="width:100%;border-collapse:collapse;margin-top:12px;">
+    <thead>
+      <tr style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);">
+        <th style="text-align:left;padding:6px;">Conta</th>
+        <th style="text-align:center;padding:6px;">Score</th>
+        <th style="text-align:left;padding:6px;">Tipo</th>
+        <th style="text-align:left;padding:6px;">Oferta</th>
+        <th style="text-align:left;padding:6px;">Prioridade</th>
+        <th style="text-align:left;padding:6px;">Status</th>
+        <th style="text-align:left;padding:6px;">Criado</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for x in expansoes_ativas %}
+      <tr style="border-top:1px solid var(--border);font-size:12px;">
+        <td style="padding:8px;">{{ x._nome }}</td>
+        <td style="padding:8px;text-align:center;">
+          {% if x.score_expansao is defined and x.score_expansao is not none %}
+          <span class="badge {% if x.score_expansao >= 70 %}badge-success{% elif x.score_expansao >= 50 %}badge-warning{% else %}badge-muted{% endif %}">
+            {{ x.score_expansao }}
+          </span>
+          {% else %}<span class="text-muted">—</span>{% endif %}
+        </td>
+        <td style="padding:8px;"><span class="badge badge-muted">{{ x.tipo_oportunidade or '—' }}</span></td>
+        <td style="padding:8px;font-size:11px;">{{ x.oferta_sugerida or '—' }}</td>
+        <td style="padding:8px;">
+          <span class="badge {% if x.prioridade == 'alta' %}badge-danger{% elif x.prioridade == 'media' %}badge-warning{% else %}badge-muted{% endif %}">
+            {{ x.prioridade or '—' }}
+          </span>
+        </td>
+        <td style="padding:8px;">
+          <span class="badge {% if x.status == 'preparada' %}badge-success{% elif x.status == 'qualificada' %}badge-accent{% else %}badge-muted{% endif %}">
+            {{ x.status }}
+          </span>
+        </td>
+        <td style="padding:8px;color:var(--muted);">{{ x.criado_em[:10] if x.criado_em else '—' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<!-- Expansões convertidas -->
+{% if convertidas %}
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+    <h3 style="margin:0;">Histórico — Convertidas</h3>
+    <span class="badge badge-success">{{ convertidas|length }}</span>
+  </div>
+  <table style="width:100%;border-collapse:collapse;margin-top:12px;">
+    <thead>
+      <tr style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);">
+        <th style="text-align:left;padding:6px;">Conta</th>
+        <th style="text-align:left;padding:6px;">Tipo</th>
+        <th style="text-align:left;padding:6px;">Oferta</th>
+        <th style="text-align:left;padding:6px;">Status final</th>
+        <th style="text-align:left;padding:6px;">Atualizado</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for x in convertidas %}
+      <tr style="border-top:1px solid var(--border);font-size:12px;">
+        <td style="padding:8px;">{{ x._nome }}</td>
+        <td style="padding:8px;"><span class="badge badge-muted">{{ x.tipo_oportunidade or '—' }}</span></td>
+        <td style="padding:8px;font-size:11px;">{{ x.oferta_sugerida or '—' }}</td>
+        <td style="padding:8px;"><span class="badge badge-success">{{ x.status }}</span></td>
+        <td style="padding:8px;color:var(--muted);">{{ x.atualizado_em[:10] if x.atualizado_em else '—' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% if not expansoes_ativas and not convertidas %}
+<div class="card" style="text-align:center;padding:40px;color:var(--muted);">
+  <div style="font-size:24px;margin-bottom:8px;">◈</div>
+  <div>Sem oportunidades de expansão ainda.</div>
+  <div style="font-size:12px;margin-top:8px;">O motor_expansao detecta oportunidades automaticamente nos ciclos.</div>
+</div>
+{% endif %}
+{% endblock %}

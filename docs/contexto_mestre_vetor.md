@@ -42,6 +42,7 @@
 | integrador_canais | Aplica resultados de canal externo (email, etc.) | Assistida | resultados_contato.json |
 | gerador_insumos | Gera insumos necessários para execução | Alta | insumos_entrega.json |
 | avaliador_fechamento | Avalia se oportunidade está pronta para fechar | Alta | pipeline_comercial.json |
+| agente_customer_success | Saúde de contas, NPS, playbooks de retenção, expansão | Alta | relatorio_customer_success.json, acoes_customer_success.json, nps_pendentes.json, oportunidades_expansao.json |
 
 ---
 
@@ -60,6 +61,10 @@
 | Reconciliação contratos | `modulos/financeiro/reconciliador_contratos_faturamento.py` | `dados/historico_reconciliacao_contratos.json` |
 | Contas/clientes | `core/contas_empresa.py` | `dados/contas_clientes.json` |
 | Acompanhamento pós-entrega | `core/acompanhamento_contas.py` | `dados/acompanhamentos_contas.json` |
+| Customer Success | `agentes/customer_success/agente_customer_success.py` | `dados/relatorio_customer_success.json` · `dados/acoes_customer_success.json` · `dados/saude_contas_clientes.json` |
+| NPS & Feedback | `core/nps_feedback.py` | `dados/nps_pendentes.json` · `dados/nps_respostas.json` · `dados/historico_nps.json` |
+| Playbooks CS | `core/playbooks_cs.py` | `dados/playbooks_customer_success.json` · `dados/historico_playbooks_cs.json` |
+| Motor de Expansão | `core/motor_expansao.py` | `dados/oportunidades_expansao.json` · `dados/propostas_expansao.json` |
 | Documentos oficiais | `core/documentos_empresa.py` | `dados/documentos_oficiais.json` · `artefatos/documentos/` |
 | Governança | `core/governanca_conselho.py` | `dados/governanca_conselho.json` |
 | Observabilidade | `core/observabilidade_empresa.py` | `dados/painel_conselho.json` · `dados/metricas_empresa.json` |
@@ -85,6 +90,10 @@
 | Documento oficial | Artefato HTML gerado a partir de proposta/contrato/entrega; versionado por checksum |
 | Insumo | Recurso necessário para execução de entrega (fornecido pelo cliente) |
 | Acompanhamento | Contato pós-entrega para verificar saúde da conta e identificar expansões |
+| Saúde de conta | Score 0-100 calculado por CS; status: excelente/boa/atencao/critica |
+| NPS | Pesquisa de satisfação disparada por gatilho (pós-entrega, primeiro mês, trimestral); score 0-10 |
+| Playbook CS | Receita de retenção ativada por padrão de risco; gera ações para executor_contato |
+| Oportunidade de expansão | Upsell/cross-sell/indicação detectada pelo motor_expansao; funil detectada→convertida |
 
 ---
 
@@ -133,7 +142,50 @@ Entrega:
 
 ---
 
-## 8. Formato padrão das respostas
+## 8. Pós-venda — visão técnica
+
+### agente_customer_success (`agentes/customer_success/`)
+- Roda em ciclos; lê contas ativas, calcula `score_saude` (0-100) por conta
+- Score: base 60 + pesos por entregas concluídas, recebíveis em dia, NPS, acompanhamentos
+- Gera ações de acompanhamento por conta → `dados/acoes_customer_success.json`
+- Dispara playbooks de risco via `core/playbooks_cs.py`
+- Detecta oportunidades de expansão via `agente_customer_success.sugerir_expansao_para_conta`
+- Programa NPS automático (gatilhos: pós-entrega, primeiro mês, trimestral)
+- Gera relatório consolidado → `dados/relatorio_customer_success.json`
+- Chama LLM para diagnóstico por conta (dry-run por padrão)
+
+### core/playbooks_cs.py
+- Playbooks definidos em `dados/playbooks_customer_success.json` (editável)
+- Gatilhos: `inatividade`, `nps_detrator`, `pagamento_atrasado`, `entrega_bloqueada`
+- Severidades: `atencao`, `risco`, `critico`
+- Gera ações com prazo e template para executor_contato
+- Histórico de execuções: `dados/historico_playbooks_cs.json`
+
+### core/nps_feedback.py
+- Programação automática por gatilho nos momentos certos do ciclo de vida
+- Janela mínima de 30 dias entre pesquisas para a mesma conta
+- Análise de sentimento via LLM: positivo / neutro / negativo / negativo_grave
+- Ações derivadas automáticas: `escalacao_urgente`, `planejamento_retencao`, `expansao_indicacao_sugerida`
+- Tipos de respondente derivados do score: promotor (≥9), neutro (7-8), detrator (≤6)
+
+### core/motor_expansao.py
+- Detecta oportunidades por conta: renovacao, upsell, cross-sell, indicacao
+- Score de expansão 0-100 com 5 fatores objetivos
+- Classificação: quente (≥70), morna (50-70), fria (<50)
+- Gera pitch personalizado via LLM para oportunidades quentes
+- Cria handoff para agente_comercial com `tipo="expansao"`
+- Funil: detectada → qualificada → preparada → handoff_criado → convertida → descartada
+
+### Painel — rotas de pós-venda
+| Rota | Conteúdo |
+|---|---|
+| `/customer-success` | Saúde do portfólio, distribuição, playbooks, ações pendentes/executadas |
+| `/nps` | Score NPS empresa, detratores, promotores, pendentes de envio |
+| `/expansao` | Pipeline de expansão, top 5, convertidas, valor estimado |
+
+---
+
+## 9. Formato padrão das respostas
 
 - Resumo curtíssimo (1–3 linhas)
 - Arquivos criados/alterados (lista)

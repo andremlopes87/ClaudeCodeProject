@@ -1380,6 +1380,113 @@ async def download_documento(doc_id: str):
     )
 
 
+@app.get("/customer-success", response_class=HTMLResponse)
+async def pagina_customer_success(request: Request):
+    from core.contas_empresa import carregar_contas
+    from core.playbooks_cs import carregar_playbooks
+
+    contas_map = {c["id"]: c for c in carregar_contas()}
+
+    # Relatório CS mais recente
+    relatorio = _ler("relatorio_customer_success.json", {})
+
+    # Ações CS — pendentes e executadas recentemente
+    acoes_cs = _ler("acoes_customer_success.json", [])
+    acoes_pendentes = [a for a in acoes_cs if a.get("status_acao") == "pendente"]
+    acoes_executadas = sorted(
+        [a for a in acoes_cs if a.get("status_acao") == "executada"],
+        key=lambda a: a.get("timestamp", ""), reverse=True,
+    )[:10]
+
+    # Saúdes das contas
+    saudes_raw = _ler("saude_contas_clientes.json", [])
+    dist_saude = {"saudavel": 0, "atencao": 0, "risco": 0, "critico": 0}
+    for s in saudes_raw:
+        st = s.get("status_saude", "")
+        if st in ("excelente", "boa"):
+            dist_saude["saudavel"] += 1
+        elif st == "atencao":
+            dist_saude["atencao"] += 1
+        elif st == "risco":
+            dist_saude["risco"] += 1
+        elif st in ("critica", "critico"):
+            dist_saude["critico"] += 1
+
+    # Playbooks ativos: carregar definição e histórico de execuções
+    playbooks_def = carregar_playbooks()
+    historico_pb  = _ler("historico_playbooks_cs.json", [])
+    # Contas únicas com playbook ativo no histórico recente (últimos 30 dias)
+    from datetime import datetime as _dt, timedelta as _td
+    _cutoff = (_dt.now() - _td(days=30)).isoformat(timespec="seconds")
+    pb_ativos_contas: dict = {}
+    for exec_pb in historico_pb:
+        if exec_pb.get("timestamp", "") >= _cutoff and exec_pb.get("status") == "ativo":
+            cid = exec_pb.get("conta_id", "")
+            pb_id = exec_pb.get("playbook_id", "")
+            if cid and pb_id:
+                pb_ativos_contas.setdefault(pb_id, set()).add(cid)
+    playbooks_ativos = []
+    for pb in playbooks_def:
+        pb_id = pb.get("id", "")
+        contas_ativas = pb_ativos_contas.get(pb_id, set())
+        if contas_ativas:
+            playbooks_ativos.append({**pb, "_n_contas": len(contas_ativas)})
+
+    return templates.TemplateResponse("customer_success.html", {
+        "request":         request,
+        "page":            "customer_success",
+        "relatorio":       relatorio,
+        "acoes_pendentes": acoes_pendentes,
+        "acoes_executadas": acoes_executadas,
+        "dist_saude":      dist_saude,
+        "playbooks_ativos": playbooks_ativos,
+        "n_playbooks_def": len(playbooks_def),
+        "contas_map":      contas_map,
+    })
+
+
+@app.get("/expansao", response_class=HTMLResponse)
+async def pagina_expansao(request: Request):
+    from core.motor_expansao import resumir_para_painel
+    from core.contas_empresa import carregar_contas
+
+    resumo     = resumir_para_painel()
+    contas_map = {c["id"]: c for c in carregar_contas()}
+    expansoes  = _ler("oportunidades_expansao.json", [])
+
+    # Enriquecer com nome da conta
+    for x in expansoes:
+        x["_nome"] = contas_map.get(x.get("conta_id", ""), {}).get("nome_empresa", "—")
+
+    # Por status
+    ativas    = [x for x in expansoes if x.get("status") in ("detectada", "qualificada", "preparada")]
+    convertidas = [x for x in expansoes if x.get("status") in ("convertida", "convertida_em_oportunidade")]
+    descartadas = [x for x in expansoes if x.get("status") in ("descartada", "arquivada")]
+
+    # Top 5 por score
+    top5 = sorted(ativas, key=lambda x: x.get("score_expansao", 0), reverse=True)[:5]
+
+    # Valor estimado (pitches com valor)
+    pitches = _ler("propostas_expansao.json", [])
+    valor_estimado = sum(
+        float(p.get("valor_estimado", 0) or 0) for p in pitches
+        if p.get("status") not in ("descartado",)
+    )
+
+    return templates.TemplateResponse("expansao.html", {
+        "request":        request,
+        "page":           "expansao",
+        "resumo":         resumo,
+        "expansoes_ativas": ativas,
+        "top5":           top5,
+        "convertidas":    convertidas[:10],
+        "descartadas":    descartadas[:5],
+        "valor_estimado": valor_estimado,
+        "pitches":        pitches[:10],
+        "contas_map":     contas_map,
+    })
+
+
 @app.get("/nps", response_class=HTMLResponse)
 async def pagina_nps(request: Request):
     from core.nps_feedback import calcular_nps_empresa

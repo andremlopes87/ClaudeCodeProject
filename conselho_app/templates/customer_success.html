@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+{% block title %}Customer Success — Painel do Conselho{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Customer Success</h1>
+  <p>Saúde do portfólio · playbooks ativos · ações pendentes</p>
+</div>
+
+<!-- KPIs principais -->
+<div class="kpi-grid" style="margin-bottom:20px;">
+  <div class="kpi {% if relatorio.saude_media is not none and relatorio.saude_media >= 70 %}success{% elif relatorio.saude_media is not none and relatorio.saude_media >= 50 %}warning{% elif relatorio.saude_media is not none %}danger{% endif %}">
+    <div class="label">Contas Ativas</div>
+    <div class="value">{{ relatorio.contas_ativas or 0 }}</div>
+    <div class="sub">portfólio ativo</div>
+  </div>
+  <div class="kpi {% if relatorio.saude_media is not none and relatorio.saude_media >= 70 %}success{% elif relatorio.saude_media is not none and relatorio.saude_media >= 50 %}warning{% else %}danger{% endif %}">
+    <div class="label">Saúde Média</div>
+    <div class="value">{{ relatorio.saude_media or '—' }}{% if relatorio.saude_media is not none %}<span style="font-size:14px;">%</span>{% endif %}</div>
+    <div class="sub">score 0–100</div>
+  </div>
+  <div class="kpi {% if (dist_saude.atencao + dist_saude.risco + dist_saude.critico) > 0 %}warning{% else %}success{% endif %}">
+    <div class="label">Em Atenção/Risco</div>
+    <div class="value">{{ dist_saude.atencao + dist_saude.risco + dist_saude.critico }}</div>
+    <div class="sub">atenção {{ dist_saude.atencao }} · risco {{ dist_saude.risco }} · crítico {{ dist_saude.critico }}</div>
+  </div>
+  <div class="kpi {% if acoes_pendentes|length > 0 %}warning{% else %}success{% endif %}">
+    <div class="label">Ações Pendentes</div>
+    <div class="value">{{ acoes_pendentes|length }}</div>
+    <div class="sub">aguardando execução</div>
+  </div>
+  <div class="kpi">
+    <div class="label">Playbooks Definidos</div>
+    <div class="value">{{ n_playbooks_def }}</div>
+    <div class="sub">{{ playbooks_ativos|length }} com contas ativas</div>
+  </div>
+  <div class="kpi">
+    <div class="label">Expansões Sugeridas</div>
+    <div class="value">{{ relatorio.expansoes_sugeridas or 0 }}</div>
+    <div class="sub">último ciclo CS</div>
+  </div>
+</div>
+
+<!-- Distribuição de saúde -->
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header">
+    <h3 style="margin:0;">Distribuição de Saúde do Portfólio</h3>
+  </div>
+  <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:12px;">
+    <div style="flex:1;min-width:120px;text-align:center;padding:16px;background:rgba(var(--success-rgb,0,200,100),0.1);border-radius:8px;border:1px solid rgba(0,200,100,0.3);">
+      <div style="font-size:24px;font-weight:700;color:var(--success);">{{ dist_saude.saudavel }}</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px;">Saudável</div>
+    </div>
+    <div style="flex:1;min-width:120px;text-align:center;padding:16px;background:rgba(255,200,0,0.1);border-radius:8px;border:1px solid rgba(255,200,0,0.3);">
+      <div style="font-size:24px;font-weight:700;color:var(--warning);">{{ dist_saude.atencao }}</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px;">Atenção</div>
+    </div>
+    <div style="flex:1;min-width:120px;text-align:center;padding:16px;background:rgba(255,100,0,0.1);border-radius:8px;border:1px solid rgba(255,100,0,0.3);">
+      <div style="font-size:24px;font-weight:700;color:var(--danger);">{{ dist_saude.risco }}</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px;">Risco</div>
+    </div>
+    <div style="flex:1;min-width:120px;text-align:center;padding:16px;background:rgba(200,0,0,0.1);border-radius:8px;border:1px solid rgba(200,0,0,0.3);">
+      <div style="font-size:24px;font-weight:700;color:var(--danger);">{{ dist_saude.critico }}</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px;">Crítico</div>
+    </div>
+  </div>
+</div>
+
+<!-- Narrativa LLM do último relatório -->
+{% if relatorio.narrativa_llm and relatorio.narrativa_llm.resumo and 'DRY-RUN' not in (relatorio.narrativa_llm.resumo or '') %}
+<div class="card" style="margin-bottom:16px;border-left:3px solid var(--accent);">
+  <div class="card-header">
+    <h3 style="margin:0;">◈ Análise LLM — {{ relatorio.data or '—' }}</h3>
+  </div>
+  <div style="margin-top:12px;font-size:13px;line-height:1.6;">{{ relatorio.narrativa_llm.resumo }}</div>
+</div>
+{% endif %}
+
+<!-- Playbooks ativos -->
+{% if playbooks_ativos %}
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+    <h3 style="margin:0;">Playbooks Ativos</h3>
+    <span class="badge badge-accent">{{ playbooks_ativos|length }}</span>
+  </div>
+  <table style="width:100%;border-collapse:collapse;margin-top:12px;">
+    <thead>
+      <tr style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);">
+        <th style="text-align:left;padding:6px;">Playbook</th>
+        <th style="text-align:center;padding:6px;">Severidade</th>
+        <th style="text-align:center;padding:6px;">Contas</th>
+        <th style="text-align:left;padding:6px;">Gatilho</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for pb in playbooks_ativos %}
+      <tr style="border-top:1px solid var(--border);font-size:12px;">
+        <td style="padding:8px;font-weight:600;">{{ pb.nome }}</td>
+        <td style="padding:8px;text-align:center;">
+          <span class="badge {% if pb.severidade == 'critico' %}badge-danger{% elif pb.severidade == 'risco' %}badge-warning{% else %}badge-muted{% endif %}">
+            {{ pb.severidade }}
+          </span>
+        </td>
+        <td style="padding:8px;text-align:center;">
+          <span class="badge badge-accent">{{ pb._n_contas }}</span>
+        </td>
+        <td style="padding:8px;color:var(--muted);font-size:11px;">{{ pb.gatilho.tipo if pb.gatilho else '—' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<!-- Ações pendentes -->
+{% if acoes_pendentes %}
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+    <h3 style="margin:0;">Ações Pendentes</h3>
+    <span class="badge badge-warning">{{ acoes_pendentes|length }}</span>
+  </div>
+  <table style="width:100%;border-collapse:collapse;margin-top:12px;">
+    <thead>
+      <tr style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);">
+        <th style="text-align:left;padding:6px;">Conta</th>
+        <th style="text-align:left;padding:6px;">Saúde</th>
+        <th style="text-align:left;padding:6px;">Ação</th>
+        <th style="text-align:left;padding:6px;">Descrição</th>
+        <th style="text-align:left;padding:6px;">Data</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for a in acoes_pendentes %}
+      <tr style="border-top:1px solid var(--border);font-size:12px;">
+        <td style="padding:8px;">{{ a.conta_nome or contas_map.get(a.conta_id, {}).get('nome_empresa', a.conta_id) }}</td>
+        <td style="padding:8px;">
+          <span class="badge {% if a.status_saude in ('excelente','boa') %}badge-success{% elif a.status_saude == 'atencao' %}badge-warning{% else %}badge-danger{% endif %}">
+            {{ a.status_saude or '—' }}
+          </span>
+        </td>
+        <td style="padding:8px;font-size:11px;">
+          <span class="badge badge-muted">{{ a.acao or '—' }}</span>
+        </td>
+        <td style="padding:8px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);">{{ a.descricao or '—' }}</td>
+        <td style="padding:8px;color:var(--muted);">{{ a.data or '—' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<!-- Últimas ações executadas -->
+{% if acoes_executadas %}
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header">
+    <h3 style="margin:0;">Últimas Ações Executadas</h3>
+  </div>
+  <table style="width:100%;border-collapse:collapse;margin-top:12px;">
+    <thead>
+      <tr style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);">
+        <th style="text-align:left;padding:6px;">Conta</th>
+        <th style="text-align:left;padding:6px;">Ação</th>
+        <th style="text-align:left;padding:6px;">Status</th>
+        <th style="text-align:left;padding:6px;">Data</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for a in acoes_executadas %}
+      <tr style="border-top:1px solid var(--border);font-size:12px;">
+        <td style="padding:8px;">{{ a.conta_nome or contas_map.get(a.conta_id, {}).get('nome_empresa', a.conta_id) }}</td>
+        <td style="padding:8px;"><span class="badge badge-muted">{{ a.acao or '—' }}</span></td>
+        <td style="padding:8px;"><span class="badge badge-success">executada</span></td>
+        <td style="padding:8px;color:var(--muted);">{{ a.timestamp[:10] if a.timestamp else a.data or '—' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% if not acoes_pendentes and not acoes_executadas and not playbooks_ativos %}
+<div class="card" style="text-align:center;padding:40px;color:var(--muted);">
+  <div style="font-size:24px;margin-bottom:8px;">⬡</div>
+  <div>Sem dados de Customer Success ainda.</div>
+  <div style="font-size:12px;margin-top:8px;">O agente_customer_success gera ações automaticamente a cada ciclo.</div>
+</div>
+{% endif %}
+{% endblock %}
