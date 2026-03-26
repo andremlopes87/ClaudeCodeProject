@@ -32,6 +32,7 @@ from hashlib import md5
 from pathlib import Path
 
 import config
+from core.llm_router import LLMRouter
 from core.politicas_empresa import carregar_politicas
 from core.controle_agente import (
     carregar_estado,
@@ -69,6 +70,8 @@ def executar() -> dict:
         f"Estado: ultima_execucao={estado['ultima_execucao']} | "
         f"processados={len(estado['itens_processados'])}"
     )
+
+    router = LLMRouter()
 
     # ── ETAPA 0: Carregar políticas operacionais ───────────────────────────────
     politicas = carregar_politicas()
@@ -122,11 +125,31 @@ def executar() -> dict:
 
         # Classificar
         status, prioridade = classificar_para_handoff_ou_revisao(candidata)
+
+        # LLM: refinar avaliação de qualidade do lead (ponto 3 — fallback = regra acima)
+        _ctx_lead = {
+            "empresa":          candidata.get("nome", ""),
+            "categoria":        candidata.get("categoria", ""),
+            "cidade":           candidata.get("cidade", ""),
+            "score_presenca":   candidata.get("score_presenca_consolidado", candidata.get("score_presenca_digital", 0)),
+            "tem_whatsapp":     bool(candidata.get("whatsapp")),
+            "tem_site":         bool(candidata.get("website")),
+            "abordavel":        candidata.get("abordavel_agora", False),
+            "prioridade_regra": prioridade,
+            "categorias":       ["lead_quente", "lead_morno", "lead_frio", "descartar"],
+            "instrucao":        "Classificar qualidade do lead. Conservador: preferir lead_morno a descartar.",
+        }
+        _res_lead = router.classificar(_ctx_lead)
+        _class_llm = _res_lead["resultado"] if (_res_lead["sucesso"] and not _res_lead["fallback_usado"]) else None
+        log.info(f"  [llm] lead={'LLM' if _class_llm else 'regra'} | {candidata.get('nome','?')[:40]}")
+
         n_novas += 1
         n_novas_ciclo += 1
 
         # Montar oportunidade de prospecção
         opp_prosp = _montar_oportunidade_prospeccao(candidata, status, prioridade)
+        if _class_llm:
+            opp_prosp["classificacao_llm"] = _class_llm
 
         # Atualizar ou inserir na fila_prosp
         if osm_id in ids_ja_na_fila_prosp:
@@ -211,6 +234,18 @@ def executar() -> dict:
         "limite_novas_ciclo": limite_novas,
         "caminho_log":        str(caminho_log),
     }
+
+    # Memória do agente (melhor esforço)
+    try:
+        from core.llm_memoria import atualizar_memoria_agente
+        atualizar_memoria_agente(NOME_AGENTE, {
+            "resumo_ciclo_anterior": (
+                f"{n_novas} novas, {n_prontas} prontas, "
+                f"{n_revisao} revisao, {n_baixa} baixa, {n_skip} skip"
+            )
+        })
+    except Exception as _exc_mem:
+        log.warning(f"[memoria] {_exc_mem}")
 
     log.info("=" * 60)
     log.info(f"AGENTE PROSPECÇÃO — concluído")

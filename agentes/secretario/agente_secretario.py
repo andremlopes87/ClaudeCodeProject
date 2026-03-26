@@ -240,6 +240,18 @@ def executar() -> dict:
     log.info(f"  mistas prioritarias      : {len(mistas_prio)}")
     log.info("=" * 60)
 
+    # Memória do agente (melhor esforço)
+    try:
+        from core.llm_memoria import atualizar_memoria_agente
+        atualizar_memoria_agente(NOME_AGENTE, {
+            "resumo_ciclo_anterior": (
+                f"{len(operacionais)} operacionais, {len(bloqueios)} bloqueios, "
+                f"{n_delib_pendentes} delib_pendentes, {n_handoffs_criados} handoffs"
+            )
+        })
+    except Exception:
+        pass
+
     return {
         "agente":                   NOME_AGENTE,
         "timestamp":                ts,

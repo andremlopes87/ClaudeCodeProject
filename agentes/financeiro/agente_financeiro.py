@@ -286,6 +286,19 @@ def executar() -> dict:
         "caminho_log":        str(caminho_log),
     }
 
+    # Memória do agente (melhor esforço)
+    try:
+        from core.llm_memoria import atualizar_memoria_agente
+        atualizar_memoria_agente(NOME_AGENTE, {
+            "resumo_ciclo_anterior": (
+                f"saldo=R${posicao['saldo_atual_estimado']:.2f}, "
+                f"{len(fila_riscos)} riscos, {len(itens_escalados)} escalados, "
+                f"risco_caixa={'sim' if posicao.get('risco_caixa') else 'nao'}"
+            )
+        })
+    except Exception:
+        pass
+
     log.info("=" * 60)
     log.info(f"AGENTE FINANCEIRO — concluido")
     log.info(f"  saldo atual    : R$ {posicao['saldo_atual_estimado']:,.2f}")

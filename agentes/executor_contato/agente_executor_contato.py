@@ -188,6 +188,17 @@ def executar() -> dict:
                                             status_operacional="aguardando_integracao_canal")
             _registrar_evento_historico_abordagens(hist_abord, fu, opp, exec_id, abordagem)
 
+            # Memória: registrar canal tentado na conta (melhor esforço)
+            if opp and opp.get("conta_id"):
+                try:
+                    from core.llm_memoria import atualizar_memoria_conta
+                    atualizar_memoria_conta(opp["conta_id"], {
+                        "contexto_comercial": f"execucao preparada | canal={payload.get('canal','?')} | abordagem={abordagem}",
+                        "canais_tentados":    [payload.get("canal")] if payload.get("canal") else [],
+                    })
+                except Exception:
+                    pass
+
             n_preparados += 1
             log.info(
                 f"  [preparado/{abordagem}] {exec_id} | {fu.get('contraparte','?')[:40]} | "
@@ -251,6 +262,15 @@ def executar() -> dict:
     log.info(f"  skip (ja proc.)     : {n_skip}")
     log.info(f"  fila_exec total     : {len(fila_exec)}")
     log.info("=" * 60)
+
+    # Memória do agente (melhor esforço)
+    try:
+        from core.llm_memoria import atualizar_memoria_agente
+        atualizar_memoria_agente(NOME_AGENTE, {
+            "resumo_ciclo_anterior": f"{n_preparados} preparados, {n_bloqueados} bloqueados, {n_skip} skip"
+        })
+    except Exception:
+        pass
 
     return {
         "agente":          NOME_AGENTE,

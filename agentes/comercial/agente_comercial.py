@@ -242,6 +242,18 @@ def executar() -> dict:
         except Exception as _exc_cnt:
             log.debug(f"  [contas] vinculacao ignorada: {_exc_cnt}")
 
+        # Memória: registrar contexto da conta (melhor esforço)
+        if opp.get("conta_id"):
+            try:
+                from core.llm_memoria import atualizar_memoria_conta
+                atualizar_memoria_conta(opp["conta_id"], {
+                    "resumo":             f"{opp.get('contraparte','?')}, {opp.get('categoria','?')}, nova opp {ts}",
+                    "contexto_comercial": f"estagio: {opp.get('estagio','qualificando')}, canal: {opp.get('canal_sugerido','?')}, prio: {opp.get('prioridade','?')}",
+                    "canais_tentados":    [opp.get("canal_sugerido")] if opp.get("canal_sugerido") else [],
+                })
+            except Exception as _exc_mem_c:
+                log.debug(f"  [memoria] conta {opp.get('conta_id')}: {_exc_mem_c}")
+
         novas_opps.append(opp)
         novos_fus.append(fu)
         marcar_processado(estado, opp["id"])
@@ -483,6 +495,18 @@ def executar() -> dict:
         "planos_gerados":          n_planos_gerados,
         "caminho_log":             str(caminho_log),
     }
+
+    # Memória do agente (melhor esforço)
+    try:
+        from core.llm_memoria import atualizar_memoria_agente
+        atualizar_memoria_agente(NOME_AGENTE, {
+            "resumo_ciclo_anterior": (
+                f"{len(novas_opps)} novas opps, {n_propostas_geradas} propostas, "
+                f"{len(novos_fus)} followups, {len(itens_para_consolidada)} escalados"
+            )
+        })
+    except Exception as _exc_mem:
+        log.debug(f"  [memoria] agente: {_exc_mem}")
 
     log.info("=" * 60)
     log.info(f"AGENTE COMERCIAL — concluido")

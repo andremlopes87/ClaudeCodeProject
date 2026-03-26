@@ -23,6 +23,7 @@ from pathlib import Path
 from unicodedata import normalize
 
 import config
+from core.llm_router import LLMRouter
 from core.politicas_empresa import carregar_politicas
 from core.controle_agente import (
     carregar_estado,
@@ -75,6 +76,7 @@ def executar() -> dict:
     )
 
     estado    = carregar_estado(_NOME_AGENTE)
+    router    = LLMRouter()
     insumos   = carregar_insumos_marketing()
     ja_no_fluxo = detectar_oportunidades_ja_no_fluxo()
 
@@ -113,6 +115,24 @@ def executar() -> dict:
 
         # Importar para fila do agente
         oport = importar_oportunidade_marketing(item)
+
+        # LLM: diagnóstico de presença digital personalizado (ponto 1)
+        _ctx_diag = {
+            "empresa":        item.get("nome", ""),
+            "categoria":      item.get("categoria", ""),
+            "score_presenca": item.get("score_presenca_consolidado", item.get("score_presenca_digital", 0)),
+            "tem_site":       bool(item.get("website") or item.get("url_site")),
+            "tem_whatsapp":   bool(item.get("whatsapp")),
+            "tem_instagram":  bool(item.get("instagram")),
+            "oportunidade":   (item.get("oportunidade_marketing_principal") or item.get("oportunidade_presenca_principal", ""))[:150],
+            "instrucao":      "Gerar diagnóstico contextualizado de presença digital para abordagem comercial.",
+        }
+        _res_diag = router.analisar(_ctx_diag)
+        _usou_llm_diag = _res_diag["sucesso"] and not _res_diag["fallback_usado"]
+        if _usou_llm_diag:
+            oport["diagnostico_resumido"] = _res_diag["resultado"]
+        log.info(f"  [llm] diagnostico={'LLM' if _usou_llm_diag else 'template'} | {item.get('nome','?')[:40]}")
+
         fila_agente.append(oport)
         registrar_historico_marketing(historico, oport, "oportunidade_importada",
                                       f"Importada da linha de marketing — prioridade={oport['prioridade']}")
@@ -160,6 +180,20 @@ def executar() -> dict:
             n_deliberacoes += 1
             log.info(f"    → deliberacao ({delib['id']})")
         else:
+            # LLM: copy personalizado para abordagem (ponto 2 — fallback = texto genérico)
+            _ctx_copy = {
+                "empresa":      item.get("nome", ""),
+                "categoria":    item.get("categoria", ""),
+                "diagnostico":  str(oport.get("diagnostico_resumido", ""))[:150],
+                "oferta":       oport.get("oferta_principal", "")[:100],
+                "canal":        item.get("canal_primeiro_contato") or item.get("canal_abordagem_sugerido", ""),
+                "instrucao":    "Redigir copy de abordagem inicial: direto, consultivo, foco em benefício.",
+            }
+            _res_copy = router.redigir(_ctx_copy)
+            _usou_llm_copy = _res_copy["sucesso"] and not _res_copy["fallback_usado"]
+            if _usou_llm_copy:
+                oport["copy_llm"] = _res_copy["resultado"]
+            log.info(f"  [llm] copy={'LLM' if _usou_llm_copy else 'generico'} | {item.get('nome','?')[:40]}")
             handoff = criar_handoff_comercial_marketing(item, oport, handoffs)
             if handoff:
                 handoffs.append(handoff)
@@ -184,6 +218,18 @@ def executar() -> dict:
         f"Revisão: {n_revisao} | Já no fluxo: {n_ja_no_fluxo}"
     )
     log.info("=" * 60)
+
+    # Memória do agente (melhor esforço)
+    try:
+        from core.llm_memoria import atualizar_memoria_agente
+        atualizar_memoria_agente(_NOME_AGENTE, {
+            "resumo_ciclo_anterior": (
+                f"{n_importadas} importadas, {n_handoffs} handoffs, "
+                f"{n_deliberacoes} deliberacoes, {n_ja_no_fluxo} ja_no_fluxo"
+            )
+        })
+    except Exception as _exc_mem:
+        log.warning(f"[memoria] {_exc_mem}")
 
     return {
         "importadas":        n_importadas,
