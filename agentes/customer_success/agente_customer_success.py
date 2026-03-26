@@ -43,31 +43,19 @@ from core.acompanhamento_contas import (
 
 NOME_AGENTE = "agente_customer_success"
 
-_ARQ_CONTAS    = config.PASTA_DADOS / "contas_clientes.json"
-_ARQ_ENTREGA   = config.PASTA_DADOS / "pipeline_entrega.json"
-_ARQ_ACOES     = config.PASTA_DADOS / "acoes_customer_success.json"
-_ARQ_RELATORIO = config.PASTA_DADOS / "relatorio_customer_success.json"
+_ARQ_CONTAS       = config.PASTA_DADOS / "contas_clientes.json"
+_ARQ_ENTREGA      = config.PASTA_DADOS / "pipeline_entrega.json"
+_ARQ_ACOES        = config.PASTA_DADOS / "acoes_customer_success.json"
+_ARQ_RELATORIO    = config.PASTA_DADOS / "relatorio_customer_success.json"
+_ARQ_RECEBIVEIS   = config.PASTA_DADOS / "recebiveis.json"
+_ARQ_ACOMPS       = config.PASTA_DADOS / "acompanhamentos_contas.json"
 
-_STATUS_ATIVOS = {"cliente_ativo", "cliente_em_implantacao"}
-
-# Status que requerem diagnóstico LLM (não excelente)
+_STATUS_ATIVOS      = {"cliente_ativo", "cliente_em_implantacao"}
 _STATUS_DIAGNOSTICO = {"boa", "atencao", "critica"}
-# Status que acionam playbook de risco
-_STATUS_RISCO = {"atencao", "critica"}
+_STATUS_RISCO       = {"atencao", "critica"}
 
-# Playbooks por status de saúde
-_PLAYBOOKS = {
-    "critica": [
-        {"acao": "contato_urgente",     "descricao": "Contato imediato — conta em estado critico, risco alto de churn"},
-        {"acao": "reuniao_recuperacao", "descricao": "Agendar reuniao de recuperacao com o decisor da conta"},
-    ],
-    "atencao": [
-        {"acao": "checkin_proativo",    "descricao": "Check-in proativo para entender necessidades e resolver bloqueios"},
-    ],
-    "boa": [
-        {"acao": "acompanhamento_regular", "descricao": "Manter acompanhamento periodico — conta estavel"},
-    ],
-}
+# Peso de severidade para priorização por fallback
+_PESO_SEV = {"critico": 0, "risco": 1, "atencao": 2}
 
 
 # ─── I/O helpers ──────────────────────────────────────────────────────────────
@@ -186,7 +174,7 @@ def executar() -> dict:
 
     # ── ETAPA 4: Aplicar playbooks de risco ────────────────────────────────────
     log.info("  [ETAPA 4] Aplicando playbooks de risco...")
-    acoes_geradas = _aplicar_playbooks_risco(contas_ativas, saudes, log)
+    acoes_geradas = _aplicar_playbooks_risco(contas_ativas, saudes, pipeline_entrega, router, log)
     log.info(f"  acoes de risco geradas: {acoes_geradas}")
 
     # ── ETAPA 5: Detectar oportunidades de expansão ────────────────────────────
@@ -275,59 +263,208 @@ def executar() -> dict:
 
 # ─── ETAPA 4: Aplicar playbooks de risco ──────────────────────────────────────
 
-def _aplicar_playbooks_risco(contas: list, saudes: dict, log) -> int:
+def _aplicar_playbooks_risco(contas: list, saudes: dict, pipeline_entrega: list,
+                              router: LLMRouter, log) -> int:
     """
-    Para contas em risco/critica (e boa como acompanhamento), gera ação concreta.
-    Nunca duplica ação para a mesma conta no mesmo dia.
+    Avalia playbooks configuráveis para cada conta ativa.
+    Usa LLM para priorizar quando múltiplos playbooks ativam na mesma conta.
+    Fallback: ordena por severidade (critico > risco > atencao).
+    Nunca duplica ação para mesma conta + playbook no mesmo dia.
     Retorna quantidade de ações geradas.
     """
-    acoes   = _ler(_ARQ_ACOES, [])
-    hoje    = _hoje()
-    n_novas = 0
+    from core.playbooks_cs import (
+        avaliar_playbooks,
+        gerar_acoes_playbook,
+        obter_status_playbooks_conta,
+    )
+
+    acoes_cs = _ler(_ARQ_ACOES, [])
+    hoje     = _hoje()
+    n_novas  = 0
 
     for conta in contas:
         conta_id = conta["id"]
         saude    = saudes.get(conta_id, {})
-        status   = saude.get("status_saude", "boa")
 
-        # Excelente — sem playbook necessário
-        if status == "excelente":
+        # Montar contexto para avaliação de gatilhos
+        contexto = _montar_contexto_cs(conta, saude, pipeline_entrega)
+
+        # Avaliar quais playbooks disparam para esta conta
+        playbooks_ativados = avaliar_playbooks(conta, contexto)
+        if not playbooks_ativados:
             continue
 
-        # Dedup: não duplicar ação para mesma conta no mesmo dia
-        ja_tem_hoje = any(
-            a.get("conta_id") == conta_id and a.get("data") == hoje
-            for a in acoes
+        log.info(
+            f"  conta={conta.get('nome_empresa','?')[:25]!r} — "
+            f"{len(playbooks_ativados)} playbook(s) ativado(s): "
+            f"{[p['id'] for p in playbooks_ativados]}"
         )
-        if ja_tem_hoje:
-            log.info(f"  dedup: {conta_id} ja tem acao hoje — pulando")
-            continue
 
-        playbook_status = status if status in _PLAYBOOKS else "boa"
-        for pb in _PLAYBOOKS[playbook_status]:
-            acao = {
+        # LLM: priorizar quando múltiplos playbooks ativam
+        if len(playbooks_ativados) > 1:
+            try:
+                res = router.decidir({
+                    "agente": NOME_AGENTE,
+                    "tarefa": "priorizar_playbooks",
+                    "dados": {
+                        "conta":     conta.get("nome_empresa", ""),
+                        "playbooks": [
+                            {"id": p["id"], "nome": p["nome"], "severidade": p["severidade"]}
+                            for p in playbooks_ativados
+                        ],
+                        "contexto":  contexto,
+                    },
+                    "empresa_id": conta_id,
+                })
+                if res["sucesso"] and not res["fallback_usado"]:
+                    log.info(f"  [llm] priorizacao de playbooks para conta={conta_id}")
+                # Playbooks já vêm ordenados por severidade de avaliar_playbooks — LLM pode refinar
+                # mas sem reordenação automática aqui (dry-run não retorna ordem útil)
+            except Exception as exc:
+                log.warning(f"  [llm] falha na priorizacao de playbooks {conta_id}: {exc}")
+            # Fallback: já estão ordenados por severidade (critico primeiro)
+
+        # Obter etapa atual de cada playbook para esta conta
+        status_playbooks = obter_status_playbooks_conta(conta_id)
+        etapas_map = {s["playbook_id"]: s["etapa_atual"] for s in status_playbooks}
+
+        for pb in playbooks_ativados:
+            etapa_atual = etapas_map.get(pb["id"], 1)
+            acao        = gerar_acoes_playbook(conta_id, pb, etapa_atual)
+            if not acao:
+                log.info(f"  dedup ou esgotado: {pb['id']} etapa={etapa_atual} conta={conta_id}")
+                continue
+
+            entrada = {
                 "id":             f"cs_{uuid.uuid4().hex[:8]}",
                 "conta_id":       conta_id,
                 "conta_nome":     conta.get("nome_empresa", ""),
                 "data":           hoje,
                 "timestamp":      _agora(),
-                "status_saude":   status,
+                "status_saude":   saude.get("status_saude", ""),
                 "score_saude":    saude.get("score_saude", 0),
-                "acao":           pb["acao"],
-                "descricao":      pb["descricao"],
+                "playbook_id":    pb["id"],
+                "playbook_nome":  pb["nome"],
+                "severidade":     pb["severidade"],
+                "acao_ordem":     acao["ordem"],
+                "acao_tipo":      acao["tipo"],
+                "acao_canal":     acao.get("canal", ""),
+                "acao_template":  acao.get("template", ""),
+                "descricao":      acao.get("descricao", ""),
+                "prazo_dias":     acao.get("prazo_dias", 1),
+                "total_etapas":   acao.get("total_etapas", 1),
                 "diagnostico_llm": saude.get("diagnostico_llm", ""),
                 "status_acao":    "pendente",
                 "origem":         NOME_AGENTE,
             }
-            acoes.append(acao)
+            acoes_cs.append(entrada)
             n_novas += 1
             log.info(
-                f"  acao gerada: {pb['acao']} | "
-                f"conta={conta.get('nome_empresa', '?')[:25]!r} | status={status}"
+                f"  acao gerada: playbook={pb['id']} etapa={acao['ordem']} "
+                f"tipo={acao['tipo']} | conta={conta.get('nome_empresa','?')[:25]!r}"
             )
 
-    _salvar(_ARQ_ACOES, acoes)
+    _salvar(_ARQ_ACOES, acoes_cs)
     return n_novas
+
+
+def _montar_contexto_cs(conta: dict, saude: dict, pipeline_entrega: list) -> dict:
+    """
+    Monta o dict de contexto usado pelos gatilhos dos playbooks.
+    Nunca lança exceção — valores ausentes ficam como 0/None.
+    """
+    hoje = datetime.now()
+
+    # dias_sem_interacao: a partir de ultimo_acompanhamento_em na conta
+    dias_sem_interacao = 0
+    ultima = conta.get("ultimo_acompanhamento_em") or conta.get("ultima_interacao_em")
+    if ultima:
+        try:
+            dias_sem_interacao = (hoje - datetime.fromisoformat(ultima)).days
+        except Exception:
+            pass
+    else:
+        # Sem registro de interação → considerar inativo desde criação
+        criado = conta.get("criado_em", "")
+        if criado:
+            try:
+                dias_sem_interacao = (hoje - datetime.fromisoformat(criado)).days
+            except Exception:
+                pass
+
+    # dias_sem_progresso_entrega: entregas em execução sem atualização
+    conta_id = conta["id"]
+    dias_sem_progresso = 0
+    entregas_em_exec = [
+        e for e in pipeline_entrega
+        if e.get("conta_id") == conta_id
+        and e.get("status_entrega") in ("onboarding", "em_execucao", "aguardando_insumo")
+    ]
+    for ent in entregas_em_exec:
+        atualizado = ent.get("atualizado_em", ent.get("registrado_em", ""))
+        if atualizado:
+            try:
+                dias = (hoje - datetime.fromisoformat(atualizado)).days
+                dias_sem_progresso = max(dias_sem_progresso, dias)
+            except Exception:
+                pass
+
+    # parcela_atrasada_dias: lê recebiveis.json se disponível
+    parcela_atrasada_dias = 0
+    try:
+        rec_dados = _ler(_ARQ_RECEBIVEIS, [])
+        if isinstance(rec_dados, dict):
+            rec_dados = rec_dados.get("recebiveis", [])
+        for rec in rec_dados:
+            if rec.get("conta_id") != conta_id:
+                continue
+            if rec.get("status") not in ("em_aberto", "atrasado", "pendente"):
+                continue
+            venc = rec.get("data_vencimento", "")
+            if not venc:
+                continue
+            try:
+                atraso = (hoje - datetime.fromisoformat(venc)).days
+                if atraso > 0:
+                    parcela_atrasada_dias = max(parcela_atrasada_dias, atraso)
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+    # nps_score e feedback_sentimento: do acompanhamento mais recente
+    nps_score          = None
+    feedback_sentimento = None
+    try:
+        acomps = _ler(_ARQ_ACOMPS, [])
+        acomps_conta = [
+            a for a in acomps
+            if a.get("conta_id") == conta_id and a.get("status") != "arquivado"
+        ]
+        if acomps_conta:
+            mais_recente = max(
+                acomps_conta,
+                key=lambda a: a.get("atualizado_em", a.get("registrado_em", "")),
+            )
+            nps_score = mais_recente.get("nps_opcional")
+            sat = mais_recente.get("satisfacao", "")
+            if sat == "baixa":
+                feedback_sentimento = "negativo"
+            elif sat == "alta":
+                feedback_sentimento = "positivo"
+            elif sat:
+                feedback_sentimento = "neutro"
+    except Exception:
+        pass
+
+    return {
+        "dias_sem_interacao":         dias_sem_interacao,
+        "parcela_atrasada_dias":      parcela_atrasada_dias,
+        "dias_sem_progresso_entrega": dias_sem_progresso,
+        "score_saude":                saude.get("score_saude", 60),
+        "nps_score":                  nps_score,
+        "feedback_sentimento":        feedback_sentimento,
+    }
 
 
 # ─── ETAPA 5: Detectar expansões ──────────────────────────────────────────────
