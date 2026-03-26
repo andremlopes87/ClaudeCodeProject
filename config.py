@@ -235,6 +235,8 @@ AGENDA_AGENTES = {
     "qualidade":         {"horarios": ["03:00"], "dias": ["ter", "sex"]},
     # Executor de melhorias — roda 2x/semana APÓS auditor e QA (horário de menor risco)
     "executor_melhorias": {"horarios": ["04:00"], "dias": ["qua", "sab"]},
+    # Multi-cidade — prospecção e marketing em escala nacional (domingo, não conflita com local)
+    "multi_cidade":       {"horarios": ["02:00"], "dias": ["dom"]},
 }
 
 # Segundos entre cada verificação da agenda

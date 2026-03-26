@@ -284,6 +284,10 @@ class Scheduler:
             import main_agente_executor_melhorias
             return main_agente_executor_melhorias.main
 
+        if agente == "multi_cidade":
+            import main_multi_cidade
+            return main_multi_cidade.main
+
         raise ValueError(f"Agente desconhecido no scheduler: '{agente}'")
 
     # ─── Estado e log ─────────────────────────────────────────────────────────

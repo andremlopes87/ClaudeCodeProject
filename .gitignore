@@ -4,5 +4,6 @@ __pycache__/
 .env
 dados/
 !dados/politicas_ti.json
+!dados/estado_multi_cidade.json
 logs/
 .claude/

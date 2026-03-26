@@ -1,0 +1,131 @@
+{
+  "cidades": {
+    "São José do Rio Preto": {
+      "estado": "SP",
+      "status": "pendente",
+      "ultima_execucao": null,
+      "execucoes_total": 0,
+      "leads_encontrados": 0,
+      "oportunidades_geradas": 0,
+      "nichos_processados": [],
+      "nichos_pendentes": ["acougue", "autopecas", "barbearia", "borracharia", "oficina_mecanica", "padaria", "salao_de_beleza"]
+    },
+    "Ribeirão Preto": {
+      "estado": "SP",
+      "status": "pendente",
+      "ultima_execucao": null,
+      "execucoes_total": 0,
+      "leads_encontrados": 0,
+      "oportunidades_geradas": 0,
+      "nichos_processados": [],
+      "nichos_pendentes": ["acougue", "autopecas", "barbearia", "borracharia", "oficina_mecanica", "padaria", "salao_de_beleza"]
+    },
+    "Bauru": {
+      "estado": "SP",
+      "status": "pendente",
+      "ultima_execucao": null,
+      "execucoes_total": 0,
+      "leads_encontrados": 0,
+      "oportunidades_geradas": 0,
+      "nichos_processados": [],
+      "nichos_pendentes": ["acougue", "autopecas", "barbearia", "borracharia", "oficina_mecanica", "padaria", "salao_de_beleza"]
+    },
+    "São José dos Campos": {
+      "estado": "SP",
+      "status": "pendente",
+      "ultima_execucao": null,
+      "execucoes_total": 0,
+      "leads_encontrados": 0,
+      "oportunidades_geradas": 0,
+      "nichos_processados": [],
+      "nichos_pendentes": ["acougue", "autopecas", "barbearia", "borracharia", "oficina_mecanica", "padaria", "salao_de_beleza"]
+    },
+    "Sorocaba": {
+      "estado": "SP",
+      "status": "pendente",
+      "ultima_execucao": null,
+      "execucoes_total": 0,
+      "leads_encontrados": 0,
+      "oportunidades_geradas": 0,
+      "nichos_processados": [],
+      "nichos_pendentes": ["acougue", "autopecas", "barbearia", "borracharia", "oficina_mecanica", "padaria", "salao_de_beleza"]
+    },
+    "Campinas": {
+      "estado": "SP",
+      "status": "pendente",
+      "ultima_execucao": null,
+      "execucoes_total": 0,
+      "leads_encontrados": 0,
+      "oportunidades_geradas": 0,
+      "nichos_processados": [],
+      "nichos_pendentes": ["acougue", "autopecas", "barbearia", "borracharia", "oficina_mecanica", "padaria", "salao_de_beleza"]
+    },
+    "Curitiba": {
+      "estado": "PR",
+      "status": "pendente",
+      "ultima_execucao": null,
+      "execucoes_total": 0,
+      "leads_encontrados": 0,
+      "oportunidades_geradas": 0,
+      "nichos_processados": [],
+      "nichos_pendentes": ["acougue", "autopecas", "barbearia", "borracharia", "oficina_mecanica", "padaria", "salao_de_beleza"]
+    },
+    "Londrina": {
+      "estado": "PR",
+      "status": "pendente",
+      "ultima_execucao": null,
+      "execucoes_total": 0,
+      "leads_encontrados": 0,
+      "oportunidades_geradas": 0,
+      "nichos_processados": [],
+      "nichos_pendentes": ["acougue", "autopecas", "barbearia", "borracharia", "oficina_mecanica", "padaria", "salao_de_beleza"]
+    },
+    "Porto Alegre": {
+      "estado": "RS",
+      "status": "pendente",
+      "ultima_execucao": null,
+      "execucoes_total": 0,
+      "leads_encontrados": 0,
+      "oportunidades_geradas": 0,
+      "nichos_processados": [],
+      "nichos_pendentes": ["acougue", "autopecas", "barbearia", "borracharia", "oficina_mecanica", "padaria", "salao_de_beleza"]
+    },
+    "Florianópolis": {
+      "estado": "SC",
+      "status": "pendente",
+      "ultima_execucao": null,
+      "execucoes_total": 0,
+      "leads_encontrados": 0,
+      "oportunidades_geradas": 0,
+      "nichos_processados": [],
+      "nichos_pendentes": ["acougue", "autopecas", "barbearia", "borracharia", "oficina_mecanica", "padaria", "salao_de_beleza"]
+    },
+    "Belo Horizonte": {
+      "estado": "MG",
+      "status": "pendente",
+      "ultima_execucao": null,
+      "execucoes_total": 0,
+      "leads_encontrados": 0,
+      "oportunidades_geradas": 0,
+      "nichos_processados": [],
+      "nichos_pendentes": ["acougue", "autopecas", "barbearia", "borracharia", "oficina_mecanica", "padaria", "salao_de_beleza"]
+    },
+    "Goiânia": {
+      "estado": "GO",
+      "status": "pendente",
+      "ultima_execucao": null,
+      "execucoes_total": 0,
+      "leads_encontrados": 0,
+      "oportunidades_geradas": 0,
+      "nichos_processados": [],
+      "nichos_pendentes": ["acougue", "autopecas", "barbearia", "borracharia", "oficina_mecanica", "padaria", "salao_de_beleza"]
+    }
+  },
+  "configuracao": {
+    "max_cidades_por_ciclo": 2,
+    "pausa_entre_cidades_seg": 30,
+    "max_nichos_por_cidade_por_ciclo": 3
+  },
+  "ultima_execucao_ciclo": null,
+  "total_ciclos": 0
+}
