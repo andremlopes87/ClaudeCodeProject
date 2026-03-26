@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+{% block title %}LLM / Custos — Painel do Conselho{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>LLM / Custos
+    {% if modo_llm == 'dry-run' %}
+      <span class="badge badge-accent" style="font-size:11px;margin-left:10px;">DRY-RUN ATIVO</span>
+    {% else %}
+      <span class="badge badge-danger" style="font-size:11px;margin-left:10px;">MODO REAL — custo ativo</span>
+    {% endif %}
+  </h1>
+  <p>
+    {% if modo_llm == 'dry-run' %}
+      Sem chamadas reais à API. Custo real = R$0,00.
+      Custo simulado mostra o que custaria se o modo real estivesse ativo.
+    {% else %}
+      Chamadas reais à API Anthropic ativas.
+    {% endif %}
+  </p>
+</div>
+
+{% set usd_brl = 5.5 %}
+
+<!-- KPIs hoje -->
+<div class="kpi-grid">
+  <div class="kpi">
+    <div class="label">Chamadas hoje</div>
+    <div class="value">{{ resumo_hoje.get('total_chamadas', 0) }}</div>
+    <div class="sub">{{ total_log }} total no log</div>
+  </div>
+  <div class="kpi">
+    <div class="label">Custo real hoje</div>
+    <div class="value">R${{ "%.4f"|format(resumo_hoje.get('custo_total_usd', 0) * usd_brl) }}</div>
+    <div class="sub">{% if modo_llm == 'dry-run' %}R$0,00 — dry-run{% else %}USD {{ "%.6f"|format(resumo_hoje.get('custo_total_usd', 0)) }}{% endif %}</div>
+  </div>
+  <div class="kpi warning">
+    <div class="label">Custo simulado hoje</div>
+    <div class="value">R${{ "%.4f"|format(resumo_hoje.get('custo_simulado_usd', 0) * usd_brl) }}</div>
+    <div class="sub">se real estivesse ativo</div>
+  </div>
+  <div class="kpi">
+    <div class="label">Tokens hoje</div>
+    <div class="value">{{ resumo_hoje.get('total_tokens', 0) }}</div>
+    <div class="sub">{% if modo_llm == 'dry-run' %}estimado{% else %}real{% endif %}</div>
+  </div>
+  <div class="kpi">
+    <div class="label">Custo simulado 7d</div>
+    <div class="value">R${{ "%.2f"|format(resumo_semana.get('custo_simulado_usd', 0) * usd_brl) }}</div>
+    <div class="sub">{{ resumo_semana.get('total_chamadas', 0) }} chamadas</div>
+  </div>
+  <div class="kpi">
+    <div class="label">Agentes usando LLM</div>
+    <div class="value">{{ resumo_hoje.get('por_agente', {})|length }}</div>
+    <div class="sub">hoje</div>
+  </div>
+</div>
+
+<!-- Por agente -->
+{% if resumo_hoje.get('por_agente') %}
+<h2>Por Agente — hoje</h2>
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Agente</th>
+        <th>Chamadas</th>
+        <th>Tokens</th>
+        <th>Custo real</th>
+        <th>Custo simulado</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for agente, dados in resumo_hoje.get('por_agente', {}).items()|sort %}
+      <tr>
+        <td><b>{{ agente }}</b></td>
+        <td>{{ dados.chamadas }}</td>
+        <td>{{ dados.tokens }}</td>
+        <td class="text-muted">R${{ "%.6f"|format(dados.custo_usd * usd_brl) }}</td>
+        <td>R${{ "%.6f"|format(dados.custo_simulado_usd * usd_brl) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<!-- Por tipo de tarefa -->
+{% if resumo_hoje.get('por_tipo') %}
+<h2>Por Tipo de Tarefa — hoje</h2>
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Tipo</th>
+        <th>Chamadas</th>
+        <th>Custo simulado</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for tipo, dados in resumo_hoje.get('por_tipo', {}).items()|sort %}
+      <tr>
+        <td><span class="badge badge-accent">{{ tipo }}</span></td>
+        <td>{{ dados.chamadas }}</td>
+        <td>R${{ "%.6f"|format(dados.custo_simulado_usd * usd_brl) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<!-- Top 5 chamadas -->
+{% if top5 %}
+<h2>Top 5 Chamadas por Custo Simulado</h2>
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Horário</th>
+        <th>Agente</th>
+        <th>Tipo</th>
+        <th>Modelo simulado</th>
+        <th>Custo simulado</th>
+        <th>Modo</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for e in top5 %}
+      <tr>
+        <td class="text-muted">{{ e.get('timestamp', '—')[:16].replace('T',' ') }}</td>
+        <td>{{ e.get('agente', '—') }}</td>
+        <td><span class="badge badge-accent">{{ e.get('tipo_tarefa', '—') }}</span></td>
+        <td class="text-muted">{{ e.get('modelo_usado', '—') }}</td>
+        <td>R${{ "%.6f"|format(e.get('custo_estimado_real', 0) * usd_brl) }}</td>
+        <td>
+          {% if e.get('modo') == 'dry-run' %}
+            <span class="badge badge-muted">dry-run</span>
+          {% else %}
+            <span class="badge badge-danger">real</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% if resumo_hoje.get('total_chamadas', 0) == 0 and total_log == 0 %}
+<div class="card" style="margin-top:24px;text-align:center;color:var(--muted);padding:32px;">
+  Nenhuma chamada LLM registrada ainda.<br>
+  O log será preenchido automaticamente quando os agentes usarem o router.
+</div>
+{% endif %}
+
+<!-- Aviso modo dry-run -->
+{% if modo_llm == 'dry-run' %}
+<div class="card" style="margin-top:16px;border-left:3px solid var(--accent);padding:12px 16px;">
+  <b>Modo dry-run ativo.</b>
+  Para ativar chamadas reais: configure <code>LLM_MODO = "real"</code> em <code>config.py</code>
+  e defina <code>ANTHROPIC_API_KEY</code> no arquivo <code>.env</code>.
+</div>
+{% endif %}
+{% endblock %}

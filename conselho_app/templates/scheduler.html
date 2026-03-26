@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+{% block title %}Scheduler — Painel do Conselho{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Scheduler
+    {% if scheduler_ativo %}
+      <span class="badge badge-success" style="font-size:11px;margin-left:10px;">ativo</span>
+    {% else %}
+      <span class="badge badge-warning" style="font-size:11px;margin-left:10px;">inativo</span>
+    {% endif %}
+    {% if modo_empresa != 'normal' %}
+      <span class="badge badge-warning" style="font-size:11px;margin-left:6px;">empresa: {{ modo_empresa }}</span>
+    {% endif %}
+  </h1>
+  <p>
+    Loop contínuo de execução dos agentes.
+    Última verificação: {{ estado.get('ultima_verificacao', '—')[:16].replace('T',' ') if estado.get('ultima_verificacao') else '—' }}
+  </p>
+</div>
+
+<!-- KPIs -->
+<div class="kpi-grid">
+  <div class="kpi {% if not scheduler_ativo %}warning{% endif %}">
+    <div class="label">Status</div>
+    <div class="value">{% if scheduler_ativo %}on{% else %}off{% endif %}</div>
+    <div class="sub">{% if scheduler_ativo %}em execução{% else %}desativado em config{% endif %}</div>
+  </div>
+  <div class="kpi">
+    <div class="label">Ciclos hoje</div>
+    <div class="value">{{ ciclos_hoje }}</div>
+    <div class="sub">execuções registradas</div>
+  </div>
+  <div class="kpi {% if erros_hoje > 0 %}danger{% endif %}">
+    <div class="label">Erros hoje</div>
+    <div class="value">{{ erros_hoje }}</div>
+    <div class="sub">{% if erros_hoje > 0 %}ver log abaixo{% else %}nenhum{% endif %}</div>
+  </div>
+  <div class="kpi">
+    <div class="label">Agentes pausados</div>
+    <div class="value">{{ agentes_pausados|length }}</div>
+    <div class="sub">pela governança</div>
+  </div>
+  <div class="kpi">
+    <div class="label">Agenda hoje</div>
+    <div class="value">{{ agenda_hoje|length }}</div>
+    <div class="sub">slots agendados</div>
+  </div>
+  {% if estado.get('proximo_agendado') %}
+  <div class="kpi">
+    <div class="label">Próximo</div>
+    <div class="value" style="font-size:14px;">{{ estado.proximo_agendado.get('agente','—') }}</div>
+    <div class="sub">{{ estado.proximo_agendado.get('horario','—') }} · {{ estado.proximo_agendado.get('em','')[:10] if estado.proximo_agendado.get('em') else '' }}</div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Agenda do dia -->
+<h2>Agenda de Hoje</h2>
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Horário</th>
+        <th>Agente</th>
+        <th>Status</th>
+        <th>Última execução hoje</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for slot in agenda_hoje %}
+      {% set pausado = slot.agente in agentes_pausados %}
+      {% set bloq_manut = modo_empresa == 'manutencao' and slot.agente != 'secretario' %}
+      <tr {% if pausado or bloq_manut %}style="opacity:0.6;"{% endif %}>
+        <td><b>{{ slot.horario }}</b></td>
+        <td>{{ slot.agente }}</td>
+        <td>
+          {% if pausado %}
+            <span class="badge badge-warning">pausado</span>
+          {% elif bloq_manut %}
+            <span class="badge badge-warning">manutenção</span>
+          {% else %}
+            <span class="badge badge-success">ativo</span>
+          {% endif %}
+        </td>
+        <td class="text-muted">
+          {% set execucoes_agente = estado.get('execucoes_hoje', {}).get(slot.agente, []) %}
+          {% if execucoes_agente %}
+            {{ execucoes_agente[-1][:16].replace('T',' ') }}
+          {% else %}
+            —
+          {% endif %}
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="4" class="empty">Nenhum agente agendado para hoje</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if agentes_pausados %}
+<div class="card" style="margin-bottom:16px;border-left:3px solid var(--warning);">
+  <b>Agentes pausados pela governança:</b>
+  {% for ag in agentes_pausados %}
+    <span class="badge badge-warning" style="margin-left:6px;">{{ ag }}</span>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- Log recente -->
+<h2>Últimas Execuções</h2>
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Agente</th>
+        <th>Início</th>
+        <th>Status</th>
+        <th>Duração</th>
+        <th>Detalhe</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for e in log_recente %}
+      <tr>
+        <td><b>{{ e.agente }}</b></td>
+        <td class="text-muted">{{ e.get('inicio','—')[:16].replace('T',' ') }}</td>
+        <td>
+          {% if e.get('status') == 'ok' %}
+            <span class="badge badge-success">ok</span>
+          {% elif e.get('status') == 'erro' %}
+            <span class="badge badge-danger">erro</span>
+          {% elif e.get('status') == 'pulado' %}
+            <span class="badge badge-muted">pulado</span>
+          {% else %}
+            <span class="badge badge-muted">{{ e.get('status','—') }}</span>
+          {% endif %}
+        </td>
+        <td class="text-muted">{% if e.get('duracao_ms') %}{{ e.duracao_ms }}ms{% else %}—{% endif %}</td>
+        <td class="text-muted" style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+          {% if e.get('erro') %}
+            <span class="text-danger">{{ e.erro[:100] }}</span>
+          {% else %}
+            —
+          {% endif %}
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" class="empty">Nenhuma execução registrada ainda</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if not scheduler_ativo %}
+<div class="card" style="margin-top:16px;border-left:3px solid var(--warning);padding:12px 16px;">
+  <b>Scheduler inativo.</b>
+  Para ativar: defina <code>SCHEDULER_ATIVO = True</code> em <code>config.py</code>
+  e execute <code>python main_scheduler.py</code>.
+</div>
+{% endif %}
+{% endblock %}

@@ -244,6 +244,57 @@
 </div>
 {% endif %}
 
+<!-- Card LLM -->
+{% if llm_resumo %}
+<div class="card" style="margin-bottom:16px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;">
+  <div>
+    <div class="label" style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">LLM / Inteligência</div>
+    {% if llm_resumo.get('modo') == 'dry-run' %}
+      <span class="badge badge-accent" style="font-size:11px;padding:4px 10px;">DRY-RUN</span>
+    {% else %}
+      <span class="badge badge-danger" style="font-size:11px;padding:4px 10px;">REAL</span>
+    {% endif %}
+  </div>
+  <div style="font-size:11px;color:var(--muted);">
+    <div>Custo real hoje: <b>R$0,00</b></div>
+    {% if llm_resumo.get('custo_simulado_usd', 0) > 0 %}
+    <div>Se real: <b style="color:var(--accent);">~R${{ "%.4f"|format(llm_resumo.custo_simulado_usd * 5.5) }}/dia</b></div>
+    {% endif %}
+    <div>{{ llm_resumo.get('total_chamadas', 0) }} chamada{% if llm_resumo.get('total_chamadas', 1) != 1 %}s{% endif %} hoje</div>
+  </div>
+  <div style="margin-left:auto;">
+    <a href="/llm" class="badge badge-muted" style="text-decoration:none;padding:5px 10px;">→ Ver LLM</a>
+  </div>
+</div>
+{% endif %}
+
+<!-- Card Scheduler -->
+{% if scheduler_resumo %}
+<div class="card" style="margin-bottom:16px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;">
+  <div>
+    <div class="label" style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Scheduler</div>
+    {% if scheduler_resumo.get('ativo') %}
+      <span class="badge badge-success" style="font-size:11px;padding:4px 10px;">ativo</span>
+    {% else %}
+      <span class="badge badge-warning" style="font-size:11px;padding:4px 10px;">inativo</span>
+    {% endif %}
+  </div>
+  <div style="font-size:11px;color:var(--muted);">
+    {% if scheduler_resumo.get('proximo') %}
+    <div>Próximo: <b>{{ scheduler_resumo.proximo.get('agente','—') }}</b> às {{ scheduler_resumo.proximo.get('horario','—') }}</div>
+    {% endif %}
+    <div>Ciclos hoje: <b>{{ scheduler_resumo.get('ciclos_hoje', 0) }}</b>
+      {% if scheduler_resumo.get('erros_hoje', 0) > 0 %}
+        · <span class="text-danger">{{ scheduler_resumo.erros_hoje }} erro{% if scheduler_resumo.erros_hoje != 1 %}s{% endif %}</span>
+      {% endif %}
+    </div>
+  </div>
+  <div style="margin-left:auto;">
+    <a href="/scheduler" class="badge badge-muted" style="text-decoration:none;padding:5px 10px;">→ Ver scheduler</a>
+  </div>
+</div>
+{% endif %}
+
 {% if gov and (gov.modo_empresa != 'normal' or gov.agentes_pausados or gov.areas_pausadas or gov.diretrizes_ativas) %}
 <h2>Estado da Governança</h2>
 <div class="card" style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start;">

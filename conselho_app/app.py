@@ -122,6 +122,33 @@ async def pagina_index(request: Request):
         contratos_resumo = _resumir_ct()
     except Exception:
         contratos_resumo = {}
+    # Resumo LLM para card da homepage
+    try:
+        from core.llm_log import resumo_custos_dia as _rcdia
+        llm_resumo = _rcdia()
+        llm_resumo["modo"] = getattr(config, "LLM_MODO", "dry-run")
+    except Exception:
+        llm_resumo = {}
+    # Resumo scheduler para card da homepage
+    try:
+        from datetime import datetime as _dt
+        _estado_sched = _ler("scheduler_estado.json", {})
+        _log_sched    = _ler("scheduler_log.json", [])
+        _hoje_str     = _dt.now().strftime("%Y-%m-%d")
+        _exec_hoje    = _estado_sched.get("execucoes_hoje", {})
+        _ciclos_hoje  = sum(len(v) for v in _exec_hoje.values()) if isinstance(_exec_hoje, dict) else 0
+        _erros_hoje   = sum(1 for e in _log_sched
+                            if e.get("status") == "erro"
+                            and e.get("inicio", "")[:10] == _hoje_str)
+        scheduler_resumo = {
+            "ativo":          getattr(config, "SCHEDULER_ATIVO", True),
+            "ultima_verif":   _estado_sched.get("ultima_verificacao", "—"),
+            "proximo":        _estado_sched.get("proximo_agendado"),
+            "ciclos_hoje":    _ciclos_hoje,
+            "erros_hoje":     _erros_hoje,
+        }
+    except Exception:
+        scheduler_resumo = {}
     return templates.TemplateResponse("index.html", {
         "request":        request,
         "page":           "index",
@@ -140,17 +167,44 @@ async def pagina_index(request: Request):
         "contas_resumo":    contas_resumo,
         "acomp_resumo":     acomp_resumo,
         "contratos_resumo": contratos_resumo,
+        "llm_resumo":       llm_resumo,
+        "scheduler_resumo": scheduler_resumo,
     })
 
 
 @app.get("/agentes", response_class=HTMLResponse)
 async def pagina_agentes(request: Request):
     from core.governanca_conselho import resumir_governanca_ativa
+    from datetime import datetime
+    log_sched = _ler("scheduler_log.json", [])
+    log_llm   = _ler("log_llm.json", [])
+    hoje      = datetime.now().strftime("%Y-%m-%d")
+    # Última execução por agente via scheduler
+    sched_por_agente: dict = {}
+    for entrada in log_sched:
+        ag = entrada.get("agente", "")
+        if not ag:
+            continue
+        ex = sched_por_agente.get(ag)
+        if not ex or entrada.get("inicio", "") > ex.get("inicio", ""):
+            sched_por_agente[ag] = entrada
+    # Chamadas LLM hoje por agente
+    llm_por_agente: dict = {}
+    for entrada in log_llm:
+        if not entrada.get("timestamp", "").startswith(hoje):
+            continue
+        ag = entrada.get("agente", "")
+        if ag not in llm_por_agente:
+            llm_por_agente[ag] = {"chamadas": 0, "custo_simulado": 0.0}
+        llm_por_agente[ag]["chamadas"] += 1
+        llm_por_agente[ag]["custo_simulado"] += entrada.get("custo_estimado_real", 0.0)
     return templates.TemplateResponse("agentes.html", {
-        "request": request,
-        "page":    "agentes",
-        "agentes": _agentes(),
-        "gov":     resumir_governanca_ativa(),
+        "request":          request,
+        "page":             "agentes",
+        "agentes":          _agentes(),
+        "gov":              resumir_governanca_ativa(),
+        "sched_por_agente": sched_por_agente,
+        "llm_por_agente":   llm_por_agente,
     })
 
 
@@ -1236,6 +1290,66 @@ async def preview_documento(request: Request, doc_id: str):
     registrar_historico_documento(doc_id, "preview_consultado",
                                   "Preview consultado no painel", "conselho_app")
     return HTMLResponse(content=caminho.read_text(encoding="utf-8"))
+
+
+@app.get("/llm", response_class=HTMLResponse)
+async def pagina_llm(request: Request):
+    try:
+        from core.llm_log import resumo_custos_dia, resumo_custos_periodo, carregar_log
+        resumo_hoje   = resumo_custos_dia()
+        resumo_semana = resumo_custos_periodo(7)
+        log_completo  = carregar_log()
+        top5 = sorted(log_completo,
+                      key=lambda e: e.get("custo_estimado_real", 0),
+                      reverse=True)[:5]
+    except Exception:
+        resumo_hoje = resumo_semana = {}
+        log_completo = top5 = []
+    return templates.TemplateResponse("llm.html", {
+        "request":       request,
+        "page":          "llm",
+        "resumo_hoje":   resumo_hoje,
+        "resumo_semana": resumo_semana,
+        "top5":          top5,
+        "modo_llm":      getattr(config, "LLM_MODO", "dry-run"),
+        "total_log":     len(log_completo),
+    })
+
+
+@app.get("/scheduler", response_class=HTMLResponse)
+async def pagina_scheduler(request: Request):
+    from datetime import datetime
+    estado    = _ler("scheduler_estado.json", {})
+    log_sched = _ler("scheduler_log.json", [])
+    gov       = _ler("estado_governanca_conselho.json", {})
+    _DIA_MAP  = {"seg":0,"ter":1,"qua":2,"qui":3,"sex":4,"sab":5,"dom":6}
+    agenda_cfg = getattr(config, "AGENDA_AGENTES", {})
+    dia_semana = datetime.now().weekday()
+    hoje_str   = datetime.now().strftime("%Y-%m-%d")
+    agenda_hoje: list = []
+    for agente, cfg in agenda_cfg.items():
+        dias_idx = [_DIA_MAP[d] for d in cfg.get("dias", []) if d in _DIA_MAP]
+        if dia_semana in dias_idx:
+            for horario in cfg.get("horarios", []):
+                agenda_hoje.append({"horario": horario, "agente": agente})
+    agenda_hoje.sort(key=lambda x: x["horario"])
+    exec_hoje   = estado.get("execucoes_hoje", {})
+    ciclos_hoje = sum(len(v) for v in exec_hoje.values()) if isinstance(exec_hoje, dict) else 0
+    erros_hoje  = sum(1 for e in log_sched
+                      if e.get("status") == "erro"
+                      and e.get("inicio", "")[:10] == hoje_str)
+    return templates.TemplateResponse("scheduler.html", {
+        "request":          request,
+        "page":             "scheduler",
+        "estado":           estado,
+        "log_recente":      list(reversed(log_sched[-20:])),
+        "agenda_hoje":      agenda_hoje,
+        "agentes_pausados": gov.get("agentes_pausados", []),
+        "modo_empresa":     gov.get("modo_empresa", "normal"),
+        "scheduler_ativo":  getattr(config, "SCHEDULER_ATIVO", True),
+        "ciclos_hoje":      ciclos_hoje,
+        "erros_hoje":       erros_hoje,
+    })
 
 
 @app.get("/documentos/download/{doc_id}")

@@ -21,16 +21,21 @@
         <th>Duração</th>
         <th>Itens</th>
         <th>Pendências</th>
+        <th>Scheduler</th>
+        <th>LLM hoje</th>
         <th>Resumo</th>
       </tr>
     </thead>
     <tbody>
       {% for ag in agentes %}
+      {% set nome = ag.agente %}
+      {% set sched = sched_por_agente.get(nome, {}) %}
+      {% set llm   = llm_por_agente.get(nome, {}) %}
       <tr>
-        <td><b>{{ ag.agente }}</b></td>
+        <td><b>{{ nome }}</b></td>
         <td><span class="badge badge-accent">{{ ag.area }}</span></td>
         <td>
-          {% set pausado = gov and ag.agente in gov.agentes_pausados %}
+          {% set pausado = gov and nome in gov.agentes_pausados %}
           {% if pausado %}
             <span class="badge badge-warning">pausado</span>
           {% elif ag.status == 'ok' %}
@@ -47,7 +52,23 @@
         <td class="text-muted">{{ ag.duracao_ms }}ms</td>
         <td>{{ ag.itens_processados }}</td>
         <td>{{ ag.pendencias }}</td>
-        <td class="text-muted" style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+        <td class="text-muted">
+          {% if sched %}
+            <span class="badge {% if sched.get('status') == 'ok' %}badge-success{% elif sched.get('status') == 'erro' %}badge-danger{% else %}badge-muted{% endif %}" style="font-size:9px;">{{ sched.get('status','—') }}</span>
+            <div style="font-size:10px;margin-top:2px;">{{ sched.get('inicio','')[:16].replace('T',' ') }}</div>
+          {% else %}
+            <span class="text-muted" style="font-size:10px;">nunca</span>
+          {% endif %}
+        </td>
+        <td class="text-muted">
+          {% if llm %}
+            <span style="font-size:11px;">{{ llm.chamadas }} chamada{% if llm.chamadas != 1 %}s{% endif %}</span>
+            <div style="font-size:10px;color:var(--accent);">~R${{ "%.5f"|format(llm.custo_simulado * 5.5) }}</div>
+          {% else %}
+            <span style="font-size:10px;">—</span>
+          {% endif %}
+        </td>
+        <td class="text-muted" style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
           {% if ag.bloqueios %}
             <span class="text-danger">{{ ag.bloqueios[:80] }}</span>
           {% else %}
@@ -56,7 +77,7 @@
         </td>
       </tr>
       {% else %}
-      <tr><td colspan="8" class="empty">Nenhum agente registrado</td></tr>
+      <tr><td colspan="10" class="empty">Nenhum agente registrado</td></tr>
       {% endfor %}
     </tbody>
   </table>
