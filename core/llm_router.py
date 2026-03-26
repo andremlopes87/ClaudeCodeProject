@@ -68,7 +68,7 @@ class LLMRouter:
 
     # ─── Interface pública ────────────────────────────────────────────────────
 
-    def classificar(self, contexto: dict) -> dict:
+    def classificar(self, contexto: dict, empresa_id: str = None) -> dict:
         """
         Triagem e categorização de entidades ou sinais.
         Modelo rápido (Haiku). Baixo custo quando em modo real.
@@ -80,6 +80,8 @@ class LLMRouter:
               "dados": {"nome": "Barbearia Central", "sinais": [...]},
           })
         """
+        if empresa_id:
+            self._enriquecer_com_memoria(contexto, empresa_id)
         if self._modo == "dry-run":
             return self._resposta_dry_run("classificar", contexto, {
                 "classificacao": "simulado",
@@ -94,7 +96,7 @@ class LLMRouter:
             instrucao_sistema="Classifique o objeto descrito. Retorne JSON com classificacao, confianca (0.0-1.0) e justificativa.",
         )
 
-    def redigir(self, contexto: dict) -> dict:
+    def redigir(self, contexto: dict, empresa_id: str = None) -> dict:
         """
         Redação de emails, propostas e mensagens personalizadas.
         Modelo completo (Sonnet).
@@ -106,6 +108,8 @@ class LLMRouter:
               "dados": {"empresa": "X", "oferta": "Y"},
           })
         """
+        if empresa_id:
+            self._enriquecer_com_memoria(contexto, empresa_id)
         tarefa = contexto.get("tarefa", "conteúdo solicitado")
         if self._modo == "dry-run":
             return self._resposta_dry_run("redigir", contexto, {
@@ -122,7 +126,7 @@ class LLMRouter:
             instrucao_sistema="Redija o conteúdo solicitado em português brasileiro. Tom profissional e direto. Retorne JSON com texto e canal.",
         )
 
-    def decidir(self, contexto: dict) -> dict:
+    def decidir(self, contexto: dict, empresa_id: str = None) -> dict:
         """
         Decisão em situações ambíguas com justificativa estruturada.
         Modelo completo (Sonnet).
@@ -134,6 +138,8 @@ class LLMRouter:
               "dados": {"opp_id": "opp_xxx", "sinais": [...]},
           })
         """
+        if empresa_id:
+            self._enriquecer_com_memoria(contexto, empresa_id)
         if self._modo == "dry-run":
             return self._resposta_dry_run("decidir", contexto, {
                 "decisao": "pendente_revisao_humana",
@@ -148,7 +154,7 @@ class LLMRouter:
             instrucao_sistema="Analise o cenário e tome uma decisão clara. Retorne JSON com decisao, justificativa e confianca (0.0-1.0).",
         )
 
-    def analisar(self, contexto: dict) -> dict:
+    def analisar(self, contexto: dict, empresa_id: str = None) -> dict:
         """
         Análise de risco, diagnóstico operacional e leitura de sinais.
         Modelo completo (Sonnet).
@@ -160,6 +166,8 @@ class LLMRouter:
               "dados": {"saldo": 1200.0, "despesas_previstas": [...]},
           })
         """
+        if empresa_id:
+            self._enriquecer_com_memoria(contexto, empresa_id)
         if self._modo == "dry-run":
             return self._resposta_dry_run("analisar", contexto, {
                 "analise": "simulada",
@@ -174,7 +182,7 @@ class LLMRouter:
             instrucao_sistema="Analise os dados fornecidos. Retorne JSON com analise (texto), riscos (lista) e recomendacoes (lista).",
         )
 
-    def resumir(self, contexto: dict) -> dict:
+    def resumir(self, contexto: dict, empresa_id: str = None) -> dict:
         """
         Resumos e consolidações de dados estruturados.
         Modelo rápido (Haiku). Baixo custo quando em modo real.
@@ -186,6 +194,8 @@ class LLMRouter:
               "dados": {"ciclo": {...}},
           })
         """
+        if empresa_id:
+            self._enriquecer_com_memoria(contexto, empresa_id)
         dados = contexto.get("dados", {})
         if self._modo == "dry-run":
             return self._resposta_dry_run("resumir", contexto, {
@@ -331,6 +341,21 @@ class LLMRouter:
             return resp_err
 
     # ─── Auxiliares ──────────────────────────────────────────────────────────
+
+    def _enriquecer_com_memoria(self, contexto: dict, empresa_id: str) -> None:
+        """
+        Carrega memória da conta e injeta em contexto_extra.
+        Não lança exceção — memória é auxiliar, nunca bloqueante.
+        Funciona em dry-run (monta contexto para debug) e em modo real.
+        """
+        try:
+            from core.llm_memoria import gerar_contexto_llm
+            ctx_mem = gerar_contexto_llm(empresa_id=empresa_id)
+            if ctx_mem:
+                extra = contexto.setdefault("contexto_extra", {})
+                extra["memoria_conta"] = ctx_mem
+        except Exception as exc:
+            log.warning(f"[llm_router] falha ao carregar memória ({empresa_id}): {exc}")
 
     def _detectar_modo(self) -> str:
         """
