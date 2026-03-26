@@ -209,3 +209,30 @@ LLM_TIMEOUT = 30
 # Limite de tokens por resposta (controla custo)
 LLM_MAX_TOKENS_RAPIDO   = 1024
 LLM_MAX_TOKENS_COMPLETO = 2048
+
+# ============================================================
+# [SCHEDULER] — Loop contínuo de execução dos agentes
+# ============================================================
+
+# Habilita o scheduler. False → main_scheduler.py não executa nenhum agente.
+SCHEDULER_ATIVO = True
+
+# Agenda por agente.
+# horarios: lista de "HH:MM" (24h). dias: lista de abreviaturas PT-BR.
+# Dias válidos: seg, ter, qua, qui, sex, sab, dom
+AGENDA_AGENTES = {
+    "prospeccao":      {"horarios": ["03:00"], "dias": ["seg", "qua", "sex"]},
+    "marketing":       {"horarios": ["04:00"], "dias": ["seg", "qua", "sex"]},
+    "comercial":       {"horarios": ["08:00", "14:00"], "dias": ["seg", "ter", "qua", "qui", "sex"]},
+    "executor_contato":{"horarios": ["09:00", "15:00"], "dias": ["seg", "ter", "qua", "qui", "sex"]},
+    "financeiro":      {"horarios": ["17:00"], "dias": ["seg", "ter", "qua", "qui", "sex"]},
+    "secretario":      {"horarios": ["07:30", "12:00", "18:00"], "dias": ["seg", "ter", "qua", "qui", "sex"]},
+    "ciclo_completo":  {"horarios": ["06:00", "19:00"], "dias": ["seg", "ter", "qua", "qui", "sex"]},
+}
+
+# Segundos entre cada verificação da agenda
+SCHEDULER_INTERVALO_CHECK = 60
+
+# Janela de tolerância: se o horário programado passou há menos de N minutos,
+# ainda executa. Evita perder execuções por atrasos do loop.
+SCHEDULER_TOLERANCIA_MINUTOS = 5
