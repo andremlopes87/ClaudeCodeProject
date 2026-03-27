@@ -71,9 +71,14 @@
 | Documentos oficiais | `core/documentos_empresa.py` | `dados/documentos_oficiais.json` · `artefatos/documentos/` |
 | Governança | `core/governanca_conselho.py` | `dados/governanca_conselho.json` |
 | Observabilidade | `core/observabilidade_empresa.py` | `dados/painel_conselho.json` · `dados/metricas_empresa.json` |
-| Canais externos | `core/integrador_canais.py` · `core/integrador_email.py` | `dados/canal_email_config.json` |
-| Orquestrador | `core/orquestrador_empresa.py` | `dados/ciclo_operacional.json` · `dados/estado_empresa.json` |
-| Painel web | `conselho_app/app.py` · `conselho_app/templates/` | serve HTTP na porta 8000 |
+| Canais externos | `core/integrador_canais.py` · `core/integrador_email.py` | `dados/config_canal_email.json` |
+| Email — templates | `core/templates_email.py` | templates por tipo: abordagem, proposta, followup, nps |
+| Email — leitor | `core/leitor_respostas_email.py` | classificar respostas e disparar ações; `dados/respostas_email.json` |
+| Email — simulação | `core/simulador_ciclo_email.py` | ensaio de ponta a ponta sem SMTP; `dados/metricas_email.json` |
+| LLM Router | `core/llm_router.py` | seleção de modelo, dry-run/real, fallback, custo estimado |
+| LLM Auditoria | `core/llm_log.py` | log de todas as chamadas LLM com custo; `dados/log_llm.json` |
+| Orquestrador | `core/orquestrador_empresa.py` | ciclo de 16 etapas com checkpoint; `dados/ciclo_operacional.json` |
+| Painel web | `conselho_app/app.py` · `conselho_app/templates/` | 50+ rotas, 32 templates, porta 8000 |
 
 ---
 
@@ -198,9 +203,13 @@ Entrega:
 - Estado global em `dados/estado_canais.json`
 
 ### Canal Email (`conectores/` + `core/integrador_email.py`)
+- Modo simulado: status avança para `enviado_simulado` automaticamente; respostas geradas por probabilidade
 - Modo assistido: fila em `dados/fila_envio_email.json`; operador envia manualmente
-- Modo real: SMTP via `dados/config_canal_email.json`
-- LLM personaliza corpo se disponível
+- Modo real: SMTP/IMAP via `dados/config_canal_email.json`
+- Templates por tipo em `core/templates_email.py`: abordagem_inicial, envio_proposta, followup_sem_resposta, nps
+- Leitor de respostas: `core/leitor_respostas_email.py` — classifica (11 tipos) e dispara ações
+- Simulação de ponta a ponta: `core/simulador_ciclo_email.py` — sem SMTP real; `dados/metricas_email.json`
+- Checklist de ativação real em `/ativacao-email`; teste de SMTP/IMAP via `/api/verificar-smtp`
 
 ### Canal WhatsApp (`conectores/whatsapp.py`)
 - 4 templates: `abordagem_inicial`, `followup`, `proposta`, `nps`
@@ -222,9 +231,10 @@ Entrega:
 | Rota | Conteúdo |
 |---|---|
 | `/canais` | Visão geral: modo, fila, taxa resposta, histórico 7 dias por canal |
-| `/email` | Fila de emails preparados, histórico, configuração |
+| `/email` | Fila, métricas, funil, últimas respostas, por template, badge de modo |
+| `/email/simulacao` | Ensaio de ponta a ponta: botão rodar, resultado inline, métricas acumuladas |
 | `/telefone` | Fila de chamadas com roteiro, formulário de resultado, histórico |
-| `/ativacao-email` | Checklist de ativação do email real |
+| `/ativacao-email` | Checklist de ativação + botões de teste SMTP/IMAP |
 
 ---
 
