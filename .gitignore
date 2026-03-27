@@ -10,5 +10,6 @@ dados/
 !dados/catalogo_ofertas.json
 !dados/regras_comerciais_ofertas.json
 !dados/planos_execucao.json
+!dados/estado_canais.json
 logs/
 .claude/

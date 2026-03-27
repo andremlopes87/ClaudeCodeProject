@@ -1,0 +1,29 @@
+{
+  "email": {
+    "modo": "assistido",
+    "configurado": true,
+    "ultimo_envio": null,
+    "envios_total": 0,
+    "taxa_resposta": 0.0
+  },
+  "whatsapp": {
+    "modo": "dry-run",
+    "configurado": false,
+    "motivo": "API não contratada",
+    "pre_requisitos": [
+      "WhatsApp Business API",
+      "número verificado",
+      "template aprovado"
+    ]
+  },
+  "telefone": {
+    "modo": "dry-run",
+    "configurado": false,
+    "motivo": "Integração VoIP não implementada",
+    "pre_requisitos": [
+      "Provedor VoIP",
+      "número comercial",
+      "script de chamada"
+    ]
+  }
+}

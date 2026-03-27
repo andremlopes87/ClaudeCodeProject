@@ -130,31 +130,29 @@ def executar() -> dict:
             payload   = montar_payload_execucao(fu, opp)
             enriquecer_payload_execucao(payload, abordagem, fu, opp)
 
-            # LLM: Redigir corpo de email personalizado (ponto 4 — fallback = roteiro_base existente)
-            if payload.get("canal") == "email":
-                _ctx_email = {
-                    "empresa":       fu.get("contraparte", ""),
-                    "abordagem":     abordagem,
-                    "canal":         "email",
-                    "roteiro_base":  payload.get("roteiro_base", "")[:200],
-                    "linha_servico": payload.get("linha_servico_sugerida", ""),
-                    "instrucao":     "Redigir corpo de email profissional para primeiro contato com empresa.",
-                }
-                _empresa_id_email = opp.get("conta_id", "") if opp else ""
-                try:
-                    from core.contatos_contas import obter_contato_principal
-                    if _empresa_id_email:
-                        _ct = obter_contato_principal(_empresa_id_email)
-                        if _ct:
-                            _ctx_email["nome_contato"] = _ct.get("nome", "")
-                except Exception:
-                    pass
-                _res_email = router.redigir(_ctx_email, empresa_id=_empresa_id_email or None)
-                _usou_llm_email = _res_email["sucesso"] and not _res_email["fallback_usado"]
-                if _usou_llm_email:
-                    payload["corpo_email_llm"] = _res_email["resultado"]
-                    payload["roteiro_base"]    = _res_email["resultado"]
-                log.info(f"  [llm] email={'LLM' if _usou_llm_email else 'regra'} | {fu.get('contraparte','?')[:40]}")
+            # Canal framework: preparar envio (delega lógica de canal ao core/canais.py)
+            _canal_obj = None
+            try:
+                from core.canais import obter_canal
+                _canal_obj = obter_canal(payload["canal"])
+                # Anotar exec_id para montagem interna do email_id
+                payload["_exec_id"] = exec_id
+                _resultado_canal = _canal_obj.preparar_envio(payload)
+                # Propagar LLM e preview de volta ao payload para compat. downstream
+                if _resultado_canal.get("corpo_email_llm"):
+                    payload["corpo_email_llm"] = _resultado_canal["corpo_email_llm"]
+                    payload["roteiro_base"]    = _resultado_canal["corpo_email_llm"]
+                payload["preview_canal"]  = _resultado_canal.get("preview", "")[:300]
+                payload["canal_status"]   = _resultado_canal.get("status", "simulado")
+                _modo_canal = _canal_obj.modo
+                log.info(
+                    f"  [canal/{payload['canal']}] modo={_modo_canal} | "
+                    f"status={_resultado_canal.get('status','?')} | "
+                    f"llm={_resultado_canal.get('usou_llm', False)} | "
+                    f"{fu.get('contraparte','?')[:40]}"
+                )
+            except Exception as _exc_canal:
+                log.warning(f"  [canal] preparar_envio falhou: {_exc_canal} — prosseguindo sem preview")
 
             # Enriquecer com identidade da empresa (remetente, assinatura)
             if _remetente:
