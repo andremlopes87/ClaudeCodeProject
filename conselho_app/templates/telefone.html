@@ -1,0 +1,233 @@
+{% extends "base.html" %}
+{% block title %}Canal Telefone — Painel do Conselho{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1>☎ Canal Telefone</h1>
+  <div class="subtitle">
+    Modo assistido — você vê o roteiro e faz a ligação. Registre o resultado para cada chamada.
+    <strong>Nenhuma ligação automática é feita.</strong>
+  </div>
+</div>
+
+<!-- Status do canal -->
+<section class="section">
+  <h2>Status do Canal</h2>
+  <div class="metric-grid">
+    <div class="metric-card {% if status_canal.modo == 'dry-run' %}metric-warn{% elif status_canal.modo == 'assistido' %}metric-ok{% elif status_canal.modo == 'real' %}metric-ok{% endif %}">
+      <div class="metric-label">Modo</div>
+      <div class="metric-value">{{ status_canal.modo or 'dry-run' }}</div>
+    </div>
+    <div class="metric-card {% if status_canal.configurado %}metric-ok{% else %}metric-warn{% endif %}">
+      <div class="metric-label">Provedor VoIP</div>
+      <div class="metric-value">{{ 'Configurado' if status_canal.configurado else 'Não configurado' }}</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Chamadas hoje</div>
+      <div class="metric-value">{{ status_canal.chamadas_hoje }} / {{ status_canal.limite_diario }}</div>
+    </div>
+    <div class="metric-card {% if status_canal.fila_pendente > 0 %}metric-ok{% endif %}">
+      <div class="metric-label">Fila pendente</div>
+      <div class="metric-value">{{ status_canal.fila_pendente }}</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Taxa interesse</div>
+      <div class="metric-value">{{ "%.0f"|format(status_canal.taxa_interesse * 100) }}%</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Último contato</div>
+      <div class="metric-value" style="font-size:11px;">{{ status_canal.ultimo_envio or '—' }}</div>
+    </div>
+  </div>
+
+  {% if status_canal.modo == 'dry-run' %}
+  <div class="notice-box notice-info" style="margin-top:12px;">
+    ⚠ Canal em modo <strong>dry-run</strong>. Nenhuma chamada é realizada.
+    Para usar o modo assistido (você faz as ligações com roteiro): edite
+    <code>dados/config_canal_telefone.json</code> e defina <code>"modo": "assistido"</code>.<br>
+    Para integrar com VoIP no futuro: configure <code>provedor</code> e <code>numero_saida</code>.
+  </div>
+  {% elif status_canal.modo == 'assistido' %}
+  <div class="notice-box notice-ok" style="margin-top:12px;">
+    ✓ Modo <strong>assistido</strong> ativo. As chamadas abaixo estão prontas para você ligar.
+    Veja o roteiro, faça a ligação e registre o resultado.
+  </div>
+  {% endif %}
+
+  {% if status_canal.pre_requisitos %}
+  <div style="margin-top:10px;">
+    <div class="label">Pré-requisitos para ativar:</div>
+    <ul style="margin:6px 0 0 16px;font-size:13px;">
+      {% for req in status_canal.pre_requisitos %}
+      <li>{{ req }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+</section>
+
+<!-- Fila de chamadas pendentes -->
+{% if pendentes %}
+<section class="section">
+  <h2>Fila de Chamadas ({{ pendentes|length }} pendentes)</h2>
+  <p class="text-muted" style="margin-bottom:12px;">
+    Para cada chamada: leia o roteiro, ligue para o número e registre o resultado abaixo.
+  </p>
+
+  {% for chamada in pendentes %}
+  <div class="card" style="margin-bottom:20px;border-left:3px solid var(--info);">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;">
+      <div>
+        <strong>{{ chamada.empresa or '—' }}</strong>
+        {% if chamada.contato_nome %}<span style="margin-left:8px;color:#888;">{{ chamada.contato_nome }}</span>{% endif %}
+        <span class="badge badge-info" style="margin-left:8px;">{{ chamada.tipo or 'abordagem_fria' }}</span>
+        {% if chamada.simulado %}<span class="badge" style="margin-left:4px;background:#555;">simulado</span>{% endif %}
+      </div>
+      <div class="text-muted" style="font-size:11px;">{{ chamada.registrado_em or '—' }}</div>
+    </div>
+
+    <div class="detail-grid" style="margin-top:10px;">
+      <div><span class="label">Telefone:</span> <code>{{ chamada.telefone or '—' }}</code></div>
+      <div><span class="label">ID:</span> <code style="font-size:10px;">{{ chamada.chamada_id }}</code></div>
+      {% if chamada.data_agendada %}
+      <div><span class="label">Agendado para:</span> {{ chamada.data_agendada }}</div>
+      {% endif %}
+    </div>
+
+    <!-- Roteiro -->
+    <div style="margin-top:12px;">
+      <div class="label" style="margin-bottom:6px;">Roteiro da chamada:</div>
+      <pre style="background:#1a1a2e;color:#e0e0ff;padding:14px 16px;border-radius:6px;white-space:pre-wrap;font-size:12px;line-height:1.7;border:1px solid #333;">{{ chamada.roteiro or '(roteiro nao gerado)' }}</pre>
+    </div>
+
+    <!-- Variáveis usadas -->
+    {% if chamada.variaveis %}
+    <details style="margin-top:8px;">
+      <summary style="cursor:pointer;font-size:12px;color:#888;">Variáveis do roteiro</summary>
+      <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:6px;">
+        {% for k, v in chamada.variaveis.items() %}
+        <span style="background:#2a2a3e;border-radius:4px;padding:2px 8px;font-size:11px;">
+          <strong>{{ k }}:</strong> {{ v }}
+        </span>
+        {% endfor %}
+      </div>
+    </details>
+    {% endif %}
+
+    <!-- Formulário de registro de resultado -->
+    <form method="POST" action="/telefone/{{ chamada.chamada_id }}/resultado" style="margin-top:14px;display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
+      <div>
+        <label style="font-size:12px;display:block;margin-bottom:4px;">Resultado da ligação</label>
+        <select name="resultado" required style="padding:6px 10px;border-radius:4px;background:#1e1e2e;color:#e0e0e0;border:1px solid #444;min-width:200px;">
+          <option value="">-- selecionar --</option>
+          <option value="atendeu_interessado">✓ Atendeu e demonstrou interesse</option>
+          <option value="atendeu_recusou">✗ Atendeu e recusou</option>
+          <option value="nao_atendeu">Não atendeu</option>
+          <option value="caixa_postal">Caixa postal</option>
+          <option value="ocupado">Ocupado</option>
+          <option value="numero_invalido">Número inválido</option>
+        </select>
+      </div>
+      <div style="flex:1;min-width:200px;">
+        <label style="font-size:12px;display:block;margin-bottom:4px;">Observações (opcional)</label>
+        <input type="text" name="observacoes" placeholder="Ex: falou que tem interesse mas quer proposta por email"
+               style="width:100%;padding:6px 10px;border-radius:4px;background:#1e1e2e;color:#e0e0e0;border:1px solid #444;box-sizing:border-box;">
+      </div>
+      <button type="submit" style="padding:6px 16px;background:var(--info);color:#fff;border:none;border-radius:4px;cursor:pointer;white-space:nowrap;">
+        Registrar resultado
+      </button>
+    </form>
+  </div>
+  {% endfor %}
+</section>
+{% endif %}
+
+<!-- Chamadas concluídas recentes -->
+{% if concluidas_recentes %}
+<section class="section">
+  <h2>Chamadas Concluídas (últimas {{ concluidas_recentes|length }})</h2>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Empresa</th>
+        <th>Telefone</th>
+        <th>Tipo</th>
+        <th>Resultado</th>
+        <th>Observações</th>
+        <th>Data</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for chamada in concluidas_recentes %}
+      <tr>
+        <td>{{ chamada.empresa or '—' }}</td>
+        <td><code style="font-size:11px;">{{ chamada.telefone or '—' }}</code></td>
+        <td><span class="badge">{{ chamada.tipo or '—' }}</span></td>
+        <td>
+          {% if chamada.resultado == 'atendeu_interessado' %}
+            <span class="badge badge-ok">interessado</span>
+          {% elif chamada.resultado == 'atendeu_recusou' %}
+            <span class="badge badge-warn">recusou</span>
+          {% elif chamada.resultado == 'numero_invalido' %}
+            <span class="badge badge-danger">invalido</span>
+          {% elif chamada.resultado %}
+            <span class="badge">{{ chamada.resultado }}</span>
+          {% else %}
+            <span class="text-muted">—</span>
+          {% endif %}
+        </td>
+        <td style="font-size:11px;max-width:200px;">{{ (chamada.observacoes or '')[:80] }}</td>
+        <td class="text-muted" style="font-size:11px;">{{ chamada.atualizado_em or chamada.registrado_em or '—' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+
+<!-- Estado vazio -->
+{% if not pendentes and not concluidas_recentes %}
+<section class="section">
+  <div class="empty-state">
+    <div style="font-size:32px;margin-bottom:8px;">☎</div>
+    <div>Nenhuma chamada na fila ainda.</div>
+    <div class="text-muted" style="margin-top:6px;font-size:13px;">
+      Chamadas aparecem aqui quando o executor de contato processar follow-ups com
+      <code>canal=telefone</code> e o canal estiver em modo <code>assistido</code>.
+    </div>
+  </div>
+</section>
+{% endif %}
+
+<!-- Configuração do canal -->
+<section class="section">
+  <h2>Configuração (config_canal_telefone.json)</h2>
+  <table class="data-table">
+    <thead><tr><th>Campo</th><th>Valor</th></tr></thead>
+    <tbody>
+      <tr><td>modo</td><td><code>{{ config_canal.modo or 'dry-run' }}</code></td></tr>
+      <tr><td>provedor</td><td>{{ config_canal.provedor or '(não configurado)' }}</td></tr>
+      <tr><td>numero_saida</td><td>{{ config_canal.numero_saida or '(não configurado)' }}</td></tr>
+      <tr><td>horario_permitido</td><td>{{ config_canal.horario_permitido.inicio }} — {{ config_canal.horario_permitido.fim }}</td></tr>
+      <tr><td>dias_permitidos</td><td>{{ config_canal.dias_permitidos | join(', ') }}</td></tr>
+      <tr><td>max_chamadas_dia</td><td>{{ config_canal.max_chamadas_dia }}</td></tr>
+      <tr><td>cooldown_mesmo_contato_dias</td><td>{{ config_canal.cooldown_mesmo_contato_dias }} dias</td></tr>
+      <tr><td>duracao_max_minutos</td><td>{{ config_canal.duracao_max_minutos }} min</td></tr>
+    </tbody>
+  </table>
+  <div class="notice-box notice-info" style="margin-top:10px;font-size:12px;">
+    Para usar modo assistido: <code>"modo": "assistido"</code> em <code>dados/config_canal_telefone.json</code>.<br>
+    Integração futura com VoIP (Twilio/Vonage) ou IA de voz (ElevenLabs + OpenAI Realtime):
+    configure <code>provedor</code> e <code>numero_saida</code> e implemente o conector em
+    <code>conectores/telefone.py → _enviar_real_placeholder()</code>.
+  </div>
+</section>
+
+<!-- Resultados Flash -->
+{% if flash %}
+<div class="notice-box {{ 'notice-ok' if flash.tipo == 'sucesso' else 'notice-warn' }}" style="margin-bottom:16px;">
+  {{ flash.mensagem }}
+</div>
+{% endif %}
+
+{% endblock %}

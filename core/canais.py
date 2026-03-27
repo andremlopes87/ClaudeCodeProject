@@ -266,11 +266,14 @@ class CanalWhatsApp(CanalBase):
 
 class CanalTelefone(CanalBase):
     """
-    Canal de telefone. Sempre dry-run até integração VoIP.
+    Canal telefone — delega para conectores/telefone.py (implementação completa).
 
-    Para ativar: criar conector VoIP (Twilio, etc.),
-    atualizar estado_canais.json e implementar preparar_envio.
+    Importação lazy para evitar circular import: core.canais ↔ conectores.telefone.
     """
+
+    def _conector(self):
+        from conectores.telefone import CanalTelefone as _Impl
+        return _Impl()
 
     @property
     def nome(self) -> str:
@@ -278,20 +281,19 @@ class CanalTelefone(CanalBase):
 
     @property
     def modo(self) -> str:
-        return _carregar_estado_canais().get("telefone", {}).get("modo", "dry-run")
+        return self._conector().modo
 
     def preparar_envio(self, payload: dict) -> dict:
-        agora = datetime.now().isoformat(timespec="seconds")
-        return _resultado_dry_run("telefone", payload, agora)
+        return self._conector().preparar_envio(payload)
 
     def enviar(self, payload: dict) -> dict:
-        return self.preparar_envio(payload)
+        return self._conector().enviar(payload)
 
     def verificar_resposta(self) -> list:
-        return []
+        return self._conector().verificar_resposta()
 
     def status(self) -> dict:
-        return _carregar_estado_canais().get("telefone", {"modo": "dry-run", "configurado": False})
+        return self._conector().status()
 
 
 # ─── Fallback genérico ────────────────────────────────────────────────────────

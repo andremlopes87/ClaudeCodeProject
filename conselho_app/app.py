@@ -923,6 +923,47 @@ async def pagina_email(request: Request):
     })
 
 
+@app.get("/telefone", response_class=HTMLResponse)
+async def pagina_telefone(request: Request):
+    from conectores.telefone import CanalTelefone as _CanalTelefone
+    import json, os
+    _dados_dir = os.path.join(os.path.dirname(__file__), "..", "dados")
+    def _ler_tel(nome, padrao):
+        try:
+            with open(os.path.join(_dados_dir, nome), encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return padrao
+    canal = _CanalTelefone()
+    config_canal  = _ler_tel("config_canal_telefone.json", {})
+    fila          = _ler_tel("fila_chamadas_telefone.json", [])
+    pendentes     = [c for c in fila if c.get("status") in ("pendente", "agendado")]
+    concluidas    = sorted(
+        [c for c in fila if c.get("status") == "concluida"],
+        key=lambda x: x.get("atualizado_em", ""), reverse=True
+    )[:20]
+    return templates.TemplateResponse("telefone.html", {
+        "request":           request,
+        "page":              "telefone",
+        "status_canal":      canal.status(),
+        "config_canal":      config_canal,
+        "pendentes":         pendentes,
+        "concluidas_recentes": concluidas,
+        "flash":             None,
+    })
+
+
+@app.post("/telefone/{chamada_id}/resultado", response_class=RedirectResponse)
+async def registrar_resultado_chamada(
+    chamada_id: str,
+    resultado:   str = Form(...),
+    observacoes: str = Form(""),
+):
+    from conectores.telefone import CanalTelefone as _CanalTelefone
+    _CanalTelefone().registrar_resultado_chamada(chamada_id, resultado, observacoes or None)
+    return RedirectResponse("/telefone", status_code=303)
+
+
 @app.get("/entrada-manual", response_class=HTMLResponse)
 async def pagina_entrada_manual(request: Request):
     from modulos.entrada_manual.processador_entrada_manual import (
