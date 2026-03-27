@@ -1,133 +1,311 @@
 {% extends "base.html" %}
-{% block title %}Catálogo de Ofertas — Painel do Conselho{% endblock %}
+{% block title %}Catálogo de Serviços — Painel do Conselho{% endblock %}
 {% block content %}
 
 <div class="page-header">
-  <h1>◈ Catálogo de Ofertas</h1>
-  <div class="subtitle">Ofertas, pacotes e regras comerciais da Vetor. Fonte única de verdade para agentes.</div>
-</div>
-
-<!-- ═══ RESUMO ════════════════════════════════════════════════════════════════ -->
-<div class="kpi-grid" style="margin-bottom:20px;">
-  <div class="kpi">
-    <div class="label">Famílias</div>
-    <div class="value">{{ resumo.total_ofertas }}</div>
-    <div class="sub">de ofertas</div>
-  </div>
-  <div class="kpi">
-    <div class="label">Pacotes</div>
-    <div class="value">{{ resumo.total_pacotes }}</div>
-    <div class="sub">disponíveis</div>
-  </div>
-  <div class="kpi">
-    <div class="label">Linhas</div>
-    <div class="value">{{ resumo.linhas_cobertas | length }}</div>
-    <div class="sub">cobertas</div>
-  </div>
-  <div class="kpi">
-    <div class="label">Desconto máx.</div>
-    <div class="value">{{ regras.desconto_maximo_sem_aprovacao_percentual }}%</div>
-    <div class="sub">sem aprovação</div>
-  </div>
-  <div class="kpi">
-    <div class="label">Teto auto</div>
-    <div class="value">R${{ "%.0f"|format(regras.valor_maximo_sem_deliberacao) }}</div>
-    <div class="sub">sem deliberação</div>
+  <h1>◈ Catálogo de Serviços</h1>
+  <div class="subtitle">
+    {{ catalogo.empresa or 'Vetor' }} — {{ catalogo.ofertas | length }} serviços ativos
+    <span class="badge badge-muted" style="margin-left:8px;">v{{ catalogo.versao or '—' }}</span>
   </div>
 </div>
 
-<!-- ═══ OFERTAS ═══════════════════════════════════════════════════════════════ -->
+{% if not catalogo.ofertas %}
+<div class="notice-box notice-info">Sem ofertas cadastradas em dados/catalogo_ofertas.json.</div>
+{% else %}
+
+<!-- ═══ KPIs ════════════════════════════════════════════════════════════════ -->
+{% set n_projeto    = catalogo.ofertas | selectattr('modelo_receita', 'equalto', 'projeto')    | list | length %}
+{% set n_assinatura = catalogo.ofertas | selectattr('modelo_receita', 'equalto', 'assinatura') | list | length %}
+<div class="kpi-grid" style="margin-bottom:24px;">
+  <div class="kpi">
+    <div class="label">Serviços</div>
+    <div class="value">{{ catalogo.ofertas | length }}</div>
+    <div class="sub">no catálogo</div>
+  </div>
+  <div class="kpi">
+    <div class="label">Projetos únicos</div>
+    <div class="value">{{ n_projeto }}</div>
+    <div class="sub">pagamento único</div>
+  </div>
+  <div class="kpi">
+    <div class="label">Assinatura</div>
+    <div class="value">{{ n_assinatura }}</div>
+    <div class="sub">recorrente</div>
+  </div>
+  {% set menor = namespace(v=99999) %}
+  {% set maior = namespace(v=0) %}
+  {% for o in catalogo.ofertas %}
+    {% if o.modelo_receita == 'projeto' and o.preco_implementacao %}
+      {% if o.preco_implementacao < menor.v %}{% set menor.v = o.preco_implementacao %}{% endif %}
+      {% if o.preco_implementacao > maior.v %}{% set maior.v = o.preco_implementacao %}{% endif %}
+    {% endif %}
+  {% endfor %}
+  <div class="kpi">
+    <div class="label">Ticket mín.</div>
+    <div class="value">R${{ menor.v }}</div>
+    <div class="sub">por projeto</div>
+  </div>
+  <div class="kpi">
+    <div class="label">Ticket máx.</div>
+    <div class="value">R${{ maior.v }}</div>
+    <div class="sub">por projeto</div>
+  </div>
+</div>
+
+<!-- ═══ SERVIÇOS ════════════════════════════════════════════════════════════ -->
 {% for oferta in catalogo.ofertas %}
-<section class="section" style="margin-bottom:24px;">
-  <h2 style="display:flex;align-items:center;gap:10px;">
-    {{ oferta.nome }}
-    <span class="badge badge-muted" style="font-size:10px;">{{ oferta.linha_servico }}</span>
-    <span class="badge badge-info" style="font-size:10px;font-family:monospace;">{{ oferta.id }}</span>
-  </h2>
-  <p class="text-muted" style="margin-bottom:12px;font-size:12px;">{{ oferta.descricao }}</p>
+<section class="section" style="margin-bottom:28px;">
 
-  <!-- Pacotes -->
-  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">
-    {% for pacote in oferta.pacotes %}
-    <div class="card" style="border-left:3px solid {% if loop.index == 1 %}var(--muted){% elif loop.index == 2 %}var(--accent){% else %}var(--success){% endif %};">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
-        <div>
-          <div style="font-weight:700;font-size:13px;">{{ pacote.nome }}</div>
-          <div style="font-size:10px;color:var(--muted);font-family:monospace;">{{ pacote.id }}</div>
-        </div>
-        <div style="text-align:right;">
-          <div style="font-size:16px;font-weight:700;color:var(--success);">R${{ "%.0f"|format(pacote.valor_referencia) }}</div>
-          <div style="font-size:10px;color:var(--muted);">{{ pacote.prazo_dias }} dias</div>
-        </div>
-      </div>
-      <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">{{ pacote.descricao }}</div>
-      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Entregáveis</div>
-      <ul style="margin:0;padding-left:14px;font-size:11px;">
-        {% for e in pacote.entregaveis %}
-        <li>{{ e }}</li>
-        {% endfor %}
-      </ul>
-      {% if pacote.checklist_entrega %}
-      <details style="margin-top:8px;">
-        <summary style="font-size:10px;color:var(--muted);cursor:pointer;">▸ checklist de entrega ({{ pacote.checklist_entrega|length }} itens)</summary>
-        <ol style="margin:6px 0 0;padding-left:14px;font-size:10px;color:var(--muted);">
-          {% for ck in pacote.checklist_entrega %}
-          <li>{{ ck }}</li>
+  <!-- Cabeçalho da oferta -->
+  <h2 style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+    {{ oferta.nome }}
+    <span class="badge badge-muted" style="font-size:10px;font-family:monospace;">{{ oferta.id }}</span>
+    <span class="badge badge-info"  style="font-size:10px;">{{ oferta.linha_servico }}</span>
+    {% if oferta.modelo_receita == 'assinatura' %}
+      <span class="badge badge-ok" style="font-size:11px;font-weight:700;">
+        Assinatura R${{ oferta.preco_mensal }}/mês
+      </span>
+    {% else %}
+      <span class="badge" style="font-size:11px;font-weight:700;background:var(--success);color:var(--bg);">
+        Projeto R${{ oferta.preco_implementacao }}
+      </span>
+    {% endif %}
+    <span class="badge badge-muted" style="font-size:10px;">{{ oferta.prazo_entrega_dias }} dias</span>
+  </h2>
+
+  <p style="font-size:13px;color:var(--muted);margin:4px 0 16px;">{{ oferta.descricao_curta }}</p>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+
+    <!-- Coluna esquerda -->
+    <div style="display:flex;flex-direction:column;gap:14px;">
+
+      <!-- O que é entregue -->
+      <div class="card">
+        <div class="label" style="margin-bottom:8px;">O que é entregue</div>
+        <ul style="margin:0;padding-left:16px;font-size:12px;line-height:1.9;">
+          {% for item in oferta.o_que_e_entregue %}
+          <li>{{ item }}</li>
           {% endfor %}
-        </ol>
-      </details>
+        </ul>
+      </div>
+
+      <!-- O que o cliente faz -->
+      {% if oferta.o_que_o_cliente_faz_no_dia_a_dia %}
+      <div class="card">
+        <div class="label" style="margin-bottom:8px;">O que o cliente faz no dia a dia</div>
+        <ul style="margin:0;padding-left:16px;font-size:12px;line-height:1.9;">
+          {% for item in oferta.o_que_o_cliente_faz_no_dia_a_dia %}
+          <li>{{ item }}</li>
+          {% endfor %}
+        </ul>
+      </div>
       {% endif %}
+
+      <!-- Resultado esperado -->
+      {% if oferta.resultado_esperado %}
+      <div class="card" style="border-left:3px solid var(--success);">
+        <div class="label" style="margin-bottom:6px;">Resultado esperado</div>
+        <div style="font-size:12px;line-height:1.7;">{{ oferta.resultado_esperado }}</div>
+      </div>
+      {% endif %}
+
     </div>
-    {% endfor %}
+
+    <!-- Coluna direita -->
+    <div style="display:flex;flex-direction:column;gap:14px;">
+
+      <!-- Checklist de entrega -->
+      {% if oferta.checklist_entrega %}
+      <div class="card">
+        <div class="label" style="margin-bottom:8px;">Checklist de entrega</div>
+        <table class="data-table" style="font-size:11px;">
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th style="text-align:center;white-space:nowrap;">Responsável</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for ck in oferta.checklist_entrega %}
+            <tr>
+              <td>{{ ck.item }}</td>
+              <td style="text-align:center;">
+                {% if 'vetor' in ck.responsavel and 'cliente' in ck.responsavel %}
+                  <span class="badge badge-info" style="font-size:9px;">vetor + cliente</span>
+                {% elif ck.responsavel == 'vetor' %}
+                  <span class="badge badge-muted" style="font-size:9px;">vetor</span>
+                {% else %}
+                  <span class="badge badge-warn" style="font-size:9px;">{{ ck.responsavel }}</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+
+      <!-- Ferramentas + nichos -->
+      <div class="card">
+        <div class="label" style="margin-bottom:6px;">Ferramentas usadas</div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px;">
+          {% for f in oferta.ferramentas_usadas %}
+          <span class="badge badge-muted" style="font-size:10px;">{{ f }}</span>
+          {% endfor %}
+        </div>
+        {% if oferta.custo_ferramentas_para_vetor %}
+        <div style="font-size:11px;color:var(--muted);">
+          Custo p/ Vetor: {{ oferta.custo_ferramentas_para_vetor }}
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Aplicável a -->
+      <div class="card">
+        <div class="label" style="margin-bottom:6px;">Aplicável a</div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px;">
+          {% for nicho in oferta.aplicavel_a %}
+          <span class="badge badge-ok" style="font-size:10px;">{{ nicho | replace('_', ' ') }}</span>
+          {% endfor %}
+        </div>
+        {% if oferta.sinais_qualificadores %}
+        <div class="label" style="margin-bottom:4px;font-size:9px;">Sinais qualificadores</div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px;">
+          {% for s in oferta.sinais_qualificadores %}
+          <span class="badge badge-warn" style="font-size:9px;">{{ s | replace('_', ' ') }}</span>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+
+    </div>
   </div>
+
+  <!-- Por que tem / não tem mensalidade -->
+  {% if oferta.por_que_tem_mensalidade or oferta.por_que_nao_tem_mensalidade %}
+  <div style="margin-top:10px;padding:10px 14px;background:var(--bg);border-radius:4px;
+              border-left:3px solid {% if oferta.por_que_tem_mensalidade %}var(--success){% else %}var(--muted){% endif %};
+              font-size:12px;line-height:1.6;">
+    <strong style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);">
+      {% if oferta.por_que_tem_mensalidade %}Por que tem mensalidade{% else %}Por que não tem mensalidade{% endif %}
+    </strong><br>
+    {{ oferta.por_que_tem_mensalidade or oferta.por_que_nao_tem_mensalidade }}
+  </div>
+  {% endif %}
+
+  <!-- O que a Vetor faz depois -->
+  {% if oferta.o_que_a_vetor_faz_depois %}
+  <div style="margin-top:10px;padding:10px 14px;background:var(--bg);border-radius:4px;
+              border-left:3px solid var(--border);font-size:12px;line-height:1.7;">
+    <strong style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);">
+      O que a Vetor faz depois da entrega
+    </strong>
+    <ul style="margin:6px 0 0;padding-left:16px;">
+      {% for item in oferta.o_que_a_vetor_faz_depois %}
+      <li>{{ item }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
 </section>
 {% endfor %}
 
+
+<!-- ═══ FLUXO DE UPSELL ══════════════════════════════════════════════════════ -->
+{% set logica = catalogo.logica_sugestao or {} %}
+{% if logica %}
+<section class="section">
+  <h2>Fluxo de Upsell Natural</h2>
+  <div class="card">
+    <!-- Funil visual -->
+    {% if logica.upsell_natural %}
+    <div style="margin-bottom:20px;">
+      <div class="label" style="margin-bottom:12px;">Jornada do cliente</div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        {% set etapas = logica.upsell_natural.split(' → ') %}
+        {% for etapa in etapas %}
+          {% set colors = ['var(--muted)', '#4a9eff', '#7c4dff', 'var(--success)'] %}
+          <div style="padding:8px 14px;background:var(--bg);border:1px solid {{ colors[loop.index0] }};
+                      border-radius:4px;font-size:12px;font-weight:600;color:{{ colors[loop.index0] }};
+                      font-family:monospace;">
+            {{ etapa.replace('_', ' ') }}
+          </div>
+          {% if not loop.last %}
+          <span style="color:var(--muted);font-size:16px;">→</span>
+          {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Lógica de sugestão por perfil -->
+    <div class="label" style="margin-bottom:8px;">Quando sugerir cada serviço</div>
+    <table class="data-table" style="font-size:12px;">
+      <thead>
+        <tr><th>Perfil do cliente</th><th>Serviço sugerido</th></tr>
+      </thead>
+      <tbody>
+        {% for perfil, servico in logica.items() %}
+        {% if perfil != 'upsell_natural' %}
+        <tr>
+          <td style="color:var(--muted);">{{ perfil | replace('_', ' ') }}</td>
+          <td><code style="font-size:11px;">{{ servico }}</code></td>
+        </tr>
+        {% endif %}
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+
+
 <!-- ═══ REGRAS COMERCIAIS ════════════════════════════════════════════════════ -->
+{% if regras %}
 <section class="section">
   <h2>Regras Comerciais</h2>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
     <div class="card">
-      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Regras Gerais</div>
-      <div class="drill-row"><span>Desconto máx. sem aprovação</span><b>{{ regras.desconto_maximo_sem_aprovacao_percentual }}%</b></div>
-      <div class="drill-row"><span>Teto para aprovação automática</span><b>R${{ "%.0f"|format(regras.valor_maximo_sem_deliberacao) }}</b></div>
-      <div class="drill-row"><span>Customização alta exige deliberação</span><b>{% if regras.grau_customizacao_alto_exige_deliberacao %}Sim{% else %}Não{% endif %}</b></div>
-      <div class="drill-row"><span>Prazo mínimo proposta</span><b>{{ regras.prazo_minimo_proposta_dias }} dias</b></div>
+      <div class="label" style="margin-bottom:8px;">Limites gerais</div>
+      <div class="drill-row">
+        <span>Desconto máx. sem aprovação</span>
+        <b>{{ regras.desconto_maximo_sem_aprovacao_percentual }}%</b>
+      </div>
+      <div class="drill-row">
+        <span>Teto para aprovação automática</span>
+        <b>R${{ "%.0f"|format(regras.valor_maximo_sem_deliberacao) }}</b>
+      </div>
+      <div class="drill-row">
+        <span>Customização alta exige deliberação</span>
+        <b>{% if regras.grau_customizacao_alto_exige_deliberacao %}Sim{% else %}Não{% endif %}</b>
+      </div>
+      <div class="drill-row">
+        <span>Prazo mínimo proposta</span>
+        <b>{{ regras.prazo_minimo_proposta_dias }} dias</b>
+      </div>
     </div>
+    {% if regras.regras_por_oferta %}
     <div class="card">
-      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Regras por Oferta</div>
+      <div class="label" style="margin-bottom:8px;">Regras por serviço</div>
       {% for oferta_id, r in regras.regras_por_oferta.items() %}
-      <div style="margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid var(--border);">
-        <div style="font-size:11px;font-family:monospace;color:var(--accent);margin-bottom:2px;">{{ oferta_id }}</div>
-        <div style="font-size:10px;color:var(--muted);">
-          desconto: {{ r.desconto_maximo_percentual }}% |
-          escopo obrig.: {% if r.exige_escopo_antes_de_ganho %}sim{% else %}não{% endif %} |
-          parcelamento: {% if r.permite_parcelamento %}{{ r.max_parcelas }}×{% else %}não{% endif %}
+      <div style="margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--border);">
+        <div style="font-size:11px;font-family:monospace;color:var(--accent);margin-bottom:3px;">{{ oferta_id }}</div>
+        <div style="font-size:11px;color:var(--muted);">
+          desconto máx.: {{ r.desconto_maximo_percentual }}%
+          | escopo obrig.: {% if r.exige_escopo_antes_de_ganho %}sim{% else %}não{% endif %}
+          | parcelas: {% if r.permite_parcelamento %}até {{ r.max_parcelas }}×{% else %}não{% endif %}
         </div>
       </div>
       {% endfor %}
     </div>
+    {% endif %}
   </div>
 </section>
-
-<!-- ═══ HISTÓRICO RECENTE ═══════════════════════════════════════════════════ -->
-{% if resumo.historico_recente %}
-<section class="section">
-  <h2>Histórico Recente de Decisões</h2>
-  <table class="data-table">
-    <thead><tr><th>Evento</th><th>Descrição</th><th>Origem</th><th>Registrado em</th></tr></thead>
-    <tbody>
-      {% for ev in resumo.historico_recente | reverse %}
-      <tr>
-        <td><code style="font-size:10px;">{{ ev.evento }}</code></td>
-        <td style="font-size:11px;">{{ ev.descricao[:80] if ev.descricao else '—' }}{% if ev.descricao and ev.descricao|length > 80 %}…{% endif %}</td>
-        <td class="text-muted" style="font-size:11px;">{{ ev.origem or '—' }}</td>
-        <td class="text-muted" style="font-size:11px;">{{ ev.registrado_em or '—' }}</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</section>
 {% endif %}
+
+{% endif %}{# fim catalogo.ofertas #}
 
 {% endblock %}
