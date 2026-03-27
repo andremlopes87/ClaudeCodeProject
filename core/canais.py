@@ -232,12 +232,14 @@ class CanalEmail(CanalBase):
 
 class CanalWhatsApp(CanalBase):
     """
-    Canal WhatsApp. Sempre dry-run até API ser contratada.
+    Canal WhatsApp — delega para conectores/whatsapp.py (implementação completa).
 
-    Para ativar: criar conector em conectores/canal_whatsapp_*.py,
-    atualizar dados/estado_canais.json com modo="assistido" ou "real",
-    e implementar preparar_envio com a integração real.
+    Importação lazy para evitar circular import: core.canais ↔ conectores.whatsapp.
     """
+
+    def _conector(self):
+        from conectores.whatsapp import CanalWhatsApp as _Impl
+        return _Impl()
 
     @property
     def nome(self) -> str:
@@ -245,20 +247,19 @@ class CanalWhatsApp(CanalBase):
 
     @property
     def modo(self) -> str:
-        return _carregar_estado_canais().get("whatsapp", {}).get("modo", "dry-run")
+        return self._conector().modo
 
     def preparar_envio(self, payload: dict) -> dict:
-        agora = datetime.now().isoformat(timespec="seconds")
-        return _resultado_dry_run("whatsapp", payload, agora)
+        return self._conector().preparar_envio(payload)
 
     def enviar(self, payload: dict) -> dict:
-        return self.preparar_envio(payload)
+        return self._conector().enviar(payload)
 
     def verificar_resposta(self) -> list:
-        return []
+        return self._conector().verificar_resposta()
 
     def status(self) -> dict:
-        return _carregar_estado_canais().get("whatsapp", {"modo": "dry-run", "configurado": False})
+        return self._conector().status()
 
 
 # ─── CanalTelefone ────────────────────────────────────────────────────────────

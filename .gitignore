@@ -11,5 +11,7 @@ dados/
 !dados/regras_comerciais_ofertas.json
 !dados/planos_execucao.json
 !dados/estado_canais.json
+!dados/config_canal_whatsapp.json
+!dados/fila_envio_whatsapp.json
 logs/
 .claude/

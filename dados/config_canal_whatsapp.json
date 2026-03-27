@@ -1,0 +1,37 @@
+{
+  "modo": "dry-run",
+  "numero_comercial": null,
+  "api_token": null,
+  "api_url": "https://graph.facebook.com/v18.0/",
+  "horario_permitido": {
+    "inicio": "08:00",
+    "fim": "20:00"
+  },
+  "dias_permitidos": ["seg", "ter", "qua", "qui", "sex"],
+  "max_mensagens_dia": 50,
+  "cooldown_mesmo_contato_horas": 24,
+  "templates_aprovados": {
+    "abordagem_inicial": {
+      "nome_template": "vetor_abordagem_v1",
+      "idioma": "pt_BR",
+      "variaveis": ["nome_contato", "nome_empresa", "problema_principal"]
+    },
+    "followup": {
+      "nome_template": "vetor_followup_v1",
+      "idioma": "pt_BR",
+      "variaveis": ["nome_contato", "contexto_anterior"]
+    },
+    "proposta": {
+      "nome_template": "vetor_proposta_v1",
+      "idioma": "pt_BR",
+      "variaveis": ["nome_contato", "nome_pacote", "valor"]
+    },
+    "nps": {
+      "nome_template": "vetor_nps_v1",
+      "idioma": "pt_BR",
+      "variaveis": ["nome_contato", "servico_entregue"]
+    }
+  },
+  "observacoes": "Ativar: definir modo=real, numero_comercial e api_token apos contratar WhatsApp Business API",
+  "criado_em": "2026-03-26"
+}
