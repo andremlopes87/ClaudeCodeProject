@@ -188,7 +188,67 @@ Entrega:
 
 ---
 
-## 9. Agentes de TI — visão técnica
+## 9. Canais de comunicação — visão técnica
+
+### Arquitetura
+- Abstração unificada em `core/canais.py` — `CanalBase`, `CanalEmail`, `CanalWhatsApp`, `CanalTelefone`
+- Cada canal tem: `preparar_envio`, `enviar`, `verificar_resposta`, `status`
+- Implementações reais em `conectores/` com lazy-import para evitar circular import
+- Modos: `dry-run` (padrão, sem envio real), `assistido` (humano vê e executa), `real` (automático)
+- Estado global em `dados/estado_canais.json`
+
+### Canal Email (`conectores/` + `core/integrador_email.py`)
+- Modo assistido: fila em `dados/fila_envio_email.json`; operador envia manualmente
+- Modo real: SMTP via `dados/config_canal_email.json`
+- LLM personaliza corpo se disponível
+
+### Canal WhatsApp (`conectores/whatsapp.py`)
+- 4 templates: `abordagem_inicial`, `followup`, `proposta`, `nps`
+- Fila em `dados/fila_envio_whatsapp.json`
+- Número normalizado para `+55XXXXXXXXXXX`
+- API real: WhatsApp Business Cloud (não contratado — dry-run por padrão)
+- Config: `dados/config_canal_whatsapp.json`
+
+### Canal Telefone (`conectores/telefone.py`)
+- 3 roteiros: `abordagem_fria`, `followup`, `cobranca_gentil`
+- Modo assistido: operador vê roteiro completo e registra resultado
+- 6 outcomes: `atendeu_interessado`, `atendeu_recusou`, `nao_atendeu`, `caixa_postal`, `numero_invalido`, `ocupado`
+- `atendeu_interessado` → cria follow-up por email automaticamente
+- Fila em `dados/fila_chamadas_telefone.json`; histórico em `dados/resultados_chamadas.json`
+- Integração VoIP futura: `conectores/telefone.py → _enviar_real_placeholder()`
+- Config: `dados/config_canal_telefone.json`
+
+### Painel — rotas de canais
+| Rota | Conteúdo |
+|---|---|
+| `/canais` | Visão geral: modo, fila, taxa resposta, histórico 7 dias por canal |
+| `/email` | Fila de emails preparados, histórico, configuração |
+| `/telefone` | Fila de chamadas com roteiro, formulário de resultado, histórico |
+| `/ativacao-email` | Checklist de ativação do email real |
+
+---
+
+## 10. Multi-Cidade — visão técnica
+
+### Modelo de dados
+- Cidades derivadas do campo `cidade` em `dados/pipeline_comercial.json`
+- Não há tabela separada de cidades — extração on-the-fly via pipeline
+- Nichos: campo `categoria` ou `segmento` ou `tipo_negocio` da oportunidade
+
+### Painel `/multi-cidade`
+- Ranking de cidades por oportunidades ativas
+- Ranking de nichos cross-cidade (nicho presente em mais de uma cidade)
+- Detecção de redes/franquias: mesmo nome de empresa em múltiplas cidades
+- Progressão: leads → oportunidades por cidade (barra proporcional)
+
+### Expansão geográfica
+- Objetivo atual: validar operação em 1 cidade antes de replicar
+- Quando iniciar multi-cidade: ao fechar 2+ contratos na cidade-base
+- Próxima cidade: definir por densidade de leads qualificados no pipeline
+
+---
+
+## 11. Agentes de TI — visão técnica
 
 Os agentes de TI operam de forma autônoma 2–3x por semana, na madrugada, sem interferir na operação diária.
 
@@ -240,7 +300,7 @@ Os agentes de TI operam de forma autônoma 2–3x por semana, na madrugada, sem 
 
 ---
 
-## 10. Formato padrão das respostas
+## 12. Formato padrão das respostas
 
 - Resumo curtíssimo (1–3 linhas)
 - Arquivos criados/alterados (lista)

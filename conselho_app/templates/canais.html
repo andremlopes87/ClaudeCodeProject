@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+{% block title %}Canais de Comunicação — Painel do Conselho{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1>Canais de Comunicação</h1>
+  <div class="subtitle">
+    Visão geral de todos os canais — email, WhatsApp, telefone.
+    Ative o modo assistido editando o arquivo de configuração de cada canal.
+  </div>
+</div>
+
+<!-- Resumo -->
+<section class="section">
+  <div class="metric-grid">
+    <div class="metric-card {% if ativos > 0 %}metric-ok{% else %}metric-warn{% endif %}">
+      <div class="metric-label">Canais ativos</div>
+      <div class="metric-value">{{ ativos }}</div>
+    </div>
+    <div class="metric-card {% if em_fila > 0 %}metric-ok{% endif %}">
+      <div class="metric-label">Em fila</div>
+      <div class="metric-value">{{ em_fila }}</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Dry-run</div>
+      <div class="metric-value">{{ dry_run }}</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Total de canais</div>
+      <div class="metric-value">{{ canais|length }}</div>
+    </div>
+  </div>
+</section>
+
+<!-- Cards por canal -->
+{% for canal in canais %}
+<section class="section">
+  <h2>
+    {{ canal.icone }} {{ canal.nome }}
+    {% set modo = canal.status.get('modo', 'dry-run') %}
+    {% if modo == 'real' %}
+      <span class="badge badge-ok" style="margin-left:10px;font-size:11px;">real</span>
+    {% elif modo == 'assistido' %}
+      <span class="badge badge-warn" style="margin-left:10px;font-size:11px;">assistido</span>
+    {% else %}
+      <span class="badge" style="margin-left:10px;font-size:11px;background:#444;">dry-run</span>
+    {% endif %}
+  </h2>
+
+  <div class="metric-grid">
+    <div class="metric-card {% if canal.status.get('configurado') %}metric-ok{% else %}metric-warn{% endif %}">
+      <div class="metric-label">Provedor</div>
+      <div class="metric-value" style="font-size:13px;">{{ 'Configurado' if canal.status.get('configurado') else 'Não configurado' }}</div>
+    </div>
+
+    {% if canal.status.get('envios_hoje') is not none %}
+    <div class="metric-card">
+      <div class="metric-label">Envios hoje</div>
+      <div class="metric-value">{{ canal.status.get('envios_hoje', canal.status.get('chamadas_hoje', canal.status.get('mensagens_hoje', 0))) }}</div>
+    </div>
+    {% endif %}
+
+    {% if canal.status.get('fila_pendente') is not none %}
+    <div class="metric-card {% if canal.status.get('fila_pendente', 0) > 0 %}metric-ok{% endif %}">
+      <div class="metric-label">Fila pendente</div>
+      <div class="metric-value">{{ canal.status.get('fila_pendente', 0) }}</div>
+    </div>
+    {% endif %}
+
+    {% if canal.status.get('taxa_resposta') is not none %}
+    <div class="metric-card">
+      <div class="metric-label">Taxa resposta</div>
+      <div class="metric-value">{{ "%.0f"|format(canal.status.get('taxa_resposta', canal.status.get('taxa_interesse', 0)) * 100) }}%</div>
+    </div>
+    {% endif %}
+
+    {% if canal.status.get('ultimo_envio') or canal.status.get('ultimo_contato') %}
+    <div class="metric-card">
+      <div class="metric-label">Último envio</div>
+      <div class="metric-value" style="font-size:11px;">{{ canal.status.get('ultimo_envio') or canal.status.get('ultimo_contato') or '—' }}</div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Histórico 7 dias -->
+  {% if canal.hist_7d and canal.hist_7d|sum > 0 %}
+  <div style="margin-top:12px;">
+    <div class="label" style="margin-bottom:6px;">Atividade nos últimos 7 dias:</div>
+    <div style="display:flex;gap:6px;align-items:flex-end;height:40px;">
+      {% set max_val = canal.hist_7d|max %}
+      {% for v in canal.hist_7d %}
+      <div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex:1;">
+        <div style="font-size:9px;color:var(--muted);">{{ v }}</div>
+        <div style="background:{% if v > 0 %}var(--info){% else %}#333{% endif %};
+                    width:100%;
+                    height:{% if max_val > 0 %}{{ [(v / max_val * 28)|int, 4]|max }}{% else %}4{% endif %}px;
+                    border-radius:2px;"></div>
+      </div>
+      {% endfor %}
+    </div>
+    <div style="display:flex;gap:6px;margin-top:2px;">
+      {% for label in dias_labels %}
+      <div style="flex:1;font-size:9px;color:var(--muted);text-align:center;">{{ label[5:] }}</div>
+      {% endfor %}
+    </div>
+  </div>
+  {% else %}
+  <div class="text-muted" style="margin-top:10px;font-size:12px;">Sem atividade registrada nos últimos 7 dias.</div>
+  {% endif %}
+
+  <!-- Modo e ativação -->
+  {% if modo == 'dry-run' %}
+  <div class="notice-box notice-info" style="margin-top:12px;font-size:12px;">
+    ⚠ Canal em modo <strong>dry-run</strong> — nenhum envio real é feito.
+    {% if canal.id == 'email' %}
+      Para ativar: configure <code>dados/config_canal_email.json</code> com <code>"modo": "assistido"</code>.
+    {% elif canal.id == 'whatsapp' %}
+      Para ativar: configure <code>dados/config_canal_whatsapp.json</code> com <code>"modo": "assistido"</code>
+      e configure a API WhatsApp Business.
+    {% elif canal.id == 'telefone' %}
+      Para ativar: configure <code>dados/config_canal_telefone.json</code> com <code>"modo": "assistido"</code>.
+    {% endif %}
+  </div>
+  {% elif modo == 'assistido' %}
+  <div class="notice-box notice-ok" style="margin-top:12px;font-size:12px;">
+    ✓ Modo <strong>assistido</strong> — envios preparados aguardam ação manual.
+    {% if canal.id == 'email' %}<a href="/email" style="color:var(--info);">→ Ver fila de email</a>
+    {% elif canal.id == 'telefone' %}<a href="/telefone" style="color:var(--info);">→ Ver fila de chamadas</a>
+    {% endif %}
+  </div>
+  {% elif modo == 'real' %}
+  <div class="notice-box notice-ok" style="margin-top:12px;font-size:12px;">
+    ✓ Modo <strong>real</strong> — envios automáticos ativados.
+  </div>
+  {% endif %}
+
+  <!-- Pré-requisitos -->
+  {% if canal.pre_requisitos %}
+  <div style="margin-top:10px;">
+    <div class="label" style="margin-bottom:6px;">Pré-requisitos para ativar:</div>
+    <ul style="margin:0 0 0 16px;font-size:12px;color:var(--muted);">
+      {% for req in canal.pre_requisitos %}<li>{{ req }}</li>{% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  <!-- Link direto -->
+  <div style="margin-top:12px;">
+    {% if canal.id == 'email' %}
+      <a href="/email" class="badge badge-muted" style="text-decoration:none;padding:5px 12px;">→ Canal Email</a>
+      <a href="/ativacao-email" class="badge badge-muted" style="text-decoration:none;padding:5px 12px;margin-left:6px;">→ Ativação</a>
+    {% elif canal.id == 'telefone' %}
+      <a href="/telefone" class="badge badge-muted" style="text-decoration:none;padding:5px 12px;">→ Canal Telefone</a>
+    {% endif %}
+  </div>
+</section>
+{% endfor %}
+
+{% endblock %}

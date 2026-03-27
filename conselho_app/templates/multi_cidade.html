@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+{% block title %}Multi-Cidade — Painel do Conselho{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1>Expansão Multi-Cidade</h1>
+  <div class="subtitle">
+    Mapa de presença por cidade — leads, oportunidades e nichos.
+    Dados extraídos do pipeline comercial.
+  </div>
+</div>
+
+<!-- KPIs gerais -->
+<section class="section">
+  <div class="metric-grid">
+    <div class="metric-card {% if total_cidades > 0 %}metric-ok{% endif %}">
+      <div class="metric-label">Cidades ativas</div>
+      <div class="metric-value">{{ total_cidades }}</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Total leads</div>
+      <div class="metric-value">{{ total_leads }}</div>
+    </div>
+    <div class="metric-card {% if total_oportunidades > 0 %}metric-ok{% endif %}">
+      <div class="metric-label">Oportunidades</div>
+      <div class="metric-value">{{ total_oportunidades }}</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Nichos cross-cidade</div>
+      <div class="metric-value">{{ nichos_cross|length }}</div>
+    </div>
+  </div>
+  <div class="text-muted" style="font-size:11px;margin-top:10px;">
+    Última atualização via scheduler: {{ ultima_execucao or '—' }}
+    {% if proxima_execucao %}· Próxima: {{ proxima_execucao }}{% endif %}
+  </div>
+</section>
+
+<!-- Ranking de cidades -->
+{% if cidades %}
+<section class="section">
+  <h2>Ranking por Cidade ({{ cidades|length }} cidade{{ 's' if cidades|length != 1 else '' }})</h2>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Cidade</th>
+        <th>Leads</th>
+        <th>Oportunidades</th>
+        <th>Ganhos</th>
+        <th>Nichos</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for c in cidades %}
+      <tr>
+        <td class="text-muted" style="font-size:11px;">{{ loop.index }}</td>
+        <td><strong>{{ c.cidade }}</strong></td>
+        <td>{{ c.leads }}</td>
+        <td>
+          {% if c.oportunidades > 0 %}
+            <span class="badge badge-ok">{{ c.oportunidades }}</span>
+          {% else %}
+            <span class="text-muted">0</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if c.ganhos > 0 %}
+            <span class="badge badge-success">{{ c.ganhos }}</span>
+          {% else %}
+            <span class="text-muted">0</span>
+          {% endif %}
+        </td>
+        <td style="font-size:11px;">
+          {% for n in c.nichos[:3] %}
+            <span class="badge badge-muted" style="margin-right:2px;">{{ n }}</span>
+          {% endfor %}
+          {% if c.nichos|length > 3 %}
+            <span class="text-muted">+{{ c.nichos|length - 3 }}</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% else %}
+<section class="section">
+  <div class="empty-state">
+    <div style="font-size:32px;margin-bottom:8px;">🗺</div>
+    <div>Nenhuma cidade mapeada ainda.</div>
+    <div class="text-muted" style="margin-top:6px;font-size:13px;">
+      Cidades aparecem aqui quando o agente de prospecção gerar oportunidades com campo <code>cidade</code>.
+    </div>
+  </div>
+</section>
+{% endif %}
+
+<!-- Ranking nichos cross-cidade -->
+{% if nichos_cross %}
+<section class="section">
+  <h2>Nichos com Maior Presença Cross-Cidade</h2>
+  <p class="text-muted" style="margin-bottom:12px;font-size:12px;">
+    Nichos que aparecem em múltiplas cidades — indicam oportunidade de padronização e escala.
+  </p>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Nicho</th>
+        <th>Cidades</th>
+        <th>Total leads</th>
+        <th>Onde</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for n in nichos_cross %}
+      <tr>
+        <td><strong>{{ n.nicho }}</strong></td>
+        <td>
+          <span class="badge {% if n.cidades|length > 2 %}badge-ok{% else %}badge-muted{% endif %}">
+            {{ n.cidades|length }} cidade{{ 's' if n.cidades|length != 1 else '' }}
+          </span>
+        </td>
+        <td>{{ n.total }}</td>
+        <td style="font-size:11px;color:var(--muted);">{{ n.cidades[:4]|join(', ') }}{% if n.cidades|length > 4 %}…{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+
+<!-- Redes / Franquias detectadas -->
+{% if redes %}
+<section class="section">
+  <h2>Redes / Franquias Detectadas</h2>
+  <p class="text-muted" style="margin-bottom:12px;font-size:12px;">
+    Empresas com o mesmo nome em mais de uma cidade — possíveis franquias ou redes.
+  </p>
+  <div style="display:flex;flex-wrap:wrap;gap:10px;">
+    {% for r in redes %}
+    <div class="card" style="min-width:200px;flex:1;">
+      <strong style="font-size:13px;">{{ r.nome }}</strong>
+      <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px;">
+        {% for cidade in r.cidades %}
+        <span class="badge badge-muted">{{ cidade }}</span>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<!-- Progressão por cidade (barras) -->
+{% if cidades %}
+<section class="section">
+  <h2>Progressão por Cidade</h2>
+  <p class="text-muted" style="margin-bottom:12px;font-size:12px;">
+    Proporção de leads convertidos em oportunidades por cidade.
+  </p>
+  {% for c in cidades[:10] %}
+  <div style="margin-bottom:10px;">
+    <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;">
+      <span>{{ c.cidade }}</span>
+      <span class="text-muted">{{ c.oportunidades }}/{{ c.leads }} oport.</span>
+    </div>
+    <div style="background:#2a2a3e;border-radius:4px;height:8px;overflow:hidden;">
+      {% if c.leads > 0 %}
+      <div style="background:var(--info);height:100%;width:{{ (c.oportunidades / c.leads * 100)|int }}%;border-radius:4px;transition:width 0.3s;"></div>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</section>
+{% endif %}
+
+{% endblock %}

@@ -387,6 +387,52 @@
 </div>
 {% endif %}
 
+<!-- Card Canais -->
+{% if canais_resumo %}
+<div class="card" style="margin-bottom:16px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;">
+  <div>
+    <div class="label" style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Canais de Comunicação</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+      {% if canais_resumo.ativos > 0 %}
+        <span class="badge badge-ok">{{ canais_resumo.ativos }} ativo{{ 's' if canais_resumo.ativos != 1 else '' }}</span>
+      {% else %}
+        <span class="badge badge-muted">0 ativos</span>
+      {% endif %}
+      {% if canais_resumo.em_fila > 0 %}
+        <span class="badge badge-info">{{ canais_resumo.em_fila }} em fila</span>
+      {% endif %}
+      {% if canais_resumo.dry_run > 0 %}
+        <span class="badge" style="background:#444;">{{ canais_resumo.dry_run }} dry-run</span>
+      {% endif %}
+    </div>
+  </div>
+  <div style="margin-left:auto;">
+    <a href="/canais" class="badge badge-muted" style="text-decoration:none;padding:5px 10px;">→ Ver canais</a>
+  </div>
+</div>
+{% endif %}
+
+<!-- Card Multi-cidade -->
+{% if cidades_resumo and cidades_resumo.total_cidades is defined %}
+<div class="card" style="margin-bottom:16px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;">
+  <div>
+    <div class="label" style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Expansão Multi-Cidade</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+      <span class="badge badge-muted">{{ cidades_resumo.total_cidades }} cidade{{ 's' if cidades_resumo.total_cidades != 1 else '' }}</span>
+      {% if cidades_resumo.total_leads > 0 %}
+        <span class="badge badge-muted">{{ cidades_resumo.total_leads }} leads</span>
+      {% endif %}
+      {% if cidades_resumo.total_oportunidades > 0 %}
+        <span class="badge badge-ok">{{ cidades_resumo.total_oportunidades }} oport.</span>
+      {% endif %}
+    </div>
+  </div>
+  <div style="margin-left:auto;">
+    <a href="/multi-cidade" class="badge badge-muted" style="text-decoration:none;padding:5px 10px;">→ Ver cidades</a>
+  </div>
+</div>
+{% endif %}
+
 {% if gov and (gov.modo_empresa != 'normal' or gov.agentes_pausados or gov.areas_pausadas or gov.diretrizes_ativas) %}
 <h2>Estado da Governança</h2>
 <div class="card" style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start;">

@@ -175,6 +175,44 @@ async def pagina_index(request: Request):
         }
     except Exception:
         ti_resumo = {}
+    # Resumo canais para card da homepage
+    try:
+        from core.canais import CanalEmail as _CE2, CanalWhatsApp as _CW2, CanalTelefone as _CT2
+        _modos = []
+        _fila_total = 0
+        for _cls in (_CE2, _CW2, _CT2):
+            try:
+                _st = _cls().status()
+                _modos.append(_st.get("modo", "dry-run"))
+                _fila_total += _st.get("fila_pendente", 0)
+            except Exception:
+                _modos.append("dry-run")
+        canais_resumo = {
+            "ativos":    sum(1 for m in _modos if m != "dry-run"),
+            "em_fila":   _fila_total,
+            "dry_run":   sum(1 for m in _modos if m == "dry-run"),
+        }
+    except Exception:
+        canais_resumo = {}
+    # Resumo multi-cidade para card da homepage
+    try:
+        import json as _json_mc
+        from collections import defaultdict as _ddc
+        _pipe = _json_mc.loads((config.PASTA_DADOS / "pipeline_comercial.json").read_text(encoding="utf-8"))
+        _cids: dict = _ddc(lambda: {"leads": 0, "oport": 0})
+        for _it in _pipe:
+            _c = (_it.get("cidade") or "").strip()
+            if _c:
+                _cids[_c]["leads"] += 1
+                if _it.get("status", "") not in ("descartada", "perdida"):
+                    _cids[_c]["oport"] += 1
+        cidades_resumo = {
+            "total_cidades":     len(_cids),
+            "total_leads":       sum(v["leads"] for v in _cids.values()),
+            "total_oportunidades": sum(v["oport"] for v in _cids.values()),
+        }
+    except Exception:
+        cidades_resumo = {}
     # Resumo scheduler para card da homepage
     try:
         from datetime import datetime as _dt
@@ -217,6 +255,8 @@ async def pagina_index(request: Request):
         "scheduler_resumo": scheduler_resumo,
         "nps_resumo":       nps_resumo,
         "ti_resumo":        ti_resumo,
+        "canais_resumo":    canais_resumo,
+        "cidades_resumo":   cidades_resumo,
     })
 
 
@@ -920,6 +960,171 @@ async def pagina_email(request: Request):
         "bloqueados":        bloqueados,
         "historico_recente": historico_recente,
         "docs_map":          docs_map,
+    })
+
+
+@app.get("/canais", response_class=HTMLResponse)
+async def pagina_canais(request: Request):
+    import json as _json
+    from datetime import datetime as _dt, timedelta as _td
+    from pathlib import Path as _Path
+
+    _dd = _Path(__file__).parent.parent / "dados"
+
+    def _ler_c(nome, padrao):
+        try:
+            return _json.loads((_dd / nome).read_text(encoding="utf-8"))
+        except Exception:
+            return padrao
+
+    from core.canais import CanalEmail as _CE, CanalWhatsApp as _CW, CanalTelefone as _CT
+    estado = _ler_c("estado_canais.json", {})
+
+    hoje = _dt.now()
+    dias = [(hoje - _td(days=i)).strftime("%Y-%m-%d") for i in range(6, -1, -1)]
+
+    def _hist(items, campo="registrado_em"):
+        por_dia: dict = {}
+        for it in items:
+            d = (it.get(campo) or "")[:10]
+            if d:
+                por_dia[d] = por_dia.get(d, 0) + 1
+        return [por_dia.get(d, 0) for d in dias]
+
+    hist_email = _ler_c("historico_email.json", [])
+    fila_wapp  = _ler_c("fila_envio_whatsapp.json", [])
+    fila_tel   = _ler_c("fila_chamadas_telefone.json", [])
+
+    def _safe_status(cls):
+        try:
+            return cls().status()
+        except Exception:
+            return {"modo": "dry-run", "configurado": False}
+
+    canais = [
+        {
+            "id":             "email",
+            "nome":           "Email",
+            "icone":          "✉",
+            "status":         _safe_status(_CE),
+            "pre_requisitos": estado.get("email", {}).get("pre_requisitos", []),
+            "hist_7d":        _hist(hist_email, "registrado_em"),
+        },
+        {
+            "id":             "whatsapp",
+            "nome":           "WhatsApp",
+            "icone":          "◎",
+            "status":         _safe_status(_CW),
+            "pre_requisitos": estado.get("whatsapp", {}).get("pre_requisitos", []),
+            "hist_7d":        _hist(fila_wapp, "registrado_em"),
+        },
+        {
+            "id":             "telefone",
+            "nome":           "Telefone",
+            "icone":          "☎",
+            "status":         _safe_status(_CT),
+            "pre_requisitos": estado.get("telefone", {}).get("pre_requisitos", []),
+            "hist_7d":        _hist(fila_tel, "registrado_em"),
+        },
+    ]
+
+    ativos  = sum(1 for c in canais if c["status"].get("modo", "dry-run") != "dry-run")
+    em_fila = sum(c["status"].get("fila_pendente", 0) for c in canais)
+    dry_run = sum(1 for c in canais if c["status"].get("modo", "dry-run") == "dry-run")
+
+    return templates.TemplateResponse("canais.html", {
+        "request":    request,
+        "page":       "canais",
+        "canais":     canais,
+        "ativos":     ativos,
+        "em_fila":    em_fila,
+        "dry_run":    dry_run,
+        "dias_labels": dias,
+    })
+
+
+@app.get("/multi-cidade", response_class=HTMLResponse)
+async def pagina_multi_cidade(request: Request):
+    import json as _json
+    from collections import defaultdict as _dd
+    from pathlib import Path as _Path
+
+    _dados = _Path(__file__).parent.parent / "dados"
+
+    def _ler_mc(nome, padrao):
+        try:
+            return _json.loads((_dados / nome).read_text(encoding="utf-8"))
+        except Exception:
+            return padrao
+
+    pipeline  = _ler_mc("pipeline_comercial.json", [])
+    scheduler = _ler_mc("scheduler_estado.json", {})
+
+    cidades: dict = _dd(lambda: {"leads": 0, "oportunidades": 0, "ganhos": 0, "nichos": set()})
+    nicho_map: dict = _dd(lambda: {"cidades": set(), "total": 0})
+    empresas_multi: dict = _dd(set)
+
+    for item in pipeline:
+        cidade = (item.get("cidade") or "").strip()
+        if not cidade:
+            continue
+        status = item.get("status", "")
+        nicho  = (item.get("categoria") or item.get("segmento") or item.get("tipo_negocio") or "").strip()
+        nome   = (item.get("empresa") or item.get("nome") or "").strip()
+
+        cidades[cidade]["leads"] += 1
+        if status not in ("descartada", "perdida"):
+            cidades[cidade]["oportunidades"] += 1
+        if status in ("ganho", "fechada", "contrato_assinado"):
+            cidades[cidade]["ganhos"] += 1
+        if nicho:
+            cidades[cidade]["nichos"].add(nicho)
+            nicho_map[nicho]["cidades"].add(cidade)
+            nicho_map[nicho]["total"] += 1
+        if nome:
+            empresas_multi[nome].add(cidade)
+
+    cidades_lista = sorted(
+        [
+            {
+                "cidade":        c,
+                "leads":         v["leads"],
+                "oportunidades": v["oportunidades"],
+                "ganhos":        v["ganhos"],
+                "nichos":        sorted(v["nichos"])[:5],
+            }
+            for c, v in cidades.items()
+        ],
+        key=lambda x: x["oportunidades"],
+        reverse=True,
+    )
+
+    nichos_lista = sorted(
+        [
+            {"nicho": n, "cidades": sorted(v["cidades"]), "total": v["total"]}
+            for n, v in nicho_map.items()
+        ],
+        key=lambda x: (len(x["cidades"]), x["total"]),
+        reverse=True,
+    )[:10]
+
+    redes = [
+        {"nome": nome, "cidades": sorted(cs)}
+        for nome, cs in empresas_multi.items()
+        if len(cs) > 1
+    ][:10]
+
+    return templates.TemplateResponse("multi_cidade.html", {
+        "request":           request,
+        "page":              "multi_cidade",
+        "cidades":           cidades_lista,
+        "nichos_cross":      nichos_lista,
+        "redes":             redes,
+        "total_cidades":     len(cidades_lista),
+        "total_leads":       sum(c["leads"] for c in cidades_lista),
+        "total_oportunidades": sum(c["oportunidades"] for c in cidades_lista),
+        "ultima_execucao":   scheduler.get("ultima_verificacao", "—"),
+        "proxima_execucao":  scheduler.get("proximo_agendado"),
     })
 
 
