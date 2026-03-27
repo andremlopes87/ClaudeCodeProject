@@ -702,7 +702,15 @@ def _criar_followup_email(chamada_id: str, item: dict | None, observacoes: str) 
         followup["tipo_acao"] = "followup_sem_resposta"
         followup["canal"] = "email"
         fus.append(followup)
-        _arq.write_text(json.dumps(fus, ensure_ascii=False, indent=2), encoding="utf-8")
+        import os as _os
+        _arq.parent.mkdir(parents=True, exist_ok=True)
+        _conteudo = json.dumps(fus, ensure_ascii=False, indent=2)
+        _tmp = _arq.with_suffix(_arq.suffix + ".tmp")
+        with open(_tmp, "w", encoding="utf-8") as _f:
+            _f.write(_conteudo)
+            _f.flush()
+            _os.fsync(_f.fileno())
+        _os.replace(_tmp, _arq)
     except Exception as exc:
         log.warning(f"[telefone] nao foi possivel criar followup email: {exc}")
 
@@ -733,9 +741,15 @@ def _carregar_fila() -> list:
 
 
 def _salvar_fila(fila: list) -> None:
+    import os
     config.PASTA_DADOS.mkdir(parents=True, exist_ok=True)
-    with open(_ARQUIVO_FILA, "w", encoding="utf-8") as f:
-        json.dump(fila, f, ensure_ascii=False, indent=2)
+    conteudo = json.dumps(fila, ensure_ascii=False, indent=2)
+    tmp = _ARQUIVO_FILA.with_suffix(_ARQUIVO_FILA.suffix + ".tmp")
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(conteudo)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, _ARQUIVO_FILA)
 
 
 def _carregar_resultados() -> list:
@@ -746,9 +760,15 @@ def _carregar_resultados() -> list:
 
 
 def _salvar_resultados(resultados: list) -> None:
+    import os
     config.PASTA_DADOS.mkdir(parents=True, exist_ok=True)
-    with open(_ARQUIVO_RESULT, "w", encoding="utf-8") as f:
-        json.dump(resultados, f, ensure_ascii=False, indent=2)
+    conteudo = json.dumps(resultados, ensure_ascii=False, indent=2)
+    tmp = _ARQUIVO_RESULT.with_suffix(_ARQUIVO_RESULT.suffix + ".tmp")
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(conteudo)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, _ARQUIVO_RESULT)
 
 
 def _carregar_estado_canais() -> dict:

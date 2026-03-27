@@ -740,9 +740,15 @@ def _carregar_fila() -> list:
 
 
 def _salvar_fila(fila: list) -> None:
+    import os
     config.PASTA_DADOS.mkdir(parents=True, exist_ok=True)
-    with open(_ARQUIVO_FILA, "w", encoding="utf-8") as f:
-        json.dump(fila, f, ensure_ascii=False, indent=2)
+    conteudo = json.dumps(fila, ensure_ascii=False, indent=2)
+    tmp = _ARQUIVO_FILA.with_suffix(_ARQUIVO_FILA.suffix + ".tmp")
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(conteudo)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, _ARQUIVO_FILA)
 
 
 def _carregar_estado_canais() -> dict:

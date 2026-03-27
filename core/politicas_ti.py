@@ -272,10 +272,15 @@ def atualizar_politica_ti(secao: str, campo: str, valor) -> bool:
     pol[secao][campo] = valor
 
     try:
+        import os
         _ARQ_POL.parent.mkdir(parents=True, exist_ok=True)
-        _ARQ_POL.write_text(
-            json.dumps(pol, ensure_ascii=False, indent=2), encoding="utf-8"
-        )
+        conteudo = json.dumps(pol, ensure_ascii=False, indent=2)
+        tmp = _ARQ_POL.with_suffix(_ARQ_POL.suffix + ".tmp")
+        with open(tmp, "w", encoding="utf-8") as f:
+            f.write(conteudo)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, _ARQ_POL)
         log.info(f"[politicas_ti] atualizado: {secao}.{campo} = {valor!r}")
         return True
     except Exception as exc:

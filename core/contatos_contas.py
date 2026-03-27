@@ -55,10 +55,16 @@ def _ler() -> dict:
 
 
 def _salvar(dados: dict) -> None:
+    import os
     try:
         _ARQ_CONTATOS.parent.mkdir(parents=True, exist_ok=True)
-        with open(_ARQ_CONTATOS, "w", encoding="utf-8") as f:
-            json.dump(dados, f, ensure_ascii=False, indent=2)
+        conteudo = json.dumps(dados, ensure_ascii=False, indent=2)
+        tmp = _ARQ_CONTATOS.with_suffix(_ARQ_CONTATOS.suffix + ".tmp")
+        with open(tmp, "w", encoding="utf-8") as f:
+            f.write(conteudo)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, _ARQ_CONTATOS)
     except Exception as exc:
         log.warning(f"[contatos_contas] falha ao salvar: {exc}")
 
@@ -391,8 +397,14 @@ def _registrar_hist(
     })
 
     try:
+        import os
         _ARQ_HISTORICO.parent.mkdir(parents=True, exist_ok=True)
-        with open(_ARQ_HISTORICO, "w", encoding="utf-8") as f:
-            json.dump(hist, f, ensure_ascii=False, indent=2)
+        conteudo = json.dumps(hist, ensure_ascii=False, indent=2)
+        tmp = _ARQ_HISTORICO.with_suffix(_ARQ_HISTORICO.suffix + ".tmp")
+        with open(tmp, "w", encoding="utf-8") as f:
+            f.write(conteudo)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, _ARQ_HISTORICO)
     except Exception as exc:
         log.warning(f"[contatos_contas] falha ao salvar histórico: {exc}")

@@ -46,10 +46,16 @@ def carregar_estado(nome_agente: str) -> dict:
 
 def salvar_estado(nome_agente: str, estado: dict) -> None:
     """Persiste o estado do agente em dados/estado_{nome_agente}.json."""
+    import os
     config.PASTA_DADOS.mkdir(parents=True, exist_ok=True)
     caminho = config.PASTA_DADOS / f"estado_{nome_agente}.json"
-    with open(caminho, "w", encoding="utf-8") as f:
-        json.dump(estado, f, ensure_ascii=False, indent=2)
+    conteudo = json.dumps(estado, ensure_ascii=False, indent=2)
+    tmp = caminho.with_suffix(caminho.suffix + ".tmp")
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(conteudo)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, caminho)
     logger.info(f"[{nome_agente}] Estado salvo.")
 
 
@@ -307,5 +313,13 @@ def _carregar_json(caminho: Path, padrao):
 
 
 def _salvar_json(caminho: Path, dados) -> None:
-    with open(caminho, "w", encoding="utf-8") as f:
-        json.dump(dados, f, ensure_ascii=False, indent=2)
+    import os
+    caminho = Path(caminho)
+    caminho.parent.mkdir(parents=True, exist_ok=True)
+    conteudo = json.dumps(dados, ensure_ascii=False, indent=2)
+    tmp = caminho.with_suffix(caminho.suffix + ".tmp")
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(conteudo)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, caminho)

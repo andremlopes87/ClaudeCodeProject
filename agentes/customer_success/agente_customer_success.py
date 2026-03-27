@@ -70,8 +70,15 @@ def _ler(arq: Path, padrao):
 
 
 def _salvar(arq: Path, dados) -> None:
+    import os
     arq.parent.mkdir(parents=True, exist_ok=True)
-    arq.write_text(json.dumps(dados, ensure_ascii=False, indent=2), encoding="utf-8")
+    conteudo = json.dumps(dados, ensure_ascii=False, indent=2)
+    tmp = arq.with_suffix(arq.suffix + ".tmp")
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(conteudo)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, arq)
 
 
 def _agora() -> str:

@@ -119,8 +119,15 @@ def _id_risco(risco: dict) -> str:
 
 def _salvar_ts(dados, nome_arquivo: str) -> None:
     """Salva snapshot com timestamp em PASTA_DADOS."""
+    import os
     caminho = config.PASTA_DADOS / nome_arquivo
-    with open(caminho, "w", encoding="utf-8") as f:
-        json.dump(dados, f, ensure_ascii=False, indent=2)
+    caminho.parent.mkdir(parents=True, exist_ok=True)
+    conteudo = json.dumps(dados, ensure_ascii=False, indent=2)
+    tmp = caminho.with_suffix(caminho.suffix + ".tmp")
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(conteudo)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, caminho)
     n = len(dados) if isinstance(dados, list) else 1
     logger.info(f"Snapshot salvo: {caminho} ({n} registros)")

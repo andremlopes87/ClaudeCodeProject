@@ -394,10 +394,16 @@ class Scheduler:
             return {"ultima_verificacao": "", "execucoes_hoje": {}, "proximo_agendado": None}
 
     def _salvar_estado(self, estado: dict) -> None:
+        import os
         try:
             _ARQ_ESTADO.parent.mkdir(parents=True, exist_ok=True)
-            with open(_ARQ_ESTADO, "w", encoding="utf-8") as f:
-                json.dump(estado, f, ensure_ascii=False, indent=2)
+            conteudo = json.dumps(estado, ensure_ascii=False, indent=2)
+            tmp = _ARQ_ESTADO.with_suffix(_ARQ_ESTADO.suffix + ".tmp")
+            with open(tmp, "w", encoding="utf-8") as f:
+                f.write(conteudo)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(tmp, _ARQ_ESTADO)
         except Exception as exc:
             log.warning(f"[scheduler] falha ao salvar estado: {exc}")
 
@@ -439,8 +445,14 @@ class Scheduler:
         })
 
         try:
+            import os
             _ARQ_LOG.parent.mkdir(parents=True, exist_ok=True)
-            with open(_ARQ_LOG, "w", encoding="utf-8") as f:
-                json.dump(historico, f, ensure_ascii=False, indent=2)
+            conteudo = json.dumps(historico, ensure_ascii=False, indent=2)
+            tmp = _ARQ_LOG.with_suffix(_ARQ_LOG.suffix + ".tmp")
+            with open(tmp, "w", encoding="utf-8") as f:
+                f.write(conteudo)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(tmp, _ARQ_LOG)
         except Exception as exc:
             log.warning(f"[scheduler] falha ao salvar log: {exc}")

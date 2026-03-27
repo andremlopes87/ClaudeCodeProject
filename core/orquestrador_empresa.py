@@ -422,9 +422,15 @@ def carregar_estado_empresa() -> dict:
 
 
 def salvar_estado_empresa(estado: dict) -> None:
+    import os
     config.PASTA_DADOS.mkdir(parents=True, exist_ok=True)
-    with open(_ARQ_ESTADO, "w", encoding="utf-8") as f:
-        json.dump(estado, f, ensure_ascii=False, indent=2)
+    conteudo = json.dumps(estado, ensure_ascii=False, indent=2)
+    tmp = _ARQ_ESTADO.with_suffix(_ARQ_ESTADO.suffix + ".tmp")
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(conteudo)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, _ARQ_ESTADO)
 
 
 # ─── Importadores lazy ────────────────────────────────────────────────────────
@@ -575,9 +581,15 @@ def _configurar_log_ciclo(ciclo_id: str, ts: str) -> logging.Logger:
 
 def _salvar_ciclo(ciclo: dict) -> None:
     """Persiste o último ciclo em ciclo_operacional.json."""
+    import os
     config.PASTA_DADOS.mkdir(parents=True, exist_ok=True)
-    with open(_ARQ_CICLO, "w", encoding="utf-8") as f:
-        json.dump(ciclo, f, ensure_ascii=False, indent=2)
+    conteudo = json.dumps(ciclo, ensure_ascii=False, indent=2)
+    tmp = _ARQ_CICLO.with_suffix(_ARQ_CICLO.suffix + ".tmp")
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(conteudo)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, _ARQ_CICLO)
 
 
 def _atualizar_estado_empresa(estado: dict, ciclo: dict) -> dict:

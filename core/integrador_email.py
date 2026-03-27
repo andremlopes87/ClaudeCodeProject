@@ -252,9 +252,15 @@ def carregar_config_canal_email() -> dict:
         agora = datetime.now().isoformat(timespec="seconds")
         cfg["criado_em"]    = agora
         cfg["atualizado_em"] = agora
+        import os
         config.PASTA_DADOS.mkdir(parents=True, exist_ok=True)
-        with open(arq, "w", encoding="utf-8") as f:
-            json.dump(cfg, f, ensure_ascii=False, indent=2)
+        conteudo = json.dumps(cfg, ensure_ascii=False, indent=2)
+        tmp = arq.with_suffix(arq.suffix + ".tmp")
+        with open(tmp, "w", encoding="utf-8") as f:
+            f.write(conteudo)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, arq)
         return cfg
     with open(arq, "r", encoding="utf-8") as f:
         return json.load(f)
@@ -442,7 +448,13 @@ def _carregar_json(nome: str, padrao):
 
 
 def _salvar_json(nome: str, dados) -> None:
+    import os
     config.PASTA_DADOS.mkdir(parents=True, exist_ok=True)
     caminho = config.PASTA_DADOS / nome
-    with open(caminho, "w", encoding="utf-8") as f:
-        json.dump(dados, f, ensure_ascii=False, indent=2)
+    conteudo = json.dumps(dados, ensure_ascii=False, indent=2)
+    tmp = caminho.with_suffix(caminho.suffix + ".tmp")
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(conteudo)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, caminho)

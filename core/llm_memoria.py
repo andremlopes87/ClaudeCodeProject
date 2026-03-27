@@ -64,10 +64,16 @@ def _ler() -> dict:
 
 
 def _salvar(dados: dict) -> None:
+    import os
     try:
         _ARQ_MEMORIA.parent.mkdir(parents=True, exist_ok=True)
-        with open(_ARQ_MEMORIA, "w", encoding="utf-8") as f:
-            json.dump(dados, f, ensure_ascii=False, indent=2)
+        conteudo = json.dumps(dados, ensure_ascii=False, indent=2)
+        tmp = _ARQ_MEMORIA.with_suffix(_ARQ_MEMORIA.suffix + ".tmp")
+        with open(tmp, "w", encoding="utf-8") as f:
+            f.write(conteudo)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, _ARQ_MEMORIA)
     except Exception as exc:
         log.warning(f"[llm_memoria] falha ao salvar: {exc}")
 

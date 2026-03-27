@@ -539,5 +539,10 @@ def _ler_dados(nome: str, padrao):
 
 def _salvar(caminho: Path, dados) -> None:
     caminho.parent.mkdir(parents=True, exist_ok=True)
-    with open(caminho, "w", encoding="utf-8") as f:
-        json.dump(dados, f, ensure_ascii=False, indent=2)
+    conteudo = json.dumps(dados, ensure_ascii=False, indent=2)
+    tmp = caminho.with_suffix(caminho.suffix + ".tmp")
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(conteudo)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, caminho)

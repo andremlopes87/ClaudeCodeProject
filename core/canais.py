@@ -88,11 +88,17 @@ def _carregar_estado_canais() -> dict:
 
 
 def _salvar_estado_canais(estado: dict) -> None:
+    import os
     global _estado_cache
     _estado_cache = estado
     config.PASTA_DADOS.mkdir(parents=True, exist_ok=True)
-    with open(_ARQUIVO_ESTADO, "w", encoding="utf-8") as f:
-        json.dump(estado, f, ensure_ascii=False, indent=2)
+    conteudo = json.dumps(estado, ensure_ascii=False, indent=2)
+    tmp = _ARQUIVO_ESTADO.with_suffix(_ARQUIVO_ESTADO.suffix + ".tmp")
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(conteudo)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, _ARQUIVO_ESTADO)
 
 
 # ─── Interface base ───────────────────────────────────────────────────────────

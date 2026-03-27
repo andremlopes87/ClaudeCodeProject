@@ -691,8 +691,14 @@ def _classificar_resultados_contato_llm(router, log) -> int:
 
     if modificado:
         try:
-            with open(caminho, "w", encoding="utf-8") as f:
-                json.dump(resultados, f, ensure_ascii=False, indent=2)
+            import os
+            conteudo = json.dumps(resultados, ensure_ascii=False, indent=2)
+            tmp = caminho.with_suffix(caminho.suffix + ".tmp")
+            with open(tmp, "w", encoding="utf-8") as f:
+                f.write(conteudo)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(tmp, caminho)
         except Exception as exc:
             log.warning(f"  [llm_classif] erro ao salvar resultados_contato: {exc}")
 
@@ -710,10 +716,16 @@ def _carregar_json(nome: str, padrao):
 
 
 def _salvar_json(nome: str, dados) -> None:
+    import os
     config.PASTA_DADOS.mkdir(parents=True, exist_ok=True)
     caminho = config.PASTA_DADOS / nome
-    with open(caminho, "w", encoding="utf-8") as f:
-        json.dump(dados, f, ensure_ascii=False, indent=2)
+    conteudo = json.dumps(dados, ensure_ascii=False, indent=2)
+    tmp = caminho.with_suffix(caminho.suffix + ".tmp")
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(conteudo)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, caminho)
     logging.getLogger(__name__).info(
         f"Salvo: {caminho.name} ({len(dados) if isinstance(dados, list) else 1} registros)"
     )

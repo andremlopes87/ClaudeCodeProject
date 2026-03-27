@@ -54,9 +54,16 @@ def _ler(arq: str, padrao=None):
 
 def _salvar(arq: str, dados):
     import json
+    import os
     p = config.PASTA_DADOS / arq
     p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps(dados, ensure_ascii=False, indent=2), encoding="utf-8")
+    conteudo = json.dumps(dados, ensure_ascii=False, indent=2)
+    tmp = p.with_suffix(p.suffix + ".tmp")
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(conteudo)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, p)
 
 
 def _agora() -> str:

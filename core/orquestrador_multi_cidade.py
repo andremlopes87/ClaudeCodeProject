@@ -484,9 +484,15 @@ def _carregar_estado() -> dict:
 
 
 def _salvar_estado(estado: dict) -> None:
+    import os
     config.PASTA_DADOS.mkdir(parents=True, exist_ok=True)
-    with open(_ARQ_ESTADO, "w", encoding="utf-8") as f:
-        json.dump(estado, f, ensure_ascii=False, indent=2)
+    conteudo = json.dumps(estado, ensure_ascii=False, indent=2)
+    tmp = _ARQ_ESTADO.with_suffix(_ARQ_ESTADO.suffix + ".tmp")
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(conteudo)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, _ARQ_ESTADO)
 
 
 def _carregar_consolidado() -> dict:
@@ -500,9 +506,15 @@ def _carregar_consolidado() -> dict:
 
 
 def _salvar_consolidado(dados: dict) -> None:
+    import os
     config.PASTA_DADOS.mkdir(parents=True, exist_ok=True)
-    with open(_ARQ_CONSOLIDADO, "w", encoding="utf-8") as f:
-        json.dump(dados, f, ensure_ascii=False, indent=2)
+    conteudo = json.dumps(dados, ensure_ascii=False, indent=2)
+    tmp = _ARQ_CONSOLIDADO.with_suffix(_ARQ_CONSOLIDADO.suffix + ".tmp")
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(conteudo)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, _ARQ_CONSOLIDADO)
 
 
 def _estado_inicial() -> dict:
@@ -600,6 +612,13 @@ def _slug(cidade: str) -> str:
 
 
 def _salvar_json(nome: str, dados) -> None:
+    import os
     config.PASTA_DADOS.mkdir(parents=True, exist_ok=True)
-    with open(config.PASTA_DADOS / nome, "w", encoding="utf-8") as f:
-        json.dump(dados, f, ensure_ascii=False, indent=2)
+    caminho = config.PASTA_DADOS / nome
+    conteudo = json.dumps(dados, ensure_ascii=False, indent=2)
+    tmp = caminho.with_suffix(caminho.suffix + ".tmp")
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(conteudo)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, caminho)

@@ -304,10 +304,16 @@ def aplicar_diretrizes_sobre_politicas(pol: dict, diretrizes: list, modo: str) -
 
 
 def salvar_politicas_operacionais(politicas: dict) -> None:
+    import os
     caminho = config.PASTA_DADOS / _ARQ_POLITICAS
     caminho.parent.mkdir(parents=True, exist_ok=True)
-    with open(caminho, "w", encoding="utf-8") as f:
-        json.dump(politicas, f, ensure_ascii=False, indent=2)
+    conteudo = json.dumps(politicas, ensure_ascii=False, indent=2)
+    tmp = caminho.with_suffix(caminho.suffix + ".tmp")
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(conteudo)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, caminho)
 
 
 def registrar_historico_aplicacao_politica(gov: dict, politicas: dict) -> None:
@@ -336,5 +342,11 @@ def registrar_historico_aplicacao_politica(gov: dict, politicas: dict) -> None:
     historico.append(registro)
     historico = historico[-200:]
 
-    with open(caminho, "w", encoding="utf-8") as f:
-        json.dump(historico, f, ensure_ascii=False, indent=2)
+    import os
+    conteudo = json.dumps(historico, ensure_ascii=False, indent=2)
+    tmp = caminho.with_suffix(caminho.suffix + ".tmp")
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(conteudo)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, caminho)

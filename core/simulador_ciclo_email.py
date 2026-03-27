@@ -118,11 +118,16 @@ def _ler(arq: str, padrao=None):
 
 
 def _salvar(arq: str, dados) -> None:
+    import os
     config.PASTA_DADOS.mkdir(parents=True, exist_ok=True)
-    (config.PASTA_DADOS / arq).write_text(
-        json.dumps(dados, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
+    caminho = config.PASTA_DADOS / arq
+    conteudo = json.dumps(dados, ensure_ascii=False, indent=2)
+    tmp = caminho.with_suffix(caminho.suffix + ".tmp")
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(conteudo)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, caminho)
 
 
 def _agora() -> str:

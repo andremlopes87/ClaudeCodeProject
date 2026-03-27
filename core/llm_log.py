@@ -190,9 +190,15 @@ def _append(entrada: dict) -> None:
     historico = _ler()
     historico.append(entrada)
     try:
+        import os
         _ARQ_LOG.parent.mkdir(parents=True, exist_ok=True)
-        with open(_ARQ_LOG, "w", encoding="utf-8") as f:
-            json.dump(historico, f, ensure_ascii=False, indent=2)
+        conteudo = json.dumps(historico, ensure_ascii=False, indent=2)
+        tmp = _ARQ_LOG.with_suffix(_ARQ_LOG.suffix + ".tmp")
+        with open(tmp, "w", encoding="utf-8") as f:
+            f.write(conteudo)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, _ARQ_LOG)
     except Exception as exc:
         log.warning(f"[llm_log] falha ao salvar log: {exc}")
 
@@ -212,8 +218,14 @@ def _registrar_incidente(msg: str) -> None:
             "timestamp": datetime.now().isoformat(timespec="seconds"),
             "msg":       msg,
         })
-        _ARQ_INCIDENTES.write_text(
-            json.dumps(incs, ensure_ascii=False, indent=2), encoding="utf-8"
-        )
+        import os
+        _ARQ_INCIDENTES.parent.mkdir(parents=True, exist_ok=True)
+        conteudo = json.dumps(incs, ensure_ascii=False, indent=2)
+        tmp = _ARQ_INCIDENTES.with_suffix(_ARQ_INCIDENTES.suffix + ".tmp")
+        with open(tmp, "w", encoding="utf-8") as f:
+            f.write(conteudo)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, _ARQ_INCIDENTES)
     except Exception:
         pass

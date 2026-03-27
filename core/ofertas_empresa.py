@@ -577,10 +577,16 @@ def _ler(arq: Path, padrao) -> dict:
 
 
 def _salvar(arq: Path, dados) -> None:
+    import os
     try:
         arq.parent.mkdir(parents=True, exist_ok=True)
-        with open(arq, "w", encoding="utf-8") as f:
-            json.dump(dados, f, ensure_ascii=False, indent=2)
+        conteudo = json.dumps(dados, ensure_ascii=False, indent=2)
+        tmp = arq.with_suffix(arq.suffix + ".tmp")
+        with open(tmp, "w", encoding="utf-8") as f:
+            f.write(conteudo)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, arq)
     except Exception as exc:
         log.warning(f"[ofertas] falha ao salvar {arq.name}: {exc}")
 

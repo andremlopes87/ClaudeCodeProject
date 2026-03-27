@@ -721,9 +721,15 @@ def _salvar_resumo_diario_llm(resumo: str) -> None:
             "resumo":    resumo,
             "agente":    NOME_AGENTE,
         })
+        import os
         config.PASTA_DADOS.mkdir(parents=True, exist_ok=True)
-        with open(caminho, "w", encoding="utf-8") as f:
-            json.dump(historico, f, ensure_ascii=False, indent=2)
+        conteudo = json.dumps(historico, ensure_ascii=False, indent=2)
+        tmp = caminho.with_suffix(caminho.suffix + ".tmp")
+        with open(tmp, "w", encoding="utf-8") as f:
+            f.write(conteudo)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, caminho)
     except Exception as exc:
         logging.getLogger(__name__).warning(f"  [llm] erro ao salvar resumo_diario_llm: {exc}")
 
@@ -739,10 +745,16 @@ def _carregar_json(nome, padrao):
 
 
 def _salvar_json(nome, dados) -> None:
+    import os
     config.PASTA_DADOS.mkdir(parents=True, exist_ok=True)
     caminho = config.PASTA_DADOS / nome
-    with open(caminho, "w", encoding="utf-8") as f:
-        json.dump(dados, f, ensure_ascii=False, indent=2)
+    conteudo = json.dumps(dados, ensure_ascii=False, indent=2)
+    tmp = caminho.with_suffix(caminho.suffix + ".tmp")
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(conteudo)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, caminho)
     logging.getLogger(__name__).info(
         f"Salvo: {caminho} ({len(dados) if isinstance(dados, list) else 1} registros)"
     )
