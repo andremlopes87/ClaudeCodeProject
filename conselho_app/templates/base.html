@@ -55,8 +55,20 @@
     <div><span id="poll-indicator">●</span> auto-refresh</div>
     <div id="last-updated" class="text-muted" style="margin-top:4px;font-size:10px;">—</div>
     <div style="margin-top:8px;"><a href="/api/refresh" onclick="triggerRefresh(event)">↻ atualizar agora</a></div>
+    {% if not auth_modo_dev() %}
+    <div style="margin-top:8px;border-top:1px solid var(--border);padding-top:8px;">
+      <a href="/logout" style="font-size:11px;color:var(--muted);">⎋ sair</a>
+    </div>
+    {% endif %}
   </div>
 </nav>
+
+{% if auth_modo_dev() %}
+<div style="background:#7a6000;color:#ffe;font-size:11px;font-weight:600;
+            text-align:center;padding:5px;letter-spacing:0.05em;position:sticky;top:0;z-index:100;">
+  ⚠ MODO DEV — SEM AUTENTICAÇÃO — execute <code style="background:rgba(0,0,0,.25);padding:1px 5px;border-radius:3px;">python scripts/setup_auth_painel.py</code> para ativar
+</div>
+{% endif %}
 
 <main>
 {% block content %}{% endblock %}

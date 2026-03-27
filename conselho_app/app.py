@@ -10,8 +10,12 @@ Rodar com:
   uvicorn conselho_app.app:app --host 0.0.0.0 --port 8000 --reload
 """
 
+import hashlib
+import hmac
 import json
+import secrets
 import sys
+from datetime import datetime
 from pathlib import Path
 
 # Garantir que o raiz do projeto esteja no path
@@ -56,6 +60,145 @@ def _ti_tem_alerta() -> bool:
     return False
 
 templates.env.globals["ti_tem_alerta"] = _ti_tem_alerta
+
+
+# ─── Autenticação ─────────────────────────────────────────────────────────────
+
+_AUTH_FILE = config.PASTA_DADOS / "auth_painel.json"
+
+# Rotas que nunca exigem autenticação
+_ROTAS_PUBLICAS = {"/login", "/logout"}
+
+
+def _carregar_auth() -> dict | None:
+    """Retorna dict de auth ou None se arquivo não existe (modo dev)."""
+    if not _AUTH_FILE.exists():
+        return None
+    try:
+        return json.loads(_AUTH_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+
+
+def _verificar_senha(senha: str, senha_hash: str) -> bool:
+    """Verifica senha contra 'sha256:<salt>:<hash>'."""
+    try:
+        partes = senha_hash.split(":", 2)
+        if len(partes) != 3 or partes[0] != "sha256":
+            return False
+        _, salt, h_esperado = partes
+        h_calculado = hashlib.sha256((senha + salt).encode("utf-8")).hexdigest()
+        return hmac.compare_digest(h_calculado, h_esperado)
+    except Exception:
+        return False
+
+
+def _calcular_token(usuario: str, timestamp: int, secret: str) -> str:
+    msg = f"{usuario}:{timestamp}:{secret}"
+    return hashlib.sha256(msg.encode("utf-8")).hexdigest()
+
+
+def _validar_cookie(cookie_val: str | None, auth_cfg: dict) -> bool:
+    """Valida cookie 'token:timestamp'. Retorna True se válido e não expirado."""
+    if not cookie_val:
+        return False
+    try:
+        token, ts_str = cookie_val.rsplit(":", 1)
+        timestamp = int(ts_str)
+        agora = int(datetime.now().timestamp())
+        sessao_horas = auth_cfg.get("sessao_horas", 24)
+        if agora - timestamp > sessao_horas * 3600:
+            return False
+        secret  = auth_cfg.get("secret", "")
+        usuario = auth_cfg.get("usuario", "")
+        esperado = _calcular_token(usuario, timestamp, secret)
+        return hmac.compare_digest(token, esperado)
+    except Exception:
+        return False
+
+
+def _auth_modo_dev() -> bool:
+    return not _AUTH_FILE.exists()
+
+
+templates.env.globals["auth_modo_dev"] = _auth_modo_dev
+
+
+@app.middleware("http")
+async def _middleware_auth(request: Request, call_next):
+    path = request.url.path
+    # Sempre liberar rotas públicas e arquivos estáticos
+    if path in _ROTAS_PUBLICAS or path.startswith("/static/"):
+        return await call_next(request)
+
+    auth_cfg = _carregar_auth()
+    # Modo dev: sem auth_painel.json → libera tudo
+    if auth_cfg is None:
+        return await call_next(request)
+
+    # Verificar sessão
+    cookie_val = request.cookies.get("sessao_token")
+    if not _validar_cookie(cookie_val, auth_cfg):
+        # APIs retornam 401; páginas HTML redirecionam para /login
+        if path.startswith("/api/"):
+            return JSONResponse({"erro": "nao_autenticado"}, status_code=401)
+        return RedirectResponse(url="/login", status_code=302)
+
+    return await call_next(request)
+
+
+# ─── Rotas de autenticação ────────────────────────────────────────────────────
+
+@app.get("/login", response_class=HTMLResponse)
+async def pagina_login(request: Request, erro: str = ""):
+    auth_cfg = _carregar_auth()
+    if auth_cfg is None:
+        # Modo dev: sem auth configurada → ir direto para o painel
+        return RedirectResponse(url="/", status_code=302)
+    return templates.TemplateResponse("login.html", {"request": request, "erro": erro})
+
+
+@app.post("/login")
+async def fazer_login(request: Request,
+                      usuario: str = Form(default=""),
+                      senha:   str = Form(default="")):
+    auth_cfg = _carregar_auth()
+    if auth_cfg is None:
+        return RedirectResponse(url="/", status_code=302)
+
+    credenciais_ok = (
+        hmac.compare_digest(usuario, auth_cfg.get("usuario", ""))
+        and _verificar_senha(senha, auth_cfg.get("senha_hash", ""))
+    )
+    if not credenciais_ok:
+        return templates.TemplateResponse(
+            "login.html",
+            {"request": request, "erro": "Usuário ou senha incorretos."},
+            status_code=401,
+        )
+
+    timestamp    = int(datetime.now().timestamp())
+    secret       = auth_cfg.get("secret", secrets.token_hex(32))
+    token        = _calcular_token(usuario, timestamp, secret)
+    cookie_val   = f"{token}:{timestamp}"
+    sessao_horas = auth_cfg.get("sessao_horas", 24)
+
+    resp = RedirectResponse(url="/", status_code=302)
+    resp.set_cookie(
+        "sessao_token",
+        cookie_val,
+        max_age=sessao_horas * 3600,
+        httponly=True,
+        samesite="strict",
+    )
+    return resp
+
+
+@app.get("/logout")
+async def logout():
+    resp = RedirectResponse(url="/login", status_code=302)
+    resp.delete_cookie("sessao_token", httponly=True, samesite="strict")
+    return resp
 
 
 # ─── Helpers de leitura ───────────────────────────────────────────────────────

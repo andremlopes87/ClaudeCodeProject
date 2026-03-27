@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Login — Painel do Conselho</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <style>
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      background: var(--bg);
+    }
+    .login-box {
+      width: 360px;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 36px 32px 32px;
+    }
+    .login-brand {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    .login-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 28px;
+    }
+    .login-field {
+      margin-bottom: 16px;
+    }
+    .login-field label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 6px;
+    }
+    .login-field input {
+      width: 100%;
+      box-sizing: border-box;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 10px;
+      border-radius: 4px;
+      font-size: 14px;
+      font-family: inherit;
+      outline: none;
+    }
+    .login-field input:focus {
+      border-color: var(--text);
+    }
+    .login-btn {
+      width: 100%;
+      margin-top: 8px;
+      background: var(--text);
+      color: var(--bg);
+      border: none;
+      padding: 10px 0;
+      border-radius: 4px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: 0.04em;
+    }
+    .login-btn:hover {
+      opacity: 0.88;
+    }
+    .login-erro {
+      background: rgba(229, 85, 85, 0.12);
+      border: 1px solid #e55;
+      color: #e55;
+      padding: 8px 12px;
+      border-radius: 4px;
+      font-size: 12px;
+      margin-bottom: 18px;
+    }
+    .login-hint {
+      margin-top: 20px;
+      font-size: 11px;
+      color: var(--muted);
+      text-align: center;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+  <div class="login-box">
+    <div class="login-brand">EMPRESA IA</div>
+    <div class="login-title">Painel do Conselho</div>
+
+    {% if erro %}
+    <div class="login-erro">{{ erro }}</div>
+    {% endif %}
+
+    <form method="post" action="/login">
+      <div class="login-field">
+        <label for="usuario">Usuário</label>
+        <input type="text" id="usuario" name="usuario" autocomplete="username"
+               autofocus placeholder="usuário">
+      </div>
+      <div class="login-field">
+        <label for="senha">Senha</label>
+        <input type="password" id="senha" name="senha" autocomplete="current-password"
+               placeholder="senha">
+      </div>
+      <button type="submit" class="login-btn">Entrar</button>
+    </form>
+
+    <div class="login-hint">
+      Para redefinir a senha:<br>
+      <code style="font-size:10px;">python scripts/setup_auth_painel.py</code>
+    </div>
+  </div>
+</body>
+</html>
