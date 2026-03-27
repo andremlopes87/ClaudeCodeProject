@@ -152,8 +152,9 @@ def test_avaliador_score_dinamico():
     print("\n=== Avaliador Fechamento: score dinâmico por modo ===")
     from modulos.comercial.avaliador_fechamento_comercial import decidir_promocao
 
-    # Oportunidade com score=8, linha definida, sem marketing, sem bloqueios
-    opp = {"linha_servico_sugerida": "automacao_atendimento", "estagio": "abordagem"}
+    # Oportunidade com score=8, linha definida, oferta mapeada, sem marketing, sem bloqueios
+    opp = {"linha_servico_sugerida": "automacao_atendimento", "estagio": "abordagem",
+           "oferta_id": "atendimento_whatsapp"}
     sinais = ["pediu_proposta", "respondeu_interesse", "contexto_origem", "ultimo_positivo",
               "escopo_confirmado", "contato_confirmado"]  # score=8
     ins = [{"tipo_insumo": "escopo_confirmado"}, {"tipo_insumo": "contato_confirmado"}]

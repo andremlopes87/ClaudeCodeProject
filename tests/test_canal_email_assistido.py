@@ -64,7 +64,7 @@ _IDENTIDADE_OK = {
 _CANAIS_OK = {
     "email_comercial_planejado": "comercial@presencadigital.com.br",
     "email_principal_planejado": "contato@presencadigital.com.br",
-    "whatsapp_oficial": "11999990000",
+    "whatsapp_oficial": "+5511999990000",
 }
 
 _CONFIG_CANAL_OK = {
@@ -143,7 +143,7 @@ def test_validar_identidade_inativa():
 
 def test_validar_sem_email_remetente():
     print("\n=== Teste 3: Sem email_remetente bloqueado ===")
-    canais_vazios = {"whatsapp_oficial": "11999990000"}
+    canais_vazios = {"whatsapp_oficial": "+5511999990000"}
     config_sem_rem = dict(_CONFIG_CANAL_OK, email_remetente_planejado="")
     ok, motivo = validar_identidade_para_email(_IDENTIDADE_OK, canais_vazios, config_sem_rem)
     check(not ok, "sem remetente retorna ok=False")

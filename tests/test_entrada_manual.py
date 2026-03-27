@@ -115,7 +115,7 @@ def test_injetar_no_fluxo():
         "cidade":    "Campinas",
         "estado":    "SP",
         "telefone":  "19 3333-5678",
-        "whatsapp":  "19933335678",
+        "whatsapp":  "+5519933335678",
         "email":     "contato@saborcaseiro.com.br",
         "modo":      "injetar_no_fluxo",
     })
@@ -152,7 +152,7 @@ def test_venda_manual():
         "cidade":           "São Bernardo do Campo",
         "estado":           "SP",
         "telefone":         "11 4444-9999",
-        "whatsapp":         "11944449999",
+        "whatsapp":         "+5511944449999",
         "site":             "https://irmaoscosta.com.br",
         "modo":             "venda_manual",
         "servico_vendido":  "site + botão WhatsApp",
@@ -245,9 +245,9 @@ def test_normalizacao():
     e3 = normalizar_entrada_manual({"site": "meunegocio.com.br", "nome": "X", "modo": "avaliacao_manual"})
     check(e3["site"] == "https://meunegocio.com.br", f"site com schema (got {e3['site']})")
 
-    # Telefone só dígitos
-    e4 = normalizar_entrada_manual({"telefone": "(11) 99999-8888", "nome": "X", "modo": "avaliacao_manual"})
-    check(e4["telefone"] == "11999998888", f"telefone só dígitos (got {e4['telefone']})")
+    # Telefone só dígitos (fixo 10 dígitos — DDD + 8 dígitos)
+    e4 = normalizar_entrada_manual({"telefone": "(17) 3333-5678", "nome": "X", "modo": "avaliacao_manual"})
+    check(e4["telefone"] == "1733335678", f"telefone só dígitos (got {e4['telefone']})")
 
     # Nome all-caps → title case
     e5 = normalizar_entrada_manual({"nome": "BARBEARIA DO ZÉ", "modo": "avaliacao_manual"})

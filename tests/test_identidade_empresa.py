@@ -175,7 +175,7 @@ def test_canais():
         "email_financeiro_planejado": "financeiro@presencadigital.com.br",
         "instagram_oficial":          "@presencadigital",
         "site_oficial":               "https://presencadigital.com.br",
-        "whatsapp_oficial":           "11999990000",
+        "whatsapp_oficial":           "+5511999990000",
         "status_configuracao_email":  "definido_sem_configurar",
         "status_configuracao_site":   "nao_definido",
         "observacoes":                "Domínio registrado. Email ainda não configurado.",
