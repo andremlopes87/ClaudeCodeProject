@@ -9,5 +9,6 @@ dados/
 !dados/exemplos_tom_por_categoria.json
 !dados/catalogo_ofertas.json
 !dados/regras_comerciais_ofertas.json
+!dados/planos_execucao.json
 logs/
 .claude/

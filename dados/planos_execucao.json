@@ -1,0 +1,245 @@
+{
+  "agendamento_digital": {
+    "nome": "Agendamento pelo WhatsApp",
+    "etapas": [
+      {
+        "ordem": 1,
+        "nome": "Levantamento",
+        "descricao": "Coletar informações do cliente: serviços oferecidos, horários, barbeiros/profissionais, duração de cada serviço",
+        "responsavel": "vetor",
+        "tipo": "coleta_info",
+        "duracao_estimada_horas": 1,
+        "insumos_necessarios": ["nome_empresa", "servicos", "horarios", "profissionais"],
+        "entregavel": "Mapeamento de serviços e horários"
+      },
+      {
+        "ordem": 2,
+        "nome": "Configuração WhatsApp Business",
+        "descricao": "Criar ou configurar WhatsApp Business com foto de perfil, descrição, catálogo de serviços, horário de atendimento, mensagem de boas-vindas",
+        "responsavel": "vetor",
+        "tipo": "configuracao",
+        "duracao_estimada_horas": 2,
+        "ferramentas": ["WhatsApp Business"],
+        "entregavel": "WhatsApp Business configurado"
+      },
+      {
+        "ordem": 3,
+        "nome": "Criação do Google Agenda",
+        "descricao": "Criar Google Agenda compartilhada com slots de horário baseados no mapeamento, bloqueios de almoço/folga, cores por profissional",
+        "responsavel": "vetor",
+        "tipo": "configuracao",
+        "duracao_estimada_horas": 1,
+        "ferramentas": ["Google Calendar"],
+        "entregavel": "Google Agenda configurada com horários"
+      },
+      {
+        "ordem": 4,
+        "nome": "Configuração do bot de agendamento",
+        "descricao": "Configurar bot que: apresenta serviços, mostra horários livres (lê do Google Agenda), permite escolher, confirma agendamento, envia lembrete 2h antes",
+        "responsavel": "vetor",
+        "tipo": "desenvolvimento",
+        "duracao_estimada_horas": 4,
+        "ferramentas": ["n8n ou bot próprio", "Google Calendar API", "WhatsApp Business API"],
+        "entregavel": "Bot funcional integrado"
+      },
+      {
+        "ordem": 5,
+        "nome": "Teste completo",
+        "descricao": "Simular 3 agendamentos: um normal, um com remarcação, um com cancelamento. Verificar que agenda atualiza, confirmação chega, lembrete funciona",
+        "responsavel": "vetor",
+        "tipo": "teste",
+        "duracao_estimada_horas": 1,
+        "entregavel": "3 agendamentos de teste validados"
+      },
+      {
+        "ordem": 6,
+        "nome": "Treinamento",
+        "descricao": "Gravar vídeo curto (5min max) mostrando: como ver a agenda, como bloquear horário, como ver quem agendou, o que fazer se o bot travar",
+        "responsavel": "vetor",
+        "tipo": "treinamento",
+        "duracao_estimada_horas": 1,
+        "entregavel": "Vídeo de treinamento enviado por WhatsApp"
+      },
+      {
+        "ordem": 7,
+        "nome": "Entrega e validação",
+        "descricao": "Apresentar tudo funcionando ao cliente. Cliente testa agendar um horário real. Validar que está satisfeito. Iniciar suporte de 30 dias",
+        "responsavel": "vetor + cliente",
+        "tipo": "entrega",
+        "duracao_estimada_horas": 1,
+        "entregavel": "Aceite do cliente"
+      }
+    ],
+    "duracao_total_estimada_horas": 11,
+    "custo_ferramentas": "zero (APIs gratuitas)",
+    "resultado_mensuravel": "Número de agendamentos via WhatsApp na primeira semana"
+  },
+
+  "atendimento_whatsapp": {
+    "nome": "Atendimento automatizado por WhatsApp",
+    "etapas": [
+      {
+        "ordem": 1,
+        "nome": "Levantamento de FAQs",
+        "descricao": "Conversar com o cliente e listar as 10-15 perguntas mais frequentes que ele recebe (horário, preço, localização, serviços, formas de pagamento)",
+        "responsavel": "vetor",
+        "tipo": "coleta_info",
+        "duracao_estimada_horas": 1,
+        "entregavel": "Lista de FAQs com respostas aprovadas pelo cliente"
+      },
+      {
+        "ordem": 2,
+        "nome": "Configuração WhatsApp Business",
+        "descricao": "Criar ou configurar WhatsApp Business com foto de perfil, descrição, horário de atendimento, mensagem de boas-vindas",
+        "responsavel": "vetor",
+        "tipo": "configuracao",
+        "duracao_estimada_horas": 1,
+        "ferramentas": ["WhatsApp Business"],
+        "entregavel": "WhatsApp Business configurado"
+      },
+      {
+        "ordem": 3,
+        "nome": "Configuração do bot de atendimento",
+        "descricao": "Bot com menu principal (ex: 1-Horários, 2-Serviços, 3-Preços, 4-Localização, 5-Falar com alguém). Respostas automáticas para cada opção. Encaminhamento para humano quando opção 5 ou pergunta não mapeada",
+        "responsavel": "vetor",
+        "tipo": "desenvolvimento",
+        "duracao_estimada_horas": 3,
+        "ferramentas": ["n8n ou bot próprio", "WhatsApp Business API"],
+        "entregavel": "Bot funcional com menu e respostas"
+      },
+      {
+        "ordem": 4,
+        "nome": "Mensagem de ausência",
+        "descricao": "Configurar mensagem fora do horário: 'Estamos fechados agora. Nosso horário é X. Enquanto isso, posso ajudar com: [menu]'",
+        "responsavel": "vetor",
+        "tipo": "configuracao",
+        "duracao_estimada_horas": 0.5,
+        "ferramentas": ["WhatsApp Business"],
+        "entregavel": "Mensagem de ausência ativa"
+      },
+      {
+        "ordem": 5,
+        "nome": "Teste completo",
+        "descricao": "Simular 5 cenários: pergunta de horário, preço, localização, pergunta inesperada (encaminha para humano), mensagem fora de horário",
+        "responsavel": "vetor",
+        "tipo": "teste",
+        "duracao_estimada_horas": 1,
+        "entregavel": "5 cenários validados"
+      },
+      {
+        "ordem": 6,
+        "nome": "Treinamento e entrega",
+        "descricao": "Gravar vídeo de 5min mostrando como o bot funciona e como transferir para humano. Entregar ao cliente. Iniciar suporte de 30 dias",
+        "responsavel": "vetor + cliente",
+        "tipo": "entrega",
+        "duracao_estimada_horas": 1,
+        "entregavel": "Aceite do cliente"
+      }
+    ],
+    "duracao_total_estimada_horas": 7.5,
+    "custo_ferramentas": "zero",
+    "resultado_mensuravel": "Redução de perguntas repetitivas que o dono responde por dia"
+  },
+
+  "presenca_digital_basica": {
+    "nome": "Presença digital organizada",
+    "etapas": [
+      {
+        "ordem": 1,
+        "nome": "Criar ou atualizar Google Meu Negócio",
+        "descricao": "Criar ou atualizar perfil no Google Business: nome correto, endereço, telefone, horários, fotos, categoria, descrição de serviços",
+        "responsavel": "vetor",
+        "tipo": "configuracao",
+        "duracao_estimada_horas": 1.5,
+        "ferramentas": ["Google Business Profile"],
+        "entregavel": "Perfil completo com fotos, horários e serviços"
+      },
+      {
+        "ordem": 2,
+        "nome": "Configurar WhatsApp Business",
+        "descricao": "Criar ou configurar WhatsApp Business com foto, descrição, horário de atendimento, mensagem de boas-vindas",
+        "responsavel": "vetor",
+        "tipo": "configuracao",
+        "duracao_estimada_horas": 0.5,
+        "ferramentas": ["WhatsApp Business"],
+        "entregavel": "WhatsApp Business com boas-vindas ativo"
+      },
+      {
+        "ordem": 3,
+        "nome": "Vincular WhatsApp ao Google",
+        "descricao": "Adicionar link direto para WhatsApp no perfil do Google Meu Negócio. Testar que clique redireciona corretamente",
+        "responsavel": "vetor",
+        "tipo": "configuracao",
+        "duracao_estimada_horas": 0.5,
+        "ferramentas": ["Google Business Profile", "WhatsApp Business"],
+        "entregavel": "Link direto funcionando no perfil do Google"
+      },
+      {
+        "ordem": 4,
+        "nome": "Orientação escrita ao cliente",
+        "descricao": "Entregar PDF curto (1 página) explicando: como atualizar horários, como responder avaliações no Google, como mudar foto de perfil",
+        "responsavel": "vetor",
+        "tipo": "entrega",
+        "duracao_estimada_horas": 0.5,
+        "entregavel": "PDF de orientação enviado por WhatsApp"
+      }
+    ],
+    "duracao_total_estimada_horas": 3,
+    "custo_ferramentas": "zero",
+    "resultado_mensuravel": "Empresa aparece no Google com informação correta e WhatsApp acessível"
+  },
+
+  "operacao_continua": {
+    "nome": "Operação Contínua — Vetor gerencia",
+    "etapas": [
+      {
+        "ordem": 1,
+        "nome": "Reunião de kickoff",
+        "descricao": "Apresentar agenda de trabalho, definir responsabilidades, alinhar metas do primeiro mês e métricas de acompanhamento",
+        "responsavel": "vetor + cliente",
+        "tipo": "coleta_info",
+        "duracao_estimada_horas": 1,
+        "entregavel": "Metas do mês 1 definidas e documentadas"
+      },
+      {
+        "ordem": 2,
+        "nome": "Diagnóstico inicial",
+        "descricao": "Mapear processos atuais, identificar gargalos prioritários, listar ferramentas em uso, avaliar presença digital atual",
+        "responsavel": "vetor",
+        "tipo": "coleta_info",
+        "duracao_estimada_horas": 2,
+        "entregavel": "Relatório de diagnóstico com gargalos priorizados"
+      },
+      {
+        "ordem": 3,
+        "nome": "Plano de 30 dias",
+        "descricao": "Definir as 3-5 melhorias concretas para o primeiro mês com métricas, entregáveis e responsáveis",
+        "responsavel": "vetor",
+        "tipo": "configuracao",
+        "duracao_estimada_horas": 1,
+        "entregavel": "Plano de 30 dias aprovado pelo cliente"
+      },
+      {
+        "ordem": 4,
+        "nome": "Implantação das melhorias",
+        "descricao": "Executar as melhorias definidas: configurações, automações, correções de processo, integrações necessárias",
+        "responsavel": "vetor",
+        "tipo": "desenvolvimento",
+        "duracao_estimada_horas": 8,
+        "entregavel": "Melhorias implantadas, documentadas e funcionando"
+      },
+      {
+        "ordem": 5,
+        "nome": "Revisão mensal",
+        "descricao": "Apresentar resultados do mês: o que foi feito, o que funcionou, o que melhorar. Definir prioridades do próximo mês",
+        "responsavel": "vetor + cliente",
+        "tipo": "entrega",
+        "duracao_estimada_horas": 1,
+        "entregavel": "Relatório mensal + plano do próximo mês aprovado"
+      }
+    ],
+    "duracao_total_estimada_horas": 13,
+    "custo_ferramentas": "zero",
+    "resultado_mensuravel": "Número de gargalos resolvidos por mês e nível de satisfação do cliente"
+  }
+}

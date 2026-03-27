@@ -166,11 +166,13 @@ def executar() -> dict:
                 _oferta_id = opp.get("oferta_id", "")
                 _pacote_id = opp.get("pacote_id", "")
 
+            _contexto_cliente = _extrair_contexto_digital(opp)
             checklist = criar_checklist_inicial_por_linha_servico(
                 entrega["id"],
                 opp.get("linha_servico_sugerida", ""),
                 oferta_id=_oferta_id,
                 pacote_id=_pacote_id,
+                contexto_cliente=_contexto_cliente,
             )
             if _prop_aprovada:
                 checklist["proposta_id"]   = _prop_aprovada["id"]
@@ -471,13 +473,19 @@ def _tipo_entrega_por_linha(linha: str) -> str:
 
 # ─── Checklist ────────────────────────────────────────────────────────────────
 
-def criar_checklist_inicial_por_linha_servico(entrega_id: str, linha: str,
-                                               oferta_id: str = "", pacote_id: str = "") -> dict:
-    """Cria checklist inicial. Prefere catálogo de ofertas; cai para checklist por linha."""
+def criar_checklist_inicial_por_linha_servico(
+    entrega_id: str,
+    linha: str,
+    oferta_id: str = "",
+    pacote_id: str = "",
+    contexto_cliente: dict | None = None,
+) -> dict:
+    """Cria checklist inicial. Prefere plano de execução da oferta; cai para checklist por linha."""
     agora = datetime.now().isoformat(timespec="seconds")
     itens = []
-    if oferta_id and pacote_id:
-        itens = _itens_checklist_por_oferta_pacote(oferta_id, pacote_id)
+    if oferta_id:
+        itens = _itens_checklist_por_oferta_pacote(oferta_id, pacote_id,
+                                                    contexto_cliente=contexto_cliente)
     if not itens:
         itens = _itens_checklist_por_linha(linha)
     return {
@@ -493,21 +501,44 @@ def criar_checklist_inicial_por_linha_servico(entrega_id: str, linha: str,
     }
 
 
-def _itens_checklist_por_oferta_pacote(oferta_id: str, pacote_id: str) -> list:
-    """Retorna itens de checklist pelo catálogo de ofertas. [] se não encontrado."""
+def _itens_checklist_por_oferta_pacote(
+    oferta_id: str,
+    pacote_id: str,
+    contexto_cliente: dict | None = None,
+) -> list:
+    """
+    Retorna itens de checklist enriquecidos a partir do plano de execução da oferta.
+    Fallback: itens simples do catálogo de ofertas.
+    """
+    # 1. Tentar plano de execução concreto
+    try:
+        from core.planos_entrega import etapas_para_itens_checklist
+        itens = etapas_para_itens_checklist(
+            oferta_id,
+            contexto_cliente=contexto_cliente,
+            usar_llm=True,
+        )
+        if itens:
+            return itens
+    except Exception as exc:
+        logging.getLogger(__name__).debug(
+            f"[checklist] plano_execucao falhou para {oferta_id}: {exc}"
+        )
+
+    # 2. Fallback: checklist simples do catálogo de ofertas
     try:
         from core.ofertas_empresa import obter_checklist_por_oferta_e_pacote
         itens_raw = obter_checklist_por_oferta_e_pacote(oferta_id, pacote_id)
         agora = datetime.now().isoformat(timespec="seconds")
         return [
             {
-                "id":           f"ck_of_{i}",
-                "titulo":       item,
-                "descricao":    "",
-                "obrigatorio":  True,
-                "status":       "pendente",
-                "depende_de":   None,
-                "criado_em":    agora,
+                "id":            f"ck_of_{i}",
+                "titulo":        item if isinstance(item, str) else item.get("item", str(item)),
+                "descricao":     "",
+                "obrigatorio":   True,
+                "status":        "pendente",
+                "depende_de":    None,
+                "criado_em":     agora,
                 "atualizado_em": agora,
             }
             for i, item in enumerate(itens_raw)
@@ -691,6 +722,30 @@ def registrar_historico_entrega(entrega_id: str, evento: str, descricao: str, hi
         "origem":        NOME_AGENTE,
         "registrado_em": datetime.now().isoformat(timespec="seconds"),
     })
+
+
+# ─── Contexto do cliente ──────────────────────────────────────────────────────
+
+def _extrair_contexto_digital(opp: dict) -> dict:
+    """
+    Extrai sinais digitais da oportunidade para uso na adaptação do plano
+    de execução (ex: pular etapas de configuração já cumpridas).
+
+    Lê de `opp.get("sinais_digitais")` ou `opp.get("sinais")`, que são
+    dicts populados pelo agente de prospecção ao analisar a empresa.
+    """
+    sinais = opp.get("sinais_digitais") or opp.get("sinais") or {}
+    return {
+        "tem_whatsapp_business": bool(sinais.get("tem_whatsapp_business")
+                                      or sinais.get("whatsapp_business")),
+        "tem_google_meu_negocio": bool(sinais.get("tem_google_meu_negocio")
+                                       or sinais.get("google_meu_negocio")
+                                       or sinais.get("tem_google")),
+        "tem_site":               bool(sinais.get("tem_site") or sinais.get("site")),
+        "tem_instagram":          bool(sinais.get("tem_instagram") or sinais.get("instagram")),
+        "nome_empresa":           opp.get("contraparte", ""),
+        "categoria":              opp.get("categoria", ""),
+    }
 
 
 # ─── Persistência ─────────────────────────────────────────────────────────────
