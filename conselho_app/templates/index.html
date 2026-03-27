@@ -185,26 +185,40 @@
 </div>
 {% endif %}
 
-{% if prov_email %}
+{% if email_card or prov_email %}
 <div class="card" style="margin-bottom:16px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;">
   <div>
-    <div class="label" style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Canal Email Real</div>
-    {% if prov_email.status_geral == 'pronto_para_modo_real' %}
-      <span class="badge badge-ok" style="font-size:12px;padding:4px 10px;">✓ Pronto para ativar</span>
-    {% elif prov_email.status_geral == 'quase_pronto' %}
-      <span class="badge badge-info" style="font-size:12px;padding:4px 10px;">◑ Quase pronto</span>
-    {% elif prov_email.status_geral == 'em_preparacao' %}
-      <span class="badge badge-warn" style="font-size:12px;padding:4px 10px;">⚙ Em preparação</span>
+    <div class="label" style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Canal Email</div>
+    {% set modo_em = email_card.modo if email_card else 'desativado' %}
+    {% if modo_em == 'real' %}
+      <span class="badge badge-ok" style="font-size:12px;padding:4px 10px;">REAL</span>
+    {% elif modo_em == 'assistido' %}
+      <span class="badge badge-info" style="font-size:12px;padding:4px 10px;">ASSISTIDO</span>
+    {% elif modo_em == 'simulado' %}
+      <span class="badge badge-warn" style="font-size:12px;padding:4px 10px;">SIMULADO</span>
     {% else %}
-      <span class="badge badge-muted" style="font-size:12px;padding:4px 10px;">✗ Não pronto</span>
+      <span class="badge badge-muted" style="font-size:12px;padding:4px 10px;">DESATIVADO</span>
     {% endif %}
   </div>
+  {% if email_card %}
+  <div style="font-size:12px;color:var(--muted);">
+    {% if email_card.enviados > 0 %}
+    <div>✉ {{ email_card.enviados }} enviados</div>
+    <div>{{ email_card.taxa }}% resposta</div>
+    {% else %}
+    <div>Sem dados ainda</div>
+    {% endif %}
+  </div>
+  {% endif %}
+  {% if prov_email %}
   <div style="font-size:11px;color:var(--muted);">
     <div>Domínio: <code>{{ prov_email.dominio or '—' }}</code></div>
     {% if prov_email.pendencias > 0 %}<div>{{ prov_email.pendencias }} pendência(s)</div>{% endif %}
   </div>
-  <div style="margin-left:auto;">
-    <a href="/ativacao-email" class="badge badge-muted" style="text-decoration:none;padding:5px 10px;">→ Ver ativação</a>
+  {% endif %}
+  <div style="margin-left:auto;display:flex;gap:6px;">
+    <a href="/email" class="badge badge-muted" style="text-decoration:none;padding:5px 10px;">→ Email</a>
+    <a href="/ativacao-email" class="badge badge-muted" style="text-decoration:none;padding:5px 10px;">Ativação</a>
   </div>
 </div>
 {% endif %}

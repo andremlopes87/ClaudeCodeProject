@@ -213,6 +213,18 @@ async def pagina_index(request: Request):
         }
     except Exception:
         cidades_resumo = {}
+    # Métricas de email para card da homepage
+    try:
+        _em  = _ler("metricas_email.json", {})
+        _cfg = _ler("config_canal_email.json", {})
+        email_card = {
+            "modo":      _cfg.get("modo", "desativado"),
+            "enviados":  _em.get("emails_enviados_total", 0),
+            "taxa":      round(_em.get("taxa_resposta", 0) * 100, 1),
+            "respostas": _em.get("respostas_recebidas_total", 0),
+        }
+    except Exception:
+        email_card = {}
     # Resumo scheduler para card da homepage
     try:
         from datetime import datetime as _dt
@@ -257,6 +269,7 @@ async def pagina_index(request: Request):
         "ti_resumo":        ti_resumo,
         "canais_resumo":    canais_resumo,
         "cidades_resumo":   cidades_resumo,
+        "email_card":       email_card,
     })
 
 
@@ -935,32 +948,113 @@ async def pagina_ativacao_email(request: Request):
 
 @app.get("/email", response_class=HTMLResponse)
 async def pagina_email(request: Request):
-    from core.integrador_email import carregar_config_canal_email, gerar_fila_envio_email
-    config_canal = carregar_config_canal_email()
-    fila         = gerar_fila_envio_email()
-    estado       = _ler("estado_canal_email.json", {})
-    historico    = _ler("historico_email.json", [])
+    from core.integrador_email import carregar_config_canal_email
+    config_canal  = carregar_config_canal_email()
+    estado        = _ler("estado_canal_email.json", {})
+    historico     = _ler("historico_email.json", [])
+    metricas      = _ler("metricas_email.json", {})
+    respostas     = _ler("respostas_email.json", [])
+    fila          = _ler("fila_envio_email.json", [])
+
     historico_recente = sorted(historico, key=lambda x: x.get("registrado_em",""), reverse=True)[:30]
+    ultimos_emails    = sorted(fila, key=lambda x: x.get("criado_em",""), reverse=True)[:20]
+    respostas_por_email = {r.get("email_origem_id",""): r for r in respostas}
+
     preparados   = [e for e in fila if e.get("status") == "preparado"]
     bloqueados   = [e for e in fila if e.get("status") == "bloqueado"]
-    # Documentos vinculados: lookup por documento_id para exibir link de preview
+    enviados_sim = [e for e in fila if e.get("status") == "enviado_simulado"]
+
+    n_enviados     = len([e for e in fila if e.get("status") in ("preparado","enviado","enviado_simulado")])
+    n_respondidos  = len(respostas)
+    n_interessados = sum(1 for r in respostas if r.get("classificacao") in ("interessado","aceite","negocia_valor","pedido_info"))
+    n_convertidos  = sum(1 for r in respostas if r.get("classificacao") == "aceite")
+
     docs_map: dict = {}
     try:
         docs_list = _ler("documentos_oficiais.json", [])
         docs_map = {d["id"]: d for d in docs_list}
     except Exception:
         pass
+
     return templates.TemplateResponse("email.html", {
-        "request":           request,
-        "page":              "email",
-        "config_canal":      config_canal,
-        "estado":            estado,
-        "fila_email":        fila,
-        "preparados":        preparados,
-        "bloqueados":        bloqueados,
-        "historico_recente": historico_recente,
-        "docs_map":          docs_map,
+        "request":            request,
+        "page":               "email",
+        "config_canal":       config_canal,
+        "estado":             estado,
+        "fila_email":         fila,
+        "preparados":         preparados,
+        "bloqueados":         bloqueados,
+        "enviados_sim":       enviados_sim,
+        "historico_recente":  historico_recente,
+        "docs_map":           docs_map,
+        "metricas":           metricas,
+        "respostas":          respostas,
+        "respostas_por_email": respostas_por_email,
+        "ultimos_emails":     ultimos_emails,
+        "funil": {
+            "enviados":    n_enviados,
+            "respondidos": n_respondidos,
+            "interessados": n_interessados,
+            "convertidos": n_convertidos,
+        },
     })
+
+
+@app.get("/email/simulacao", response_class=HTMLResponse)
+async def pagina_email_simulacao(request: Request):
+    metricas     = _ler("metricas_email.json", {})
+    ultimo_ciclo = metricas.get("ultimo_ciclo") or {}
+    return templates.TemplateResponse("email_simulacao.html", {
+        "request":      request,
+        "page":         "email",
+        "metricas":     metricas,
+        "ultimo_ciclo": ultimo_ciclo,
+    })
+
+
+@app.post("/api/email/simular", response_class=JSONResponse)
+async def api_simular_email(n: int = Form(default=3)):
+    try:
+        from core.simulador_ciclo_email import simular_ciclo_completo
+        resultado = simular_ciclo_completo(n_oportunidades=min(max(n, 1), 10))
+        return JSONResponse(resultado)
+    except Exception as exc:
+        return JSONResponse({"status": "erro", "erro": str(exc)}, status_code=500)
+
+
+@app.post("/api/verificar-smtp", response_class=JSONResponse)
+async def api_verificar_smtp():
+    try:
+        import socket
+        from core.provisionamento_canais import resumir_para_painel as _rpp
+        prov = _rpp()["provisionamento"]
+        host = prov.get("smtp_host_planejado", "")
+        porta = int(prov.get("smtp_porta_planejada") or 587)
+        if not host:
+            return JSONResponse({"ok": False, "msg": "SMTP host não configurado em provisionamento_email_real.json"})
+        s = socket.create_connection((host, porta), timeout=5)
+        s.close()
+        return JSONResponse({"ok": True, "msg": f"SMTP {host}:{porta} acessível"})
+    except Exception as exc:
+        return JSONResponse({"ok": False, "msg": str(exc)})
+
+
+@app.post("/api/verificar-imap", response_class=JSONResponse)
+async def api_verificar_imap():
+    try:
+        import socket
+        from core.provisionamento_canais import resumir_para_painel as _rpp
+        prov = _rpp()["provisionamento"]
+        host  = prov.get("imap_host_planejado") or prov.get("smtp_host_planejado", "")
+        porta = int(prov.get("imap_porta_planejada") or 993)
+        if not host:
+            return JSONResponse({"ok": False, "msg": "IMAP host não configurado"})
+        s = socket.create_connection((host, porta), timeout=5)
+        s.close()
+        return JSONResponse({"ok": True, "msg": f"IMAP {host}:{porta} acessível"})
+    except Exception as exc:
+        return JSONResponse({"ok": False, "msg": str(exc)})
+
 
 
 @app.get("/canais", response_class=HTMLResponse)

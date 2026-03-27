@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+{% block title %}Simulação de Email — Painel do Conselho{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1>✉ Simulação de Ciclo Email</h1>
+  <div class="subtitle">
+    Ensaio geral do fluxo email de ponta a ponta — nenhum email real sai.
+    <a href="/email" style="margin-left:12px;font-size:12px;" class="badge badge-muted">← Canal Email</a>
+    <a href="/ativacao-email" style="font-size:12px;" class="badge badge-muted">↳ Ativação</a>
+  </div>
+</div>
+
+<!-- ═══ PAINEL DE CONTROLE ════════════════════════════════════════════════== -->
+<section class="section">
+  <h2>Rodar Simulação</h2>
+  <div class="card">
+    <p style="margin-bottom:14px;font-size:13px;color:var(--muted);">
+      Seleciona oportunidades do pipeline, prepara emails com templates, marca como
+      <code>enviado_simulado</code>, gera respostas probabilísticas, classifica e age.
+      Tudo marcado com <code>simulado=true</code>.
+    </p>
+
+    <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+      <div>
+        <div class="label" style="margin-bottom:4px;">Oportunidades</div>
+        <select id="sel-n" style="background:var(--card-bg);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:4px;font-size:13px;">
+          <option value="3">3 oportunidades</option>
+          <option value="5">5 oportunidades</option>
+          <option value="7">7 oportunidades</option>
+          <option value="10">10 oportunidades</option>
+        </select>
+      </div>
+      <button id="btn-simular" onclick="rodarSimulacao()"
+        style="background:var(--text);color:var(--bg);border:none;padding:8px 20px;border-radius:4px;cursor:pointer;font-size:13px;font-weight:600;">
+        ▶ Rodar Simulação
+      </button>
+      <span id="sim-status" style="font-size:12px;color:var(--muted);display:none;">Processando...</span>
+    </div>
+
+    <div id="sim-resultado" style="display:none;margin-top:16px;"></div>
+  </div>
+</section>
+
+<!-- ═══ ÚLTIMO CICLO REGISTRADO ════════════════════════════════════════════ -->
+{% if ultimo_ciclo %}
+<section class="section">
+  <h2>Último Ciclo Registrado</h2>
+  <div class="card">
+    <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start;">
+      <div>
+        <div class="label">Executado em</div>
+        <div>{{ ultimo_ciclo.executado_em or '—' }}</div>
+      </div>
+      <div>
+        <div class="label">Emails enviados</div>
+        <div style="font-size:24px;font-weight:700;">{{ ultimo_ciclo.emails_enviados or 0 }}</div>
+      </div>
+      <div>
+        <div class="label">Respostas geradas</div>
+        <div style="font-size:24px;font-weight:700;color:#4a9eff;">{{ ultimo_ciclo.respostas or 0 }}</div>
+      </div>
+      <div>
+        <div class="label">Ações executadas</div>
+        <div style="font-size:24px;font-weight:700;color:var(--success);">{{ ultimo_ciclo.acoes or 0 }}</div>
+      </div>
+      {% if ultimo_ciclo.emails_enviados and ultimo_ciclo.emails_enviados > 0 %}
+      <div>
+        <div class="label">Taxa de resposta</div>
+        <div style="font-size:24px;font-weight:700;">
+          {{ "%.0f"|format(((ultimo_ciclo.respostas or 0) / ultimo_ciclo.emails_enviados) * 100) }}%
+        </div>
+      </div>
+      {% endif %}
+    </div>
+
+    {% set pc = ultimo_ciclo.por_classificacao or {} %}
+    {% if pc %}
+    <div style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px;">
+      <div class="label" style="margin-bottom:8px;">Classificações obtidas</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;">
+        {% for cl, n in pc.items() %}
+        {% if cl in ('interessado', 'aceite') %}
+          <span class="badge badge-ok">{{ cl }}: {{ n }}</span>
+        {% elif cl in ('recusa', 'nps_baixa') %}
+          <span class="badge badge-warn">{{ cl }}: {{ n }}</span>
+        {% elif cl == 'fora_contexto' %}
+          <span class="badge badge-muted">{{ cl }}: {{ n }}</span>
+        {% else %}
+          <span class="badge badge-info">{{ cl }}: {{ n }}</span>
+        {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</section>
+{% else %}
+<div class="notice-box notice-info" style="margin-bottom:16px;">
+  Nenhuma simulação registrada ainda. Clique em "Rodar Simulação" para executar o primeiro ciclo.
+</div>
+{% endif %}
+
+<!-- ═══ MÉTRICAS ACUMULADAS ═════════════════════════════════════════════════ -->
+{% set mt = metricas or {} %}
+{% if mt.emails_enviados_total %}
+<section class="section">
+  <h2>Métricas Acumuladas</h2>
+  <div class="metric-grid">
+    <div class="metric-card">
+      <div class="metric-label">Total enviados</div>
+      <div class="metric-value">{{ mt.emails_enviados_total }}</div>
+    </div>
+    <div class="metric-card {% if mt.taxa_resposta > 0.1 %}metric-ok{% endif %}">
+      <div class="metric-label">Taxa de resposta</div>
+      <div class="metric-value">{{ "%.1f"|format((mt.taxa_resposta or 0)*100) }}%</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Ações executadas</div>
+      <div class="metric-value">{{ mt.acoes_executadas or 0 }}</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Respostas totais</div>
+      <div class="metric-value">{{ mt.respostas_recebidas_total or 0 }}</div>
+    </div>
+  </div>
+
+  {% set pt = mt.por_template or {} %}
+  {% if pt %}
+  <table class="data-table" style="margin-top:14px;">
+    <thead>
+      <tr>
+        <th>Template</th>
+        <th style="text-align:right;">Enviados</th>
+        <th style="text-align:right;">Respondidos</th>
+        <th style="text-align:right;">Taxa</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for tipo, d in pt.items() %}
+      <tr>
+        <td><code style="font-size:11px;">{{ tipo }}</code></td>
+        <td style="text-align:right;">{{ d.enviados or 0 }}</td>
+        <td style="text-align:right;">{{ d.respondidos or 0 }}</td>
+        <td style="text-align:right;font-weight:600;">{{ "%.0f"|format((d.taxa or 0)*100) }}%</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</section>
+{% endif %}
+
+<!-- ═══ O QUE ESTE ENSAIO VALIDA ════════════════════════════════════════════ -->
+<section class="section">
+  <h2>O que este ensaio valida</h2>
+  <div class="card" style="font-size:13px;line-height:1.8;">
+    <table class="data-table">
+      <thead><tr><th>Componente</th><th>O que é testado</th></tr></thead>
+      <tbody>
+        <tr><td>Templates de email</td><td>Geração de assunto + corpo por tipo (abordagem, followup, proposta…)</td></tr>
+        <tr><td>Modo <code>enviado_simulado</code></td><td>Status avança automaticamente sem SMTP real</td></tr>
+        <tr><td>Leitor de respostas</td><td>Probabilidades realistas por template (abordagem 15%, proposta 60%…)</td></tr>
+        <tr><td>Classificador</td><td>LLM + fallback por palavras-chave → 11 tipos de classificação</td></tr>
+        <tr><td>Ações derivadas</td><td>Pipeline movido, follow-ups criados, NPS registrado, deliberações…</td></tr>
+        <tr><td>Verificação de integridade</td><td>Zero ações orphãs, estágios válidos, sem emails perdidos</td></tr>
+        <tr><td>Métricas</td><td><code>metricas_email.json</code> atualizado com taxas e classificações</td></tr>
+      </tbody>
+    </table>
+    <div style="margin-top:12px;padding:10px;background:var(--bg);border-radius:4px;font-size:12px;border-left:3px solid var(--success);">
+      Quando este ensaio passar sem alertas, o sistema está pronto para conectar SMTP/IMAP real.
+      Próximos passos: <a href="/ativacao-email">→ Checklist de Ativação</a>
+    </div>
+  </div>
+</section>
+
+{% endblock %}
+{% block scripts %}
+<script>
+async function rodarSimulacao() {
+  const btn    = document.getElementById('btn-simular');
+  const status = document.getElementById('sim-status');
+  const result = document.getElementById('sim-resultado');
+  const n      = document.getElementById('sel-n').value;
+
+  btn.disabled = true;
+  btn.textContent = '...';
+  status.style.display = 'inline';
+  status.textContent = 'Processando...';
+  result.style.display = 'none';
+
+  const form = new FormData();
+  form.append('n', n);
+
+  try {
+    const resp = await fetch('/api/email/simular', { method: 'POST', body: form });
+    const data = await resp.json();
+
+    const ok = data.status && data.status.startsWith('ok');
+    const cor = ok ? 'var(--success)' : '#e55';
+
+    const classifHtml = Object.entries(data.por_classificacao || {})
+      .sort((a,b) => b[1]-a[1])
+      .map(([c,n]) => `<span class="badge ${c==='interessado'||c==='aceite'?'badge-ok':c==='recusa'||c==='nps_baixa'?'badge-warn':c==='fora_contexto'?'badge-muted':'badge-info'}">${c}: ${n}</span>`)
+      .join(' ');
+
+    const alertas = (data.integridade||{}).alertas||[];
+    const integridadeHtml = alertas.length === 0
+      ? `<span class="badge badge-ok">Integridade OK</span>`
+      : alertas.map(a=>`<span class="badge badge-warn">${a}</span>`).join(' ');
+
+    result.innerHTML = `
+      <div style="background:var(--bg);border:1px solid ${cor};border-radius:6px;padding:14px;">
+        <div style="font-weight:700;color:${cor};margin-bottom:10px;">
+          ${ok ? '✓ Simulação concluída' : '✗ ' + (data.motivo||data.erro||'Erro')}
+        </div>
+        <div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:10px;">
+          <div><span class="label">Emails enviados:</span> <strong>${data.emails_adicionados_fila||0}</strong></div>
+          <div><span class="label">Respostas geradas:</span> <strong>${data.respostas_geradas||0}</strong></div>
+          <div><span class="label">Ações executadas:</span> <strong>${data.acoes_executadas||0}</strong></div>
+          <div><span class="label">Taxa de resposta:</span> <strong>${((data.taxa_resposta_ciclo||0)*100).toFixed(0)}%</strong></div>
+        </div>
+        ${classifHtml ? `<div style="margin-bottom:8px;"><span class="label">Classificações:</span> ${classifHtml}</div>` : ''}
+        <div>${integridadeHtml}</div>
+        <div style="margin-top:8px;font-size:11px;color:var(--muted);">
+          Duração: ${data.duracao_segundos||0}s |
+          Oportunidades: ${(data.oportunidades_detalhes||[]).map(o=>o.contraparte).join(', ')||'—'}
+        </div>
+      </div>`;
+    result.style.display = 'block';
+
+    // Recarregar métricas após 1s
+    setTimeout(() => location.reload(), 1200);
+
+  } catch(e) {
+    result.innerHTML = `<div class="notice-box notice-warn">Erro: ${e.message}</div>`;
+    result.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '▶ Rodar Simulação';
+    status.style.display = 'none';
+  }
+}
+</script>
+{% endblock %}

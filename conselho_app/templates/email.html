@@ -4,135 +4,285 @@
 
 <div class="page-header">
   <h1>✉ Canal Email</h1>
-  <div class="subtitle">Modo assistido — emails preparados para revisão. <strong>Nenhum email real é enviado.</strong></div>
+  <div class="subtitle" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+    {% set modo = config_canal.modo or 'desativado' %}
+    {% if modo == 'real' %}
+      <span class="badge badge-ok" style="font-size:12px;padding:4px 10px;">REAL</span>
+      <span>Canal ativo — emails saem via SMTP.</span>
+    {% elif modo == 'assistido' %}
+      <span class="badge badge-info" style="font-size:12px;padding:4px 10px;">ASSISTIDO</span>
+      <span>Emails preparados para revisão manual.</span>
+    {% elif modo == 'simulado' %}
+      <span class="badge badge-warn" style="font-size:12px;padding:4px 10px;">SIMULADO</span>
+      <span>Emails marcados automaticamente como enviados.</span>
+    {% else %}
+      <span class="badge badge-muted" style="font-size:12px;padding:4px 10px;">DESATIVADO</span>
+    {% endif %}
+    <a href="/email/simulacao" style="margin-left:auto;font-size:12px;" class="badge badge-muted">↳ Simulação</a>
+    <a href="/ativacao-email" style="font-size:12px;" class="badge badge-muted">↳ Ativação</a>
+  </div>
 </div>
 
-<!-- Status do canal -->
+<!-- ═══ MÉTRICAS ════════════════════════════════════════════════════════════ -->
 <section class="section">
-  <h2>Status do Canal</h2>
-  <div class="metric-grid">
-    <div class="metric-card {% if config_canal.modo == 'desativado' %}metric-warn{% elif config_canal.modo == 'assistido' %}metric-ok{% endif %}">
-      <div class="metric-label">Modo</div>
-      <div class="metric-value">{{ config_canal.modo or 'desativado' }}</div>
-    </div>
-    <div class="metric-card {% if config_canal.habilitado %}metric-ok{% else %}metric-warn{% endif %}">
-      <div class="metric-label">Habilitado</div>
-      <div class="metric-value">{{ 'Sim' if config_canal.habilitado else 'Não' }}</div>
-    </div>
-    <div class="metric-card">
-      <div class="metric-label">Remetente planejado</div>
-      <div class="metric-value" style="font-size:13px;">{{ estado.remetente_planejado or config_canal.email_remetente_planejado or '—' }}</div>
-    </div>
-    <div class="metric-card">
-      <div class="metric-label">Última execução</div>
-      <div class="metric-value" style="font-size:12px;">{{ estado.ultima_execucao or '—' }}</div>
-    </div>
-  </div>
-  <div class="notice-box notice-info" style="margin-top:12px;">
-    ⚠ Este canal opera em modo <strong>assistido</strong>. Todos os emails ficam em fila com
-    <code>simulado=true</code> e precisam de aprovação manual antes de qualquer envio futuro.
-    O campo <em>modo=real</em> e envio via SMTP serão implementados em versão posterior.
-  </div>
-</section>
-
-<!-- Contadores -->
-<section class="section">
-  <h2>Fila de Envio</h2>
-  {% set cnt = estado.contadores or {} %}
+  <h2>Métricas</h2>
+  {% set mt = metricas or {} %}
   <div class="metric-grid">
     <div class="metric-card">
-      <div class="metric-label">Total na fila</div>
-      <div class="metric-value">{{ cnt.total_na_fila or fila_email|length }}</div>
+      <div class="metric-label">Enviados (total)</div>
+      <div class="metric-value">{{ mt.emails_enviados_total or 0 }}</div>
     </div>
-    <div class="metric-card metric-ok">
-      <div class="metric-label">Preparados</div>
+    <div class="metric-card {% if mt.taxa_resposta and mt.taxa_resposta > 0.2 %}metric-ok{% endif %}">
+      <div class="metric-label">Taxa de resposta</div>
+      <div class="metric-value">{{ "%.1f"|format((mt.taxa_resposta or 0) * 100) }}%</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Respostas recebidas</div>
+      <div class="metric-value">{{ mt.respostas_recebidas_total or 0 }}</div>
+    </div>
+    <div class="metric-card {% if mt.acoes_executadas %}metric-ok{% endif %}">
+      <div class="metric-label">Ações executadas</div>
+      <div class="metric-value">{{ mt.acoes_executadas or 0 }}</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Na fila agora</div>
+      <div class="metric-value">{{ fila_email|length }}</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Preparados pendentes</div>
       <div class="metric-value">{{ preparados|length }}</div>
     </div>
-    <div class="metric-card {% if bloqueados %}metric-warn{% endif %}">
+    <div class="metric-card">
       <div class="metric-label">Bloqueados</div>
-      <div class="metric-value">{{ bloqueados|length }}</div>
+      <div class="metric-value {% if bloqueados %}metric-warn{% endif %}">{{ bloqueados|length }}</div>
     </div>
     <div class="metric-card">
-      <div class="metric-label">Aguardando revisão</div>
-      <div class="metric-value">{{ cnt.aguardando_revisao or preparados|length }}</div>
+      <div class="metric-label">Simulados enviados</div>
+      <div class="metric-value">{{ enviados_sim|length }}</div>
     </div>
   </div>
+  {% if mt.ultimo_ciclo %}
+  <div style="font-size:11px;color:var(--muted);margin-top:8px;">
+    Último ciclo: {{ mt.ultimo_ciclo.executado_em or '—' }} |
+    {{ mt.ultimo_ciclo.emails_enviados or 0 }} enviados |
+    {{ mt.ultimo_ciclo.respostas or 0 }} respostas |
+    {{ mt.ultimo_ciclo.acoes or 0 }} ações
+  </div>
+  {% endif %}
 </section>
 
-<!-- Emails preparados -->
+<!-- ═══ FUNIL VISUAL ════════════════════════════════════════════════════════ -->
+<section class="section">
+  <h2>Funil de Email</h2>
+  {% set fn = funil or {} %}
+  {% set n_env = fn.enviados or 0 %}
+  {% set n_res = fn.respondidos or 0 %}
+  {% set n_int = fn.interessados or 0 %}
+  {% set n_con = fn.convertidos or 0 %}
+  <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
+
+    {% macro funil_bar(label, n, total, cor) %}
+    <div style="flex:1;min-width:80px;text-align:center;">
+      <div style="font-size:22px;font-weight:700;color:{{ cor }};">{{ n }}</div>
+      <div style="height:6px;background:var(--border);border-radius:3px;margin:4px 0;">
+        {% if total > 0 %}
+        <div style="height:6px;width:{{ [((n/total)*100)|int, 100]|min }}%;background:{{ cor }};border-radius:3px;"></div>
+        {% endif %}
+      </div>
+      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">{{ label }}</div>
+      {% if total > 0 and n > 0 %}
+      <div style="font-size:10px;color:var(--muted);">{{ "%.0f"|format((n/total)*100) }}%</div>
+      {% endif %}
+    </div>
+    {% endmacro %}
+
+    {{ funil_bar("Enviados", n_env, n_env or 1, "var(--text)") }}
+    <div style="color:var(--muted);font-size:18px;align-self:center;">›</div>
+    {{ funil_bar("Respondidos", n_res, n_env or 1, "#4a9eff") }}
+    <div style="color:var(--muted);font-size:18px;align-self:center;">›</div>
+    {{ funil_bar("Interessados", n_int, n_env or 1, "#f5a623") }}
+    <div style="color:var(--muted);font-size:18px;align-self:center;">›</div>
+    {{ funil_bar("Convertidos", n_con, n_env or 1, "var(--success)") }}
+  </div>
+  {% if n_env == 0 %}
+  <div class="text-muted" style="margin-top:8px;font-size:12px;">Sem dados de funil. Rode uma simulação em <a href="/email/simulacao">↳ Simulação</a>.</div>
+  {% endif %}
+</section>
+
+<!-- ═══ POR TEMPLATE ════════════════════════════════════════════════════════ -->
+{% set pt = metricas.por_template if metricas else {} %}
+{% if pt %}
+<section class="section">
+  <h2>Desempenho por Template</h2>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Template</th>
+        <th style="text-align:right;">Enviados</th>
+        <th style="text-align:right;">Respondidos</th>
+        <th style="text-align:right;">Taxa</th>
+        <th>Barra</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for tipo, d in pt.items() %}
+      <tr>
+        <td><code style="font-size:11px;">{{ tipo }}</code></td>
+        <td style="text-align:right;">{{ d.enviados or 0 }}</td>
+        <td style="text-align:right;">{{ d.respondidos or 0 }}</td>
+        <td style="text-align:right;font-weight:600;">{{ "%.0f"|format((d.taxa or 0)*100) }}%</td>
+        <td style="width:120px;">
+          <div style="height:6px;background:var(--border);border-radius:3px;">
+            <div style="height:6px;width:{{ [((d.taxa or 0)*100)|int, 100]|min }}%;background:#4a9eff;border-radius:3px;"></div>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+
+<!-- ═══ CLASSIFICAÇÕES ACUMULADAS ═══════════════════════════════════════════ -->
+{% set classif = metricas.classificacoes if metricas else {} %}
+{% if classif %}
+<section class="section">
+  <h2>Classificações de Respostas</h2>
+  {% set _total_classif = classif.values()|sum %}
+  <div style="display:flex;flex-wrap:wrap;gap:8px;">
+    {% for c, n in classif.items()|sort(attribute='1', reverse=True) %}
+    {% set pct = ((n / (_total_classif or 1)) * 100)|int %}
+    <div style="background:var(--card-bg);border:1px solid var(--border);border-radius:6px;padding:8px 14px;text-align:center;min-width:100px;">
+      <div style="font-size:20px;font-weight:700;">{{ n }}</div>
+      <div style="font-size:10px;color:var(--muted);margin-top:2px;">{{ c }}</div>
+      <div style="font-size:10px;color:var(--muted);">{{ pct }}%</div>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<!-- ═══ ÚLTIMOS 20 EMAILS ════════════════════════════════════════════════════ -->
+<section class="section">
+  <h2>Últimos Emails ({{ [ultimos_emails|length, 20]|min }} de {{ fila_email|length }})</h2>
+  {% if ultimos_emails %}
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Contraparte</th>
+        <th>Template</th>
+        <th>Status</th>
+        <th>Resposta</th>
+        <th>Criado em</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for em in ultimos_emails %}
+      {% set resp = respostas_por_email.get(em.id) %}
+      <tr>
+        <td>
+          <strong>{{ em.contraparte or '—' }}</strong>
+          {% if em.simulado %}<span class="badge badge-muted" style="font-size:9px;margin-left:4px;">sim</span>{% endif %}
+          <div style="font-size:10px;color:var(--muted);">{{ em.email_destino or '—' }}</div>
+        </td>
+        <td><code style="font-size:10px;">{{ em.tipo_envio or em.abordagem_tipo or '—' }}</code></td>
+        <td>
+          {% if em.status == 'enviado_simulado' %}
+            <span class="badge badge-info">enviado_sim</span>
+          {% elif em.status == 'preparado' %}
+            <span class="badge badge-ok">preparado</span>
+          {% elif em.status == 'bloqueado' %}
+            <span class="badge badge-warn">bloqueado</span>
+          {% elif em.status == 'enviado' %}
+            <span class="badge badge-ok">enviado</span>
+          {% else %}
+            <span class="badge">{{ em.status }}</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if resp %}
+            {% set cl = resp.classificacao or '' %}
+            {% if cl in ('interessado', 'aceite') %}
+              <span class="badge badge-ok">{{ cl }}</span>
+            {% elif cl in ('recusa', 'nps_baixa') %}
+              <span class="badge badge-warn">{{ cl }}</span>
+            {% elif cl == 'fora_contexto' %}
+              <span class="badge badge-muted">{{ cl }}</span>
+            {% else %}
+              <span class="badge badge-info">{{ cl }}</span>
+            {% endif %}
+            <div style="font-size:10px;color:var(--muted);margin-top:2px;">{{ resp.texto_resposta[:50] if resp.texto_resposta else '' }}{% if resp.texto_resposta and resp.texto_resposta|length > 50 %}…{% endif %}</div>
+          {% else %}
+            <span style="color:var(--muted);font-size:11px;">—</span>
+          {% endif %}
+        </td>
+        <td class="text-muted" style="font-size:11px;">{{ (em.criado_em or '—')[:16] }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state">
+    <div>Nenhum email enviado ainda.</div>
+    <div class="text-muted" style="margin-top:4px;font-size:12px;">
+      <a href="/email/simulacao">Rodar simulação</a> para popular a fila.
+    </div>
+  </div>
+  {% endif %}
+</section>
+
+<!-- ═══ EMAILS PREPARADOS (aguardando revisão) ══════════════════════════════ -->
 {% if preparados %}
 <section class="section">
-  <h2>Emails Preparados ({{ preparados|length }})</h2>
-  <p class="text-muted" style="margin-bottom:12px;">Revisão antes de qualquer envio. Status: <code>preparado</code> | <code>simulado=true</code></p>
+  <h2>Preparados — Aguardando Revisão ({{ preparados|length }})</h2>
+  <p class="text-muted" style="margin-bottom:12px;">Status: <code>preparado</code> | <code>simulado=true</code> — nenhum email real é enviado.</p>
 
   {% for email in preparados %}
   {% set doc_vinculado = docs_map.get(email.documento_id) if email.documento_id else None %}
-  <div class="card" style="margin-bottom:16px;">
+  <div class="card" style="margin-bottom:14px;">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;">
       <div>
         <strong>{{ email.contraparte or '—' }}</strong>
-        <span class="badge badge-ok" style="margin-left:8px;">{{ email.status }}</span>
+        <span class="badge badge-ok" style="margin-left:6px;">{{ email.status }}</span>
         <span class="badge badge-info" style="margin-left:4px;">simulado</span>
         {% if email.tipo_envio == 'documento_oficial' %}
-          <span class="badge badge-accent" style="margin-left:4px;">◈ documento oficial</span>
+          <span class="badge badge-accent" style="margin-left:4px;">documento oficial</span>
         {% endif %}
       </div>
       <div class="text-muted" style="font-size:11px;">{{ email.criado_em or '—' }}</div>
     </div>
-
-    <div style="margin-top:10px;" class="detail-grid">
+    <div style="margin-top:8px;" class="detail-grid">
       <div><span class="label">Para:</span> <code>{{ email.email_destino or '—' }}</code></div>
-      <div><span class="label">De:</span> {{ email.remetente_nome or '—' }} &lt;{{ email.remetente_email_planejado or '—' }}&gt;</div>
-      <div><span class="label">Abordagem:</span> {{ email.abordagem_tipo or '—' }}</div>
+      <div><span class="label">De:</span> {{ email.remetente_nome or '—' }}</div>
+      <div><span class="label">Tipo:</span> {{ email.tipo_envio or email.abordagem_tipo or '—' }}</div>
       <div><span class="label">Linha:</span> {{ email.linha_servico or '—' }}</div>
     </div>
-
     {% if doc_vinculado %}
-    <div style="margin-top:8px;padding:8px 12px;background:#f4f2ff;border-radius:6px;border-left:3px solid #6c63ff;font-size:12px;">
-      <strong style="color:#6c63ff;">Documento oficial vinculado:</strong>
-      {{ doc_vinculado.titulo }}
-      <span class="badge badge-muted" style="font-size:10px;margin-left:4px;">v{{ doc_vinculado.versao }}</span>
-      <a href="/documentos/preview/{{ doc_vinculado.id }}" target="_blank"
-         style="color:#6c63ff;margin-left:10px;text-decoration:underline;">ver documento</a>
+    <div style="margin-top:6px;padding:6px 12px;background:#f4f2ff;border-radius:6px;border-left:3px solid #6c63ff;font-size:11px;">
+      <strong style="color:#6c63ff;">Doc vinculado:</strong> {{ doc_vinculado.titulo }}
+      <a href="/documentos/preview/{{ doc_vinculado.id }}" target="_blank" style="color:#6c63ff;margin-left:8px;">ver</a>
     </div>
     {% endif %}
-
-    <div style="margin-top:10px;">
+    <div style="margin-top:8px;">
       <div class="label">Assunto:</div>
-      <div style="background:#f7f7f0;padding:8px 12px;border-radius:4px;margin-top:4px;font-weight:600;">
-        {{ email.assunto or '—' }}
-      </div>
+      <div style="background:#f7f7f0;padding:6px 10px;border-radius:4px;margin-top:3px;font-weight:600;font-size:13px;">{{ email.assunto or '—' }}</div>
     </div>
-
-    <div style="margin-top:10px;">
-      <div class="label">Corpo (texto):</div>
-      <pre style="background:#f7f7f0;padding:12px;border-radius:4px;margin-top:4px;white-space:pre-wrap;font-size:12px;line-height:1.5;">{{ email.corpo_texto or '—' }}</pre>
+    <div style="margin-top:8px;">
+      <div class="label">Corpo:</div>
+      <pre style="background:#f7f7f0;padding:10px;border-radius:4px;margin-top:3px;white-space:pre-wrap;font-size:11px;line-height:1.5;max-height:160px;overflow-y:auto;">{{ email.corpo_texto or email.corpo or '—' }}</pre>
     </div>
-
-    <div style="margin-top:6px;font-size:11px;color:#888;">
-      ID: {{ email.id }} | exec: {{ email.execucao_id }} | oport: {{ email.oportunidade_id or '—' }}
-      {% if email.documento_id %} | doc: {{ email.documento_id }}{% endif %}
-    </div>
+    <div style="margin-top:4px;font-size:10px;color:#888;">ID: {{ email.id }} | oport: {{ email.oportunidade_id or '—' }}</div>
   </div>
   {% endfor %}
 </section>
 {% endif %}
 
-<!-- Emails bloqueados -->
+<!-- ═══ BLOQUEADOS ══════════════════════════════════════════════════════════ -->
 {% if bloqueados %}
 <section class="section">
   <h2>Emails Bloqueados ({{ bloqueados|length }})</h2>
-  <p class="text-muted" style="margin-bottom:12px;">Não puderam ser preparados. Corrija a identidade ou configuração do canal.</p>
-
   <table class="data-table">
-    <thead>
-      <tr>
-        <th>Contraparte</th>
-        <th>Execução</th>
-        <th>Motivo do bloqueio</th>
-        <th>Criado em</th>
-      </tr>
-    </thead>
+    <thead><tr><th>Contraparte</th><th>Execução</th><th>Motivo</th><th>Criado em</th></tr></thead>
     <tbody>
       {% for email in bloqueados %}
       <tr>
@@ -147,64 +297,39 @@
 </section>
 {% endif %}
 
-{% if not preparados and not bloqueados %}
+<!-- ═══ CONFIGURAÇÃO ════════════════════════════════════════════════════════ -->
 <section class="section">
-  <div class="empty-state">
-    <div style="font-size:32px;margin-bottom:8px;">✉</div>
-    <div>Nenhum email na fila ainda.</div>
-    <div class="text-muted" style="margin-top:6px;font-size:13px;">
-      Rode o ciclo operacional com execuções do tipo <code>canal=email</code> para ver emails preparados aqui.
-    </div>
-  </div>
-</section>
-{% endif %}
-
-<!-- Configuração do canal -->
-<section class="section">
-  <h2>Configuração do Canal (config_canal_email.json)</h2>
+  <h2>Configuração (config_canal_email.json)</h2>
   <table class="data-table">
     <thead><tr><th>Campo</th><th>Valor</th></tr></thead>
     <tbody>
       <tr><td>modo</td><td><code>{{ config_canal.modo or '—' }}</code></td></tr>
       <tr><td>habilitado</td><td>{{ config_canal.habilitado }}</td></tr>
-      <tr><td>nome_remetente</td><td>{{ config_canal.nome_remetente or '(usa identidade_empresa)' }}</td></tr>
-      <tr><td>email_remetente_planejado</td><td><code>{{ config_canal.email_remetente_planejado or '(usa canais_empresa)' }}</code></td></tr>
-      <tr><td>assunto_prefixo</td><td>{{ config_canal.assunto_prefixo or '—' }}</td></tr>
+      <tr><td>email_remetente_planejado</td><td><code>{{ config_canal.email_remetente_planejado or '—' }}</code></td></tr>
       <tr><td>assinatura_tipo_padrao</td><td>{{ config_canal.assinatura_tipo_padrao or '—' }}</td></tr>
-      <tr><td>usar_html</td><td>{{ config_canal.usar_html }}</td></tr>
-      <tr><td>exigir_email_destino</td><td>{{ config_canal.exigir_email_destino }}</td></tr>
       <tr><td>limite_preparos_por_ciclo</td><td>{{ config_canal.limite_preparos_por_ciclo or '—' }}</td></tr>
-      <tr><td>atualizado_em</td><td class="text-muted" style="font-size:11px;">{{ config_canal.atualizado_em or '—' }}</td></tr>
+      <tr><td>ultima_execucao</td><td class="text-muted" style="font-size:11px;">{{ estado.ultima_execucao or '—' }}</td></tr>
     </tbody>
   </table>
   <div class="notice-box notice-info" style="margin-top:10px;font-size:12px;">
-    Para habilitar o canal: edite <code>dados/config_canal_email.json</code> e defina
-    <code>habilitado=true</code>, <code>modo=assistido</code>.<br>
-    Configure o remetente em <code>dados/canais_empresa.json</code> (campo <code>email_comercial_planejado</code>)
-    ou em <code>email_remetente_planejado</code> aqui.
+    Para ativar: <code>habilitado=true</code>, <code>modo=assistido</code> em <code>dados/config_canal_email.json</code>.
+    <a href="/ativacao-email" style="margin-left:8px;">→ Ver checklist de ativação</a>
   </div>
 </section>
 
-<!-- Histórico recente -->
+<!-- ═══ HISTÓRICO RECENTE ════════════════════════════════════════════════════ -->
 {% if historico_recente %}
 <section class="section">
-  <h2>Histórico Recente (últimos 30 eventos)</h2>
+  <h2>Histórico Recente (últimos 30)</h2>
   <table class="data-table">
-    <thead>
-      <tr>
-        <th>Evento</th>
-        <th>Contraparte / Execução</th>
-        <th>Status</th>
-        <th>Registrado em</th>
-      </tr>
-    </thead>
+    <thead><tr><th>Evento</th><th>Descrição</th><th>Status</th><th>Em</th></tr></thead>
     <tbody>
       {% for ev in historico_recente %}
       <tr>
-        <td><code style="font-size:11px;">{{ ev.tipo_evento }}</code></td>
+        <td><code style="font-size:10px;">{{ ev.tipo_evento }}</code></td>
         <td style="font-size:11px;">{{ ev.descricao[:60] if ev.descricao else '—' }}{% if ev.descricao and ev.descricao|length > 60 %}…{% endif %}</td>
         <td>
-          {% if ev.status == 'preparado' %}
+          {% if ev.status in ('preparado', 'enviado_simulado') %}
             <span class="badge badge-ok">{{ ev.status }}</span>
           {% elif ev.status == 'bloqueado' %}
             <span class="badge badge-warn">{{ ev.status }}</span>
@@ -212,7 +337,7 @@
             <span class="badge">{{ ev.status }}</span>
           {% endif %}
         </td>
-        <td class="text-muted" style="font-size:11px;">{{ ev.registrado_em or '—' }}</td>
+        <td class="text-muted" style="font-size:11px;">{{ (ev.registrado_em or '—')[:16] }}</td>
       </tr>
       {% endfor %}
     </tbody>

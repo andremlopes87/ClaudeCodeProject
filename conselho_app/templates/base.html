@@ -40,8 +40,9 @@
   <div class="nav-section">Canais</div>
   <a href="/canais" class="{% if page=='canais' %}active{% endif %}">◎ Visão Geral</a>
   <a href="/email" class="{% if page=='email' %}active{% endif %}">✉ Email</a>
+  <a href="/email/simulacao" style="padding-left:22px;font-size:11px;" class="{% if request.url.path=='/email/simulacao' %}active{% endif %}">↳ Simulação</a>
+  <a href="/ativacao-email" style="padding-left:22px;font-size:11px;" class="{% if page=='ativacao_email' %}active{% endif %}">↳ Ativação</a>
   <a href="/telefone" class="{% if page=='telefone' %}active{% endif %}">☎ Telefone</a>
-  <a href="/ativacao-email" class="{% if page=='ativacao_email' %}active{% endif %}">⚡ Ativação Email</a>
   <div class="nav-section">Expansão</div>
   <a href="/multi-cidade" class="{% if page=='multi_cidade' %}active{% endif %}">🗺 Multi-Cidade</a>
   <a href="/expansao" class="{% if page=='expansao' %}active{% endif %}">◈ Expansão</a>

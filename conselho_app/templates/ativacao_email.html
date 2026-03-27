@@ -76,6 +76,38 @@
 </div>
 {% endif %}
 
+<!-- ═══ TESTES DE CONEXÃO ════════════════════════════════════════════════════ -->
+<section class="section">
+  <h2>Testes de Conexão</h2>
+  <div class="card" style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
+    <div>
+      <div class="label" style="margin-bottom:4px;">SMTP</div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button onclick="testarConexao('smtp', this)"
+          style="background:var(--text);color:var(--bg);border:none;padding:6px 14px;border-radius:4px;cursor:pointer;font-size:12px;">
+          Verificar SMTP
+        </button>
+        <span id="smtp-resultado" style="font-size:12px;color:var(--muted);"></span>
+      </div>
+    </div>
+    <div style="width:1px;background:var(--border);height:36px;"></div>
+    <div>
+      <div class="label" style="margin-bottom:4px;">IMAP</div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button onclick="testarConexao('imap', this)"
+          style="background:var(--text);color:var(--bg);border:none;padding:6px 14px;border-radius:4px;cursor:pointer;font-size:12px;">
+          Verificar IMAP
+        </button>
+        <span id="imap-resultado" style="font-size:12px;color:var(--muted);"></span>
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--muted);flex:1;min-width:200px;">
+      Testa se o servidor configurado em <code>provisionamento_email_real.json</code> é acessível.
+      Requer host configurado.
+    </div>
+  </div>
+</section>
+
 <!-- ═══ CHECKLIST DE ATIVAÇÃO ════════════════════════════════════════════════ -->
 <section class="section">
   <h2>Checklist de Ativação</h2>
@@ -251,4 +283,25 @@
 </section>
 {% endif %}
 
+{% endblock %}
+{% block scripts %}
+<script>
+async function testarConexao(tipo, btn) {
+  const el = document.getElementById(tipo + '-resultado');
+  btn.disabled = true;
+  el.textContent = 'Testando...';
+  el.style.color = 'var(--muted)';
+  try {
+    const resp = await fetch('/api/verificar-' + tipo, { method: 'POST' });
+    const data = await resp.json();
+    el.textContent = data.ok ? ('✓ ' + data.msg) : ('✗ ' + data.msg);
+    el.style.color = data.ok ? 'var(--success)' : '#e55';
+  } catch(e) {
+    el.textContent = '✗ Erro: ' + e.message;
+    el.style.color = '#e55';
+  } finally {
+    btn.disabled = false;
+  }
+}
+</script>
 {% endblock %}
