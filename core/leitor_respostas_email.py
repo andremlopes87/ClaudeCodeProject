@@ -769,7 +769,7 @@ def _simular_respostas_em_lote() -> list[dict]:
         # Elegível: email preparado/enviado e ainda sem resposta
         if eid in existentes:
             continue
-        if status not in ("preparado", "enviado"):
+        if status not in ("preparado", "enviado", "enviado_simulado"):
             continue
 
         resp = _simular_resposta_para_email(email)

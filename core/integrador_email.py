@@ -169,10 +169,16 @@ def executar() -> dict:
 
         if email["status"] == "preparado":
             atualizar_execucao_apos_preparo(execucao)
+            # Modo simulado: avançar imediatamente para enviado_simulado
+            if modo == "simulado":
+                email["status"]     = "enviado_simulado"
+                email["enviado_em"] = datetime.now().isoformat(timespec="seconds")
+                evento = "email_simulado_enviado"
+            else:
+                evento = "email_assistido_preparado"
             n_preparados += 1
-            evento = "email_assistido_preparado"
             log.info(
-                f"  [preparado] {exec_id} | "
+                f"  [{evento}] {exec_id} | "
                 f"{execucao.get('contraparte', '?')[:30]} | "
                 f"destino={email['email_destino'] or '?'}"
             )
