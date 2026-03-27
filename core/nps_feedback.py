@@ -241,8 +241,6 @@ def preparar_envio_nps(nps_id: str) -> "dict | None":
 
     Retorna payload pronto para fila, ou None se NPS não encontrado.
     """
-    from core.llm_router import LLMRouter
-
     pendentes = _ler(_ARQ_PENDENTES, [])
     nps       = next((n for n in pendentes if n.get("nps_id") == nps_id), None)
     if not nps:
@@ -267,27 +265,28 @@ def preparar_envio_nps(nps_id: str) -> "dict | None":
     )
     servico = ult_entrega.get("linha_servico", "nosso serviço")
 
-    router = LLMRouter()
-    corpo  = _template_nps_fixo(nome_cont, servico, nps.get("gatilho", ""))
+    # Gerar email via sistema de templates
+    corpo   = _template_nps_fixo(nome_cont, servico, nps.get("gatilho", ""))
+    assunto = "Sua opinião importa — avalie a Vetor (1 min)"
     try:
-        res = router.redigir({
-            "agente":  "agente_customer_success",
-            "tarefa":  "redigir_email_nps",
-            "dados": {
-                "contato":       nome_cont,
-                "empresa":       conta.get("nome_empresa", ""),
-                "servico":       servico,
-                "gatilho":       nps.get("gatilho", ""),
-                "dias_cliente":  _dias_desde(conta.get("criado_em", "")),
-            },
-            "empresa_id": conta_id,
-        })
-        if res["sucesso"] and not res["fallback_usado"]:
-            resultado_llm = res.get("resultado", "")
-            if isinstance(resultado_llm, str) and len(resultado_llm) > 20:
-                corpo = resultado_llm
+        from core.templates_email import gerar_email as _gerar_tmpl
+        _dias_ent = str(_dias_desde(
+            ult_entrega.get("finalizado_em", "")
+            or ult_entrega.get("atualizado_em", "")
+        ))
+        _email = _gerar_tmpl("nps_pesquisa", {
+            "nome_contato":      nome_cont,
+            "nome_empresa":      conta.get("nome_empresa", ""),
+            "servico_entregue":  servico,
+            "dias_desde_entrega": _dias_ent,
+        }, empresa_id=conta_id)
+        if _email.get("corpo"):
+            corpo = _email["corpo"]
+        if _email.get("assunto"):
+            assunto = _email["assunto"]
+        log.info(f"  [nps] email gerado — fonte={_email.get('fonte','?')}")
     except Exception as exc:
-        log.warning(f"  [nps] redigir falhou: {exc}")
+        log.warning(f"  [nps] template_email falhou: {exc}")
 
     payload = {
         "nps_id":           nps_id,
@@ -295,7 +294,7 @@ def preparar_envio_nps(nps_id: str) -> "dict | None":
         "contato_id":       contato_id,
         "contato_nome":     nome_cont,
         "contato_email":    contato.get("email", conta.get("email_principal", "")),
-        "assunto":          f"Sua opinião importa — avalie a Vetor (1 min)",
+        "assunto":          assunto,
         "corpo_email":      corpo,
         "canal":            "email",
         "tipo":             "nps",

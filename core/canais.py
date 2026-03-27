@@ -461,26 +461,44 @@ def _resultado_base(canal: str, modo: str, agora: str, payload: dict) -> dict:
 
 def _tentar_llm_email(payload: dict) -> tuple[str, bool]:
     """
-    Tenta gerar corpo de email via LLM.
+    Gera corpo de email via sistema de templates (core/templates_email.py).
     Retorna (corpo, usou_llm). Nunca levanta exceção.
     """
     try:
-        from core.llm_router import LLMRouter
-        router = LLMRouter()
+        from core.templates_email import gerar_email as _gerar_tmpl
         ctx = payload.get("contexto_oportunidade") or {}
-        _ctx_llm = {
-            "empresa":       ctx.get("contraparte", ""),
-            "abordagem":     payload.get("abordagem_inicial_tipo", "padrao"),
-            "canal":         "email",
-            "roteiro_base":  payload.get("roteiro_base", "")[:200],
-            "linha_servico": payload.get("linha_servico_sugerida", ""),
-            "instrucao":     "Redigir corpo de email profissional para primeiro contato com empresa.",
+
+        tipo = payload.get("tipo_template", "abordagem_inicial")
+
+        variaveis = {
+            "nome_contato":      (
+                ctx.get("contato_nome")
+                or ctx.get("contato")
+                or payload.get("contato_destino", "cliente")
+            ),
+            "nome_empresa":      ctx.get("contraparte", payload.get("empresa", "")),
+            "categoria":         payload.get("categoria_empresa", ctx.get("categoria", "")),
+            "problema_principal": payload.get("problema_principal", ctx.get("problema", "")),
+            "solucao_curta":     payload.get("linha_servico_sugerida", "automação de atendimento"),
+            "dias_desde_ultimo": str(payload.get("dias_desde_ultimo", "7")),
+            "nome_oferta":       payload.get("oferta_nome", ""),
+            "valor":             str(payload.get("valor", "")),
+            "prazo":             str(payload.get("prazo", "")),
         }
-        _res = router.redigir(_ctx_llm, empresa_id=None)
-        if _res.get("sucesso") and not _res.get("fallback_usado"):
-            return _res["resultado"], True
+
+        empresa_id = (
+            payload.get("empresa_id")
+            or ctx.get("empresa_id")
+            or ctx.get("oportunidade_id", "")
+        )
+
+        resultado = _gerar_tmpl(tipo, variaveis, empresa_id=empresa_id or None)
+        corpo = resultado.get("corpo", "")
+        usou_llm = resultado.get("fonte") == "llm"
+        if corpo:
+            return corpo, usou_llm
     except Exception as exc:
-        log.debug(f"[CanalEmail] LLM falhou: {exc}")
+        log.debug(f"[CanalEmail] template_email falhou: {exc}")
     return "", False
 
 

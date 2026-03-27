@@ -135,23 +135,46 @@ def montar_email_de_proposta(proposta: dict, config_canal: dict) -> dict:
     # Destinatário: email da oportunidade (campo email) — pode estar vazio
     email_destino = proposta.get("email_destino", "") or ""
 
-    # Assunto da proposta
+    # Assunto — tenta template personalizado, fallback para título da proposta
+    valor_fmt = (
+        f"R$ {float(proposta['proposta_valor']):,.0f}".replace(",", ".")
+        if proposta.get("proposta_valor") else "a definir"
+    )
+    prazo_fmt = f"{proposta.get('prazo_referencia', '?')} dias úteis"
+
     assunto = proposta.get("texto_assunto") or (
         f"Proposta: {proposta.get('oferta_nome', 'Serviço Vetor')} "
         f"para {proposta.get('contraparte', '')}"
     )
 
-    # Corpo: intro + corpo + entregaveis resumidos + fechamento + assinatura
-    entregaveis   = proposta.get("entregaveis", [])
-    entregaveis_txt = "\n".join(f"  • {e}" for e in entregaveis[:6]) if entregaveis else ""
+    # Gerar email de cobertura via sistema de templates
+    _intro_personalizada = ""
+    try:
+        from core.templates_email import gerar_email as _gerar_tmpl
+        _nome_contato = (
+            proposta.get("contato_nome")
+            or proposta.get("contato")
+            or proposta.get("responsavel_contato", "cliente")
+        )
+        _email_tmpl = _gerar_tmpl("envio_proposta", {
+            "nome_contato": _nome_contato,
+            "nome_empresa": proposta.get("contraparte", ""),
+            "nome_oferta":  proposta.get("oferta_nome", ""),
+            "valor":        valor_fmt,
+            "prazo":        prazo_fmt,
+        }, empresa_id=proposta.get("empresa_id"))
+        _intro_personalizada = _email_tmpl.get("corpo", "")
+        if _email_tmpl.get("assunto"):
+            assunto = _email_tmpl["assunto"]
+        log.info(f"[expediente] email proposta — fonte={_email_tmpl.get('fonte','?')}")
+    except Exception as _exc_tmpl:
+        log.debug(f"[expediente] template_email falhou: {_exc_tmpl}")
 
-    premissas     = proposta.get("premissas", [])
-    fora_escopo   = proposta.get("fora_do_escopo", [])
-    valor_fmt     = (
-        f"R$ {float(proposta['proposta_valor']):,.0f}".replace(",", ".")
-        if proposta.get("proposta_valor") else "a definir"
-    )
-    prazo_fmt     = f"{proposta.get('prazo_referencia', '?')} dias úteis"
+    # Corpo: intro personalizada + detalhes estruturados da proposta
+    entregaveis     = proposta.get("entregaveis", [])
+    entregaveis_txt = "\n".join(f"  • {e}" for e in entregaveis[:6]) if entregaveis else ""
+    premissas       = proposta.get("premissas", [])
+    fora_escopo     = proposta.get("fora_do_escopo", [])
 
     assinatura_padrao = (
         assinaturas.get("assinaturas", {}).get("comercial", {}).get("texto_completo", "")
@@ -159,9 +182,19 @@ def montar_email_de_proposta(proposta: dict, config_canal: dict) -> dict:
     )
 
     partes = []
-    if proposta.get("texto_intro"):
-        partes.append(proposta["texto_intro"])
-    partes.append("")
+
+    if _intro_personalizada:
+        # Email de cobertura personalizado gerado pelo template
+        partes.append(_intro_personalizada)
+        partes.append("")
+        partes.append("─" * 40)
+        partes.append("Detalhes da proposta:")
+        partes.append("")
+    else:
+        # Intro manual (fallback)
+        if proposta.get("texto_intro"):
+            partes.append(proposta["texto_intro"])
+        partes.append("")
 
     if proposta.get("resumo_problema"):
         partes.append(f"Contexto identificado:\n{proposta['resumo_problema']}")
@@ -190,12 +223,13 @@ def montar_email_de_proposta(proposta: dict, config_canal: dict) -> dict:
         partes.append("Fora do escopo:\n" + "\n".join(f"  • {f}" for f in fora_escopo[:3]))
         partes.append("")
 
-    if proposta.get("texto_fechamento"):
+    if not _intro_personalizada and proposta.get("texto_fechamento"):
         partes.append(proposta["texto_fechamento"])
         partes.append("")
 
-    partes.append("--")
-    partes.append(assinatura_padrao)
+    if not _intro_personalizada:
+        partes.append("--")
+        partes.append(assinatura_padrao)
 
     corpo_texto = "\n".join(partes)
 

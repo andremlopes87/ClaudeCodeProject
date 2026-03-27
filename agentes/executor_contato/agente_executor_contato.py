@@ -130,6 +130,21 @@ def executar() -> dict:
             payload   = montar_payload_execucao(fu, opp)
             enriquecer_payload_execucao(payload, abordagem, fu, opp)
 
+            # Mapear abordagem → tipo de template de email
+            _ABORDAGEM_PARA_TEMPLATE = {
+                "abordagem_fria":         "abordagem_inicial",
+                "abordagem_inicial":      "abordagem_inicial",
+                "abordagem_padrao":       "abordagem_inicial",
+                "padrao":                 "abordagem_inicial",
+                "followup":               "followup_sem_resposta",
+                "follow_up":              "followup_sem_resposta",
+                "followup_simples":       "followup_sem_resposta",
+                "followup_sem_resposta":  "followup_sem_resposta",
+            }
+            payload["tipo_template"] = _ABORDAGEM_PARA_TEMPLATE.get(
+                abordagem, "abordagem_inicial"
+            )
+
             # Canal framework: preparar envio (delega lógica de canal ao core/canais.py)
             _canal_obj = None
             try:
