@@ -24,7 +24,7 @@ if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
 from fastapi import FastAPI, Form, Request
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -127,8 +127,8 @@ templates.env.globals["auth_modo_dev"] = _auth_modo_dev
 @app.middleware("http")
 async def _middleware_auth(request: Request, call_next):
     path = request.url.path
-    # Sempre liberar rotas públicas e arquivos estáticos
-    if path in _ROTAS_PUBLICAS or path.startswith("/static/"):
+    # Sempre liberar rotas públicas, arquivos estáticos e formulários públicos (token)
+    if path in _ROTAS_PUBLICAS or path.startswith("/static/") or path.startswith("/f/"):
         return await call_next(request)
 
     auth_cfg = _carregar_auth()
@@ -2115,6 +2115,192 @@ async def api_nps_resumo():
 async def api_governanca_resumo():
     from core.governanca_conselho import resumir_governanca_ativa
     return JSONResponse(resumir_governanca_ativa())
+
+
+# ─── Formulários de coleta ────────────────────────────────────────────────────
+
+def _ler_contas_simples() -> list:
+    """Lista enxuta de contas para o selector de formulários."""
+    try:
+        contas = _ler("contas_clientes.json", [])
+        return [{"id": c["id"], "nome_empresa": c.get("nome_empresa", c["id"]),
+                 "status": c.get("status", "")} for c in contas]
+    except Exception:
+        return []
+
+
+@app.get("/formularios", response_class=HTMLResponse)
+async def pagina_formularios(request: Request, link_gerado: str = ""):
+    from core.formularios_entrega import resumir_para_painel
+    resumo = resumir_para_painel()
+    contas = _ler_contas_simples()
+    return templates.TemplateResponse("formularios_lista.html", {
+        "request": request, "page": "formularios",
+        "resumo": resumo, "contas": contas,
+        "link_gerado": link_gerado,
+    })
+
+
+@app.post("/formularios/gerar-link")
+async def gerar_link_formulario(
+    conta_id: str = Form(default=""),
+    tipo:     str = Form(default=""),
+):
+    from core.formularios_entrega import gerar_token, TIPOS_VALIDOS
+    if not conta_id or tipo not in TIPOS_VALIDOS:
+        return RedirectResponse("/formularios", status_code=303)
+    reg = gerar_token(conta_id, tipo)
+    return RedirectResponse(f"/formularios?link_gerado=/f/{reg['token']}", status_code=303)
+
+
+@app.get("/formulario/{tipo}/{conta_id}", response_class=HTMLResponse)
+async def pagina_formulario_detalhe(request: Request, tipo: str, conta_id: str):
+    from core.formularios_entrega import (
+        obter_formulario, listar_tokens_ativos, resumir_para_painel, LABELS_TIPO
+    )
+    formulario_raw = obter_formulario(conta_id, tipo)
+    formulario     = None
+    if formulario_raw:
+        formulario = {**formulario_raw, "n_fotos": len(formulario_raw.get("fotos", []))}
+
+    # Token mais recente ativo para esta conta/tipo
+    token_ativo = next(
+        (t for t in listar_tokens_ativos() if t["conta_id"] == conta_id and t["tipo"] == tipo),
+        None
+    )
+
+    # Dados da conta
+    contas = _ler_contas_simples()
+    conta  = next((c for c in contas if c["id"] == conta_id), {"id": conta_id, "nome_empresa": conta_id})
+
+    resumo = {"labels_tipo": LABELS_TIPO}
+    return templates.TemplateResponse("formulario_detalhe.html", {
+        "request": request, "page": "formularios",
+        "tipo": tipo, "conta_id": conta_id,
+        "formulario": formulario, "token_ativo": token_ativo,
+        "conta": conta, "resumo": resumo,
+    })
+
+
+# ─── Rotas públicas — formulário via token (sem login) ────────────────────────
+
+_FORM_TEMPLATES = {
+    "presenca_digital":     "formulario_presenca_digital.html",
+    "atendimento_whatsapp": "formulario_atendimento_whatsapp.html",
+    "agendamento_digital":  "formulario_agendamento_digital.html",
+    "operacao_continua":    "formulario_operacao_continua.html",
+}
+
+
+@app.get("/f/{token}", response_class=HTMLResponse)
+async def formulario_publico(request: Request, token: str):
+    from core.formularios_entrega import verificar_token, obter_formulario, listar_fotos_conta
+
+    reg = verificar_token(token)
+    if not reg:
+        return templates.TemplateResponse("formulario_presenca_digital.html", {
+            "request": request, "token": token,
+            "ja_preenchido": False, "erro": "",
+            "dados": {}, "conta_id": "", "fotos_existentes": [],
+            "form_action": f"/f/{token}",
+            "expirado": True,
+        }, status_code=410)
+
+    conta_id = reg["conta_id"]
+    tipo     = reg["tipo"]
+    tpl_name = _FORM_TEMPLATES.get(tipo)
+    if not tpl_name:
+        return HTMLResponse("<h2>Tipo de formulário inválido.</h2>", status_code=400)
+
+    existente = obter_formulario(conta_id, tipo)
+    ja_preenchido = existente and existente.get("status") == "preenchido"
+    dados_prev    = existente.get("dados", {}) if existente else {}
+    fotos_prev    = listar_fotos_conta(conta_id)
+
+    return templates.TemplateResponse(tpl_name, {
+        "request": request, "token": token,
+        "conta_id": conta_id, "tipo": tipo,
+        "ja_preenchido": ja_preenchido,
+        "preenchido_em": existente.get("preenchido_em", "") if existente else "",
+        "dados": dados_prev,
+        "fotos_existentes": fotos_prev,
+        "form_action": f"/f/{token}",
+        "erro": "",
+        "expirado": False,
+    })
+
+
+@app.post("/f/{token}", response_class=HTMLResponse)
+async def submeter_formulario_publico(request: Request, token: str):
+    from core.formularios_entrega import (
+        verificar_token, salvar_formulario, processar_upload_foto,
+        parse_dados_formulario, LABELS_TIPO
+    )
+
+    reg = verificar_token(token)
+    if not reg:
+        return HTMLResponse("<h2>Link expirado ou inválido.</h2>", status_code=410)
+
+    conta_id = reg["conta_id"]
+    tipo     = reg["tipo"]
+    tpl_name = _FORM_TEMPLATES.get(tipo, "formulario_presenca_digital.html")
+
+    # Parsear multipart
+    form = await request.form()
+    raw  = {}
+    fotos_salvas = []
+
+    for key, val in form.multi_items():
+        if hasattr(val, "read"):                # UploadFile
+            if val.filename and val.size:
+                try:
+                    conteudo = await val.read()
+                    nome = processar_upload_foto(conta_id, val.filename, conteudo)
+                    fotos_salvas.append(nome)
+                except Exception as e:
+                    tpl = _FORM_TEMPLATES.get(tipo, "formulario_presenca_digital.html")
+                    return templates.TemplateResponse(tpl, {
+                        "request": request, "token": token,
+                        "conta_id": conta_id, "tipo": tipo,
+                        "ja_preenchido": False, "preenchido_em": "",
+                        "dados": raw, "fotos_existentes": [],
+                        "form_action": f"/f/{token}",
+                        "erro": f"Erro ao processar foto: {e}",
+                        "expirado": False,
+                    }, status_code=422)
+        else:
+            raw[key] = val
+
+    dados = parse_dados_formulario(tipo, raw)
+    salvar_formulario(conta_id, tipo, dados, token=token, fotos=fotos_salvas)
+
+    return templates.TemplateResponse(tpl_name, {
+        "request": request, "token": token,
+        "conta_id": conta_id, "tipo": tipo,
+        "ja_preenchido": True,
+        "preenchido_em": "",  # just submitted
+        "dados": dados, "fotos_existentes": fotos_salvas,
+        "form_action": f"/f/{token}",
+        "erro": "", "expirado": False,
+    })
+
+
+@app.get("/uploads/{conta_id}/{filename}")
+async def servir_upload(conta_id: str, filename: str):
+    """Serve fotos enviadas por clientes. Requer autenticação (via middleware)."""
+    import mimetypes
+    # Proteger contra path traversal
+    safe_conta = "".join(c for c in conta_id if c.isalnum() or c in "-_")
+    safe_file  = "".join(c for c in filename  if c.isalnum() or c in "-_.")
+    if not safe_conta or not safe_file or ".." in safe_file:
+        return Response(status_code=404)
+
+    caminho = config.PASTA_DADOS / "uploads" / safe_conta / safe_file
+    if not caminho.exists():
+        return Response(status_code=404)
+
+    mime, _ = mimetypes.guess_type(str(caminho))
+    return FileResponse(str(caminho), media_type=mime or "application/octet-stream")
 
 
 # ─── Auxiliares internos app ──────────────────────────────────────────────────

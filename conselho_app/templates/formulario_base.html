@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Formulário — Vetor{% endblock %}</title>
+  <style>
+    :root {
+      --primary:#2563eb; --primary-dk:#1d4ed8; --success:#16a34a;
+      --danger:#dc2626; --warn:#d97706;
+      --text:#111827; --muted:#6b7280; --border:#d1d5db;
+      --bg:#fff; --surface:#f9fafb; --radius:8px;
+    }
+    *,*::before,*::after{box-sizing:border-box}
+    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      background:var(--surface);color:var(--text);margin:0;line-height:1.5}
+
+    /* Header */
+    .fh{background:var(--bg);border-bottom:1px solid var(--border);
+        padding:12px 20px;display:flex;align-items:center;gap:14px;
+        position:sticky;top:0;z-index:100;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+    .fh-brand{font-size:17px;font-weight:700;color:var(--primary);white-space:nowrap}
+    .fh-brand small{font-weight:400;color:var(--muted);font-size:12px;display:block;line-height:1}
+    .fh-progress{flex:1;min-width:0}
+    .fh-bar{height:4px;background:var(--border);border-radius:2px;overflow:hidden;margin-bottom:3px}
+    .fh-bar-fill{height:100%;background:var(--primary);transition:width .3s}
+    .fh-label{font-size:11px;color:var(--muted);text-align:right}
+
+    /* Container */
+    .fc{max-width:660px;margin:0 auto;padding:24px 16px 100px}
+    .ft{font-size:22px;font-weight:700;margin:0 0 4px}
+    .fs{color:var(--muted);font-size:14px;margin:0 0 24px}
+
+    /* Steps */
+    .step{display:none}
+    .step.active{display:block}
+
+    .step-hd{background:var(--bg);border:1px solid var(--border);
+             border-radius:var(--radius);padding:14px 18px;margin-bottom:18px;
+             display:flex;align-items:flex-start;gap:12px}
+    .step-num{width:30px;height:30px;border-radius:50%;background:var(--primary);
+              color:#fff;font-weight:700;font-size:13px;flex-shrink:0;
+              display:flex;align-items:center;justify-content:center}
+    .step-info .st{font-weight:600;font-size:15px;margin:0}
+    .step-info .ss{color:var(--muted);font-size:12px;margin:2px 0 0}
+
+    /* Card */
+    .card{background:var(--bg);border:1px solid var(--border);
+          border-radius:var(--radius);padding:18px;margin-bottom:14px}
+
+    /* Fields */
+    .f{margin-bottom:16px}
+    .f label{display:block;font-size:13px;font-weight:500;margin-bottom:5px}
+    .f label .req{color:var(--danger);margin-left:2px}
+    .fi,.fs2,.ta{
+      width:100%;padding:11px 13px;border:1px solid var(--border);
+      border-radius:var(--radius);font-size:15px;font-family:inherit;
+      background:var(--bg);color:var(--text);transition:border-color .2s;
+      -webkit-appearance:none;appearance:none}
+    .fi:focus,.fs2:focus,.ta:focus{
+      outline:none;border-color:var(--primary);
+      box-shadow:0 0 0 3px rgba(37,99,235,.1)}
+    .fi.err,.fs2.err,.ta.err{border-color:var(--danger)}
+    .ta{resize:vertical;min-height:90px}
+    .fhint{font-size:12px;color:var(--muted);margin-top:4px}
+    .ferr{font-size:12px;color:var(--danger);margin-top:4px;display:none}
+    .ferr.on{display:block}
+    .char-c{font-size:11px;color:var(--muted);text-align:right;margin-top:3px}
+    .char-c.over{color:var(--danger)}
+
+    /* Grid */
+    .row{display:grid;gap:12px}
+    .c2{grid-template-columns:1fr 1fr}
+    .c3{grid-template-columns:1fr 1fr 1fr}
+    @media(max-width:480px){.c2,.c3{grid-template-columns:1fr}}
+
+    /* Checkboxes pill */
+    .cbg{display:flex;flex-wrap:wrap;gap:7px}
+    .cbi{display:flex;align-items:center;gap:5px;padding:7px 14px;
+         border:1px solid var(--border);border-radius:20px;cursor:pointer;
+         font-size:13px;transition:border-color .15s,background .15s;user-select:none}
+    .cbi input{display:none}
+    .cbi.on{border-color:var(--primary);background:rgba(37,99,235,.06);
+            color:var(--primary);font-weight:500}
+
+    /* Schedule */
+    .sch{display:grid;grid-template-columns:80px 1fr 1fr 90px;gap:8px;align-items:center;margin-bottom:8px}
+    .sch .dia{font-size:13px;font-weight:500}
+    .sch .time-fi{padding:8px 10px;font-size:14px}
+    .sch-closed{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:5px;cursor:pointer}
+    .sch-closed input{accent-color:var(--primary)}
+    @media(max-width:500px){.sch{grid-template-columns:60px 1fr 1fr auto}}
+
+    /* Dynamic list */
+    .dyn-list{display:flex;flex-direction:column;gap:8px}
+    .dyn-item{background:var(--surface);border:1px solid var(--border);
+              border-radius:var(--radius);padding:12px 36px 12px 12px;position:relative}
+    .dyn-rm{position:absolute;top:8px;right:8px;background:none;border:none;
+            color:var(--danger);cursor:pointer;font-size:20px;padding:0;line-height:1}
+    .add-btn{display:flex;align-items:center;justify-content:center;gap:6px;
+             padding:10px;background:none;border:1px dashed var(--border);
+             border-radius:var(--radius);cursor:pointer;font-size:13px;color:var(--primary);
+             width:100%;transition:border-color .15s,background .15s}
+    .add-btn:hover{border-color:var(--primary);background:rgba(37,99,235,.04)}
+
+    /* Upload */
+    .upl{border:2px dashed var(--border);border-radius:var(--radius);
+         padding:28px 20px;text-align:center;cursor:pointer;transition:border-color .2s}
+    .upl:hover,.upl.drag{border-color:var(--primary);background:rgba(37,99,235,.03)}
+    .upl input[type=file]{display:none}
+    .upl-icon{font-size:28px;margin-bottom:6px}
+    .upl-txt{font-size:14px;color:var(--text)}
+    .upl-hint{font-size:12px;color:var(--muted);margin-top:4px}
+    .upl-prev{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+    .upl-th{position:relative;width:80px}
+    .upl-th img{width:80px;height:80px;object-fit:cover;border-radius:6px;
+                border:1px solid var(--border)}
+    .upl-th-rm{position:absolute;top:-6px;right:-6px;width:20px;height:20px;
+               background:var(--danger);color:#fff;border:none;border-radius:50%;
+               cursor:pointer;font-size:13px;display:flex;align-items:center;
+               justify-content:center;padding:0;line-height:1}
+
+    /* Footer nav */
+    .fnav{position:fixed;bottom:0;left:0;right:0;background:var(--bg);
+          border-top:1px solid var(--border);padding:10px 16px;display:flex;gap:10px;z-index:100}
+    .btn{padding:12px 22px;border-radius:var(--radius);font-size:15px;
+         font-weight:600;cursor:pointer;border:none;transition:opacity .15s}
+    .btn:disabled{opacity:.5;cursor:not-allowed}
+    .btn-p{background:var(--primary);color:#fff;flex:1}
+    .btn-p:hover:not(:disabled){background:var(--primary-dk)}
+    .btn-s{background:var(--surface);color:var(--text);border:1px solid var(--border)}
+    .btn-ok{background:var(--success);color:#fff;flex:1}
+
+    /* Alerts */
+    .alert{padding:12px 16px;border-radius:var(--radius);font-size:14px;margin-bottom:16px}
+    .alert-danger{background:#fef2f2;border:1px solid #fecaca;color:var(--danger)}
+    .alert-ok{background:#f0fdf4;border:1px solid #bbf7d0;color:var(--success)}
+
+    /* Success screen */
+    .success-box{background:var(--bg);border:1px solid var(--border);
+                 border-radius:var(--radius);padding:48px 24px;text-align:center}
+    .success-box .ico{font-size:52px;margin-bottom:16px}
+    .success-box h2{margin:0 0 8px;font-size:22px}
+    .success-box p{color:var(--muted);font-size:15px;margin:0}
+
+    /* Draft toast */
+    .toast{position:fixed;top:68px;right:16px;background:#111;color:#fff;
+           font-size:12px;padding:6px 14px;border-radius:20px;
+           opacity:0;transition:opacity .3s;z-index:200}
+    .toast.on{opacity:1}
+
+    /* Expired */
+    .expired-box{background:var(--bg);border:1px solid #fecaca;
+                 border-radius:var(--radius);padding:40px 24px;text-align:center}
+    .expired-box h2{color:var(--danger);margin:0 0 8px}
+    .expired-box p{color:var(--muted);font-size:14px;margin:0}
+  </style>
+</head>
+<body>
+
+<div class="fh">
+  <div class="fh-brand">Vetor<small>Coleta de dados</small></div>
+  <div class="fh-progress">
+    <div class="fh-bar"><div class="fh-bar-fill" id="progressFill" style="width:0%"></div></div>
+    <div class="fh-label" id="progressLabel">Etapa 1</div>
+  </div>
+</div>
+
+<div class="fc">
+{% block form_content %}{% endblock %}
+</div>
+
+<div class="fnav" id="fnav">
+  <button type="button" class="btn btn-s" id="btnBack" onclick="stepBack()" style="display:none">← Voltar</button>
+  <button type="button" class="btn btn-p" id="btnNext" onclick="stepNext()">Próxima etapa →</button>
+</div>
+
+<div class="toast" id="toast">Rascunho salvo</div>
+
+<script>
+let cur = 1, total = 1, draftKey = '', draftTimer = null;
+
+function initForm(steps, key) {
+  total = steps; draftKey = key;
+  showStep(1);
+  restoreDraft();
+  setupAutoSave();
+  setupCbg();
+  setupChars();
+}
+
+function showStep(n) {
+  document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+  const el = document.getElementById('step' + n);
+  if (el) el.classList.add('active');
+  const pct = Math.round((n / total) * 100);
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('progressLabel').textContent = 'Etapa ' + n + ' de ' + total;
+  document.getElementById('btnBack').style.display = n > 1 ? '' : 'none';
+  const bn = document.getElementById('btnNext');
+  if (n === total) {
+    bn.textContent = 'Enviar formulário ✓';
+    bn.className = 'btn btn-ok';
+    bn.onclick = submitForm;
+  } else {
+    bn.textContent = 'Próxima etapa →';
+    bn.className = 'btn btn-p';
+    bn.onclick = stepNext;
+  }
+  window.scrollTo(0,0);
+}
+
+function stepNext() {
+  if (!validateStep(cur)) return;
+  if (cur < total) { cur++; showStep(cur); saveDraft(); }
+}
+function stepBack() {
+  if (cur > 1) { cur--; showStep(cur); }
+}
+
+function validateStep(n) {
+  const step = document.getElementById('step' + n);
+  if (!step) return true;
+  let ok = true;
+  step.querySelectorAll('[required]').forEach(el => {
+    const em = el.closest('.f')?.querySelector('.ferr');
+    if (!el.value.trim()) {
+      el.classList.add('err');
+      if (em) { em.textContent = 'Campo obrigatório'; em.classList.add('on'); }
+      if (ok) { el.scrollIntoView({behavior:'smooth',block:'center'}); ok = false; }
+    } else {
+      el.classList.remove('err');
+      if (em) em.classList.remove('on');
+    }
+  });
+  // Phone format validation
+  step.querySelectorAll('[data-phone]').forEach(el => {
+    if (!el.value.trim()) return;
+    const digits = el.value.replace(/\D/g,'');
+    if (digits.length < 10) {
+      el.classList.add('err');
+      const em = el.closest('.f')?.querySelector('.ferr');
+      if (em) { em.textContent = 'Telefone inválido (mínimo 10 dígitos)'; em.classList.add('on'); }
+      if (ok) { el.scrollIntoView({behavior:'smooth',block:'center'}); ok = false; }
+    }
+  });
+  return ok;
+}
+
+function submitForm() {
+  if (!validateStep(cur)) return;
+  const form = document.getElementById('mainForm');
+  if (!form) return;
+  const bn = document.getElementById('btnNext');
+  bn.disabled = true;
+  bn.textContent = 'Enviando…';
+  // Clear draft on submit
+  if (draftKey) { try { localStorage.removeItem(draftKey); } catch(e){} }
+  form.submit();
+}
+
+function saveDraft() {
+  if (!draftKey) return;
+  const form = document.getElementById('mainForm');
+  if (!form) return;
+  const data = {};
+  new FormData(form).forEach((v, k) => { if (typeof v === 'string') data[k] = v; });
+  try {
+    localStorage.setItem(draftKey, JSON.stringify({step: cur, data}));
+    showToast('Rascunho salvo');
+  } catch(e) {}
+}
+
+function restoreDraft() {
+  if (!draftKey) return;
+  try {
+    const raw = localStorage.getItem(draftKey);
+    if (!raw) return;
+    const {step, data} = JSON.parse(raw);
+    if (data) {
+      Object.entries(data).forEach(([k,v]) => {
+        const el = document.querySelector(`[name="${k}"]`);
+        if (el && el.type !== 'file') el.value = v;
+      });
+    }
+    if (step && step > 1) { cur = step; showStep(cur); }
+  } catch(e) {}
+}
+
+function setupAutoSave() {
+  const form = document.getElementById('mainForm');
+  if (!form) return;
+  form.addEventListener('change', () => {
+    clearTimeout(draftTimer);
+    draftTimer = setTimeout(saveDraft, 1500);
+  });
+}
+
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('on');
+  setTimeout(() => el.classList.remove('on'), 2000);
+}
+
+// Checkbox pill groups
+function setupCbg() {
+  document.querySelectorAll('.cbi').forEach(item => {
+    const cb = item.querySelector('input[type=checkbox]');
+    if (!cb) return;
+    if (cb.checked) item.classList.add('on');
+    item.addEventListener('click', () => {
+      cb.checked = !cb.checked;
+      item.classList.toggle('on', cb.checked);
+    });
+  });
+}
+
+// Char counters
+function setupChars() {
+  document.querySelectorAll('[data-max]').forEach(el => {
+    const max = parseInt(el.dataset.max);
+    const cc = document.createElement('div');
+    cc.className = 'char-c';
+    cc.textContent = '0 / ' + max;
+    el.after(cc);
+    el.addEventListener('input', () => {
+      const l = el.value.length;
+      cc.textContent = l + ' / ' + max;
+      cc.classList.toggle('over', l > max);
+    });
+  });
+}
+
+// Schedule: toggle closed
+function toggleDia(checkbox, dia) {
+  const ab = document.getElementById('h_'+dia+'_ab');
+  const fc = document.getElementById('h_'+dia+'_fc');
+  if (ab) ab.disabled = checkbox.checked;
+  if (fc) fc.disabled = checkbox.checked;
+}
+
+// Dynamic lists
+function addItem(containerId, tplFn, max) {
+  const c = document.getElementById(containerId);
+  const n = c.querySelectorAll('.dyn-item').length;
+  if (max && n >= max) { showToast('Máximo de ' + max + ' itens atingido'); return; }
+  const d = document.createElement('div');
+  d.className = 'dyn-item';
+  d.innerHTML = tplFn(n);
+  c.appendChild(d);
+}
+
+function rmItem(btn) { btn.closest('.dyn-item').remove(); }
+
+// Photo upload
+function setupUpload(areaId, inputId, prevId, maxF) {
+  const area  = document.getElementById(areaId);
+  const input = document.getElementById(inputId);
+  const prev  = document.getElementById(prevId);
+  if (!area || !input) return;
+  area.addEventListener('click', e => { if (e.target === area || e.target.closest('.upl-txt,.upl-icon,.upl-hint')) input.click(); });
+  area.addEventListener('dragover', e => { e.preventDefault(); area.classList.add('drag'); });
+  area.addEventListener('dragleave', () => area.classList.remove('drag'));
+  area.addEventListener('drop', e => { e.preventDefault(); area.classList.remove('drag'); handleFiles(Array.from(e.dataTransfer.files)); });
+  input.addEventListener('change', () => handleFiles(Array.from(input.files)));
+
+  function handleFiles(files) {
+    files.slice(0, maxF - prev.children.length).forEach(file => {
+      if (!file.type.startsWith('image/')) return;
+      if (file.size > 5*1024*1024) { showToast('Foto muito grande: ' + file.name + ' (máx 5MB)'); return; }
+      const reader = new FileReader();
+      reader.onload = e => {
+        const wrap = document.createElement('div');
+        wrap.className = 'upl-th';
+        wrap.innerHTML = `<img src="${e.target.result}"><button type="button" class="upl-th-rm" onclick="this.closest('.upl-th').remove()">×</button>`;
+        // Hidden input to carry the file
+        const fi = document.createElement('input');
+        fi.type = 'file'; fi.name = 'fotos'; fi.style.display = 'none';
+        const dt = new DataTransfer(); dt.items.add(file);
+        fi.files = dt.files;
+        document.getElementById('mainForm').appendChild(fi);
+        prev.appendChild(wrap);
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+}
+</script>
+
+{% block form_scripts %}{% endblock %}
+</body>
+</html>

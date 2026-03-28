@@ -1,0 +1,281 @@
+{% extends "base.html" %}
+{% block title %}Formulário {{ resumo.labels_tipo.get(tipo, tipo) }} — {{ conta.nome_empresa or conta_id }}{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1>◈ {{ resumo.labels_tipo.get(tipo, tipo) }}</h1>
+  <div class="subtitle">
+    <a href="/contas/{{ conta_id }}" style="color:var(--accent)">{{ conta.nome_empresa or conta_id }}</a>
+    — <a href="/formularios" style="color:var(--muted);font-size:13px">← Todos os formulários</a>
+  </div>
+</div>
+
+<!-- Status + ações -->
+<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:24px;align-items:flex-start">
+  <div class="card" style="flex:1;min-width:240px;margin-bottom:0">
+    <div class="label" style="margin-bottom:8px">Status do formulário</div>
+    {% if formulario %}
+      {% if formulario.status == 'preenchido' %}
+      <span class="badge badge-ok">Preenchido</span>
+      <div style="font-size:12px;color:var(--muted);margin-top:6px">
+        Enviado em {{ formulario.preenchido_em[:16].replace('T',' ') if formulario.preenchido_em else '—' }}
+      </div>
+      {% else %}
+      <span class="badge badge-warn">Rascunho</span>
+      <div style="font-size:12px;color:var(--muted);margin-top:6px">
+        Última atualização: {{ (formulario.atualizado_em or formulario.preenchido_em or '')[:16].replace('T',' ') or '—' }}
+      </div>
+      {% endif %}
+      {% if formulario.n_fotos > 0 %}
+      <div style="margin-top:8px;font-size:12px;color:var(--muted)">
+        {{ formulario.n_fotos }} foto{{ 's' if formulario.n_fotos > 1 }} enviada{{ 's' if formulario.n_fotos > 1 }}
+      </div>
+      {% endif %}
+    {% else %}
+      <span class="badge badge-muted">Não preenchido</span>
+    {% endif %}
+  </div>
+
+  <div class="card" style="flex:1;min-width:240px;margin-bottom:0">
+    <div class="label" style="margin-bottom:8px">Link para o cliente</div>
+    {% if token_ativo %}
+    <div style="font-family:monospace;font-size:11px;background:var(--surface);
+                padding:6px 10px;border-radius:4px;word-break:break-all;margin-bottom:8px">
+      /f/{{ token_ativo.token }}
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:8px">
+      Expira em: {{ token_ativo.expira_em[:16].replace('T',' ') }}
+      {% if token_ativo.usado_em %} · Já usado{% endif %}
+    </div>
+    <button onclick="copiarLink('/f/{{ token_ativo.token }}')"
+            style="padding:6px 14px;background:var(--accent);color:var(--bg);border:none;
+                   border-radius:4px;cursor:pointer;font-size:12px;font-weight:600">
+      Copiar link
+    </button>
+    {% else %}
+    <p style="font-size:13px;color:var(--muted);margin:0 0 10px">Nenhum link ativo.</p>
+    <form method="post" action="/formularios/gerar-link" style="display:inline">
+      <input type="hidden" name="conta_id" value="{{ conta_id }}">
+      <input type="hidden" name="tipo" value="{{ tipo }}">
+      <button type="submit"
+              style="padding:6px 14px;background:var(--success);color:var(--bg);border:none;
+                     border-radius:4px;cursor:pointer;font-size:12px;font-weight:600">
+        Gerar novo link
+      </button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Dados preenchidos -->
+{% if formulario and formulario.dados %}
+{% set d = formulario.dados %}
+
+<section class="section" style="margin-bottom:20px">
+  <h2>Dados preenchidos</h2>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+
+    <!-- Dados básicos -->
+    <div class="card">
+      <div class="label" style="margin-bottom:10px">Dados básicos</div>
+      {% if d.nome_negocio %}
+      <div class="drill-row"><span>Nome do negócio</span><b>{{ d.nome_negocio }}</b></div>
+      {% endif %}
+      {% if d.categoria %}
+      <div class="drill-row"><span>Categoria</span><b>{{ d.categoria | replace('_',' ') }}</b></div>
+      {% endif %}
+      {% if d.nome_responsavel %}
+      <div class="drill-row"><span>Responsável</span><b>{{ d.nome_responsavel }}</b></div>
+      {% endif %}
+      {% if d.email_responsavel %}
+      <div class="drill-row"><span>Email</span><b>{{ d.email_responsavel }}</b></div>
+      {% endif %}
+      {% if d.telefone_principal %}
+      <div class="drill-row"><span>Telefone</span><b>{{ d.telefone_principal }}</b></div>
+      {% endif %}
+      {% if d.whatsapp %}
+      <div class="drill-row"><span>WhatsApp</span><b>{{ d.whatsapp }}</b></div>
+      {% endif %}
+    </div>
+
+    <!-- Endereço -->
+    {% if d.endereco_rua or d.endereco_cidade %}
+    <div class="card">
+      <div class="label" style="margin-bottom:10px">Endereço</div>
+      {% if d.endereco_rua %}
+      <div class="drill-row">
+        <span>Endereço</span>
+        <b>{{ d.endereco_rua }}, {{ d.endereco_numero or '' }}</b>
+      </div>
+      {% endif %}
+      {% if d.endereco_bairro %}
+      <div class="drill-row"><span>Bairro</span><b>{{ d.endereco_bairro }}</b></div>
+      {% endif %}
+      {% if d.endereco_cidade %}
+      <div class="drill-row"><span>Cidade</span><b>{{ d.endereco_cidade }}</b></div>
+      {% endif %}
+      {% if d.endereco_cep %}
+      <div class="drill-row"><span>CEP</span><b>{{ d.endereco_cep }}</b></div>
+      {% endif %}
+    </div>
+    {% endif %}
+
+  </div>
+
+  <!-- Descrição + serviços -->
+  {% if d.descricao_curta %}
+  <div class="card" style="margin-top:14px">
+    <div class="label" style="margin-bottom:6px">Descrição (Google)</div>
+    <div style="font-size:13px;line-height:1.6">{{ d.descricao_curta }}</div>
+  </div>
+  {% endif %}
+
+  {% if d.servicos %}
+  <div class="card" style="margin-top:14px">
+    <div class="label" style="margin-bottom:6px">Serviços oferecidos</div>
+    <div style="font-size:13px;line-height:1.7;white-space:pre-line">{{ d.servicos }}</div>
+  </div>
+  {% endif %}
+
+  <!-- Horários -->
+  {% if d.horario_funcionamento %}
+  <div class="card" style="margin-top:14px">
+    <div class="label" style="margin-bottom:10px">Horários de funcionamento</div>
+    {% set dias_label = {'seg':'Segunda','ter':'Terça','qua':'Quarta','qui':'Quinta','sex':'Sexta','sab':'Sábado','dom':'Domingo'} %}
+    {% for dia, h in d.horario_funcionamento.items() %}
+    <div class="drill-row">
+      <span>{{ dias_label.get(dia, dia) }}</span>
+      <b>{% if h.fechado %}Fechado{% else %}{{ h.abertura or '—' }} – {{ h.fechamento or '—' }}{% endif %}</b>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- Formas de pagamento -->
+  {% if d.formas_pagamento %}
+  <div class="card" style="margin-top:14px">
+    <div class="label" style="margin-bottom:8px">Formas de pagamento</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px">
+      {% for f in d.formas_pagamento %}
+      <span class="badge badge-muted" style="font-size:11px">{{ f | replace('pgto_','') | replace('_',' ') }}</span>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- FAQs (WhatsApp) -->
+  {% if d.perguntas_frequentes %}
+  <div class="card" style="margin-top:14px">
+    <div class="label" style="margin-bottom:10px">Perguntas frequentes ({{ d.perguntas_frequentes | length }})</div>
+    {% for faq in d.perguntas_frequentes %}
+    <div style="margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--border)">
+      <div style="font-size:13px;font-weight:600;margin-bottom:3px">{{ faq.pergunta }}</div>
+      <div style="font-size:13px;color:var(--muted)">{{ faq.resposta }}</div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- Serviços de agendamento -->
+  {% if d.servicos_agendamento %}
+  <div class="card" style="margin-top:14px">
+    <div class="label" style="margin-bottom:10px">Serviços para agendamento</div>
+    <table class="data-table" style="font-size:12px">
+      <thead><tr><th>Serviço</th><th>Duração</th></tr></thead>
+      <tbody>
+        {% for s in d.servicos_agendamento %}
+        <tr>
+          <td>{{ s.nome }}</td>
+          <td>{{ s.duracao_min }} min</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  <!-- Profissionais -->
+  {% if d.profissionais %}
+  <div class="card" style="margin-top:14px">
+    <div class="label" style="margin-bottom:10px">Profissionais</div>
+    {% for p in d.profissionais %}
+    <div style="margin-bottom:8px">
+      <div class="drill-row"><span>Nome</span><b>{{ p.nome }}</b></div>
+      {% if p.horario %}<div class="drill-row"><span>Horário</span><b>{{ p.horario }}</b></div>{% endif %}
+      {% if p.folga %}<div class="drill-row"><span>Folgas</span><b>{{ p.folga }}</b></div>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- Redes sociais / operação -->
+  {% if d.instagram or d.frequencia_posts or d.tom_comunicacao %}
+  <div class="card" style="margin-top:14px">
+    <div class="label" style="margin-bottom:10px">Redes sociais e conteúdo</div>
+    {% if d.instagram %}
+    <div class="drill-row"><span>Instagram</span><b>{{ d.instagram }}</b></div>
+    {% endif %}
+    {% if d.frequencia_posts %}
+    <div class="drill-row"><span>Frequência</span><b>{{ d.frequencia_posts | replace('_',' ') }}</b></div>
+    {% endif %}
+    {% if d.tom_comunicacao %}
+    <div class="drill-row"><span>Tom</span><b>{{ d.tom_comunicacao }}</b></div>
+    {% endif %}
+    {% if d.tipo_conteudo %}
+    <div class="drill-row">
+      <span>Conteúdo</span>
+      <div style="display:flex;flex-wrap:wrap;gap:4px">
+        {% for tc in d.tipo_conteudo %}
+        <span class="badge badge-muted" style="font-size:10px">{{ tc | replace('conteudo_','') | replace('_',' ') }}</span>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+</section>
+
+<!-- Fotos -->
+{% if formulario.fotos %}
+<section class="section">
+  <h2>Fotos enviadas ({{ formulario.fotos | length }})</h2>
+  <div style="display:flex;flex-wrap:wrap;gap:10px">
+    {% for foto in formulario.fotos %}
+    <a href="/uploads/{{ formulario.conta_id }}/{{ foto }}" target="_blank"
+       style="display:block;width:120px;height:120px;overflow:hidden;border-radius:6px;border:1px solid var(--border)">
+      <img src="/uploads/{{ formulario.conta_id }}/{{ foto }}"
+           style="width:100%;height:100%;object-fit:cover"
+           alt="{{ foto }}" onerror="this.style.display='none'">
+    </a>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+{% else %}
+<div class="notice-box notice-info">
+  Nenhum dado preenchido ainda.
+  {% if not token_ativo %}
+  Gere um link acima para enviar ao cliente.
+  {% else %}
+  O link foi enviado ao cliente e aguarda preenchimento.
+  {% endif %}
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function copiarLink(link) {
+  const full = window.location.origin + link;
+  navigator.clipboard.writeText(full).then(() => {
+    event.target.textContent = 'Copiado!';
+    setTimeout(() => event.target.textContent = 'Copiar link', 1500);
+  }).catch(() => {
+    prompt('Copie o link:', full);
+  });
+}
+</script>
+{% endblock %}

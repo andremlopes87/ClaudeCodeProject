@@ -1,0 +1,239 @@
+{% extends "formulario_base.html" %}
+{% block title %}Agendamento Digital — Vetor{% endblock %}
+
+{% block form_content %}
+{% if ja_preenchido %}
+<div class="success-box">
+  <div class="ico">✅</div>
+  <h2>Formulário já enviado!</h2>
+  <p>Recebemos seus dados em {{ preenchido_em[:16].replace('T',' ') }}.<br>
+     Vamos configurar seu sistema de agendamento online em breve.</p>
+</div>
+{% else %}
+
+{% if erro %}<div class="alert alert-danger">{{ erro }}</div>{% endif %}
+
+<h1 class="ft">Sistema de Agendamento</h1>
+<p class="fs">Precisamos entender como funciona o seu atendimento para configurar os horários online. Leva cerca de 15 minutos.</p>
+
+<form id="mainForm" action="{{ form_action }}" method="post" enctype="multipart/form-data">
+  {% if token %}<input type="hidden" name="token" value="{{ token }}">{% endif %}
+  <input type="hidden" name="_tipo" value="agendamento_digital">
+
+  <!-- ETAPA 1: Dados do negócio -->
+  <div class="step" id="step1">
+    <div class="step-hd">
+      <div class="step-num">1</div>
+      <div class="step-info">
+        <p class="st">Dados do negócio</p>
+        <p class="ss">Nome, endereço e responsável</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="f">
+        <label>Nome do negócio <span class="req">*</span></label>
+        <input class="fi" type="text" name="nome_negocio" required
+               value="{{ dados.nome_negocio or '' }}" placeholder="Ex: Barbearia do Carlos">
+        <div class="ferr"></div>
+      </div>
+      <div class="row c2">
+        <div class="f">
+          <label>Cidade <span class="req">*</span></label>
+          <input class="fi" type="text" name="endereco_cidade" required
+                 value="{{ dados.endereco_cidade or '' }}" placeholder="São Paulo">
+          <div class="ferr"></div>
+        </div>
+        <div class="f">
+          <label>Bairro</label>
+          <input class="fi" type="text" name="endereco_bairro"
+                 value="{{ dados.endereco_bairro or '' }}" placeholder="Centro">
+        </div>
+      </div>
+      <div class="row c2">
+        <div class="f">
+          <label>Telefone / WhatsApp <span class="req">*</span></label>
+          <input class="fi" type="tel" name="telefone_principal" required data-phone
+                 value="{{ dados.telefone_principal or '' }}" placeholder="(11) 9 0000-0000">
+          <div class="ferr"></div>
+        </div>
+        <div class="f">
+          <label>Email do responsável <span class="req">*</span></label>
+          <input class="fi" type="email" name="email_responsavel" required
+                 value="{{ dados.email_responsavel or '' }}" placeholder="contato@email.com">
+          <div class="ferr"></div>
+        </div>
+      </div>
+      <div class="f">
+        <label>Nome do responsável <span class="req">*</span></label>
+        <input class="fi" type="text" name="nome_responsavel" required
+               value="{{ dados.nome_responsavel or '' }}" placeholder="Carlos Silva">
+        <div class="ferr"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="f">
+        <label>Conta Google existente (Gmail)</label>
+        <input class="fi" type="email" name="conta_google" id="cgInput"
+               value="{{ dados.conta_google or '' }}" placeholder="seunegocio@gmail.com">
+        <div class="fhint">Usada para o Google Calendar e Google Meu Negócio</div>
+      </div>
+      <div class="f">
+        <label class="cbi {% if dados.conta_google_nova %}on{% endif %}" style="display:inline-flex">
+          <input type="checkbox" name="conta_google_nova" value="on"
+                 {% if dados.conta_google_nova %}checked{% endif %}
+                 onchange="document.getElementById('cgInput').disabled = this.checked">
+          Não tenho conta Google — a Vetor vai criar para mim
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <!-- ETAPA 2: Serviços e duração -->
+  <div class="step" id="step2">
+    <div class="step-hd">
+      <div class="step-num">2</div>
+      <div class="step-info">
+        <p class="st">Serviços e duração</p>
+        <p class="ss">Liste os serviços que podem ser agendados online</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <p style="font-size:13px;color:var(--muted);margin:0 0 14px">
+        Informe quanto tempo cada serviço leva para ser concluído.<br>
+        Ex: Corte masculino = 30 min, Barba = 20 min
+      </p>
+
+      <div class="dyn-list" id="servList">
+        {% set servs = dados.servicos_agendamento or [{"nome":"","duracao_min":""}] %}
+        {% for s in servs %}
+        <div class="dyn-item">
+          <button type="button" class="dyn-rm" onclick="rmItem(this)">×</button>
+          <div class="row c2">
+            <div class="f" style="margin-bottom:0">
+              <label>Nome do serviço</label>
+              <input class="fi" type="text" name="servico_nome_{{ loop.index0 }}"
+                     value="{{ s.nome or '' }}" placeholder="Ex: Corte masculino">
+            </div>
+            <div class="f" style="margin-bottom:0">
+              <label>Duração (minutos)</label>
+              <input class="fi" type="number" name="servico_duracao_{{ loop.index0 }}"
+                     value="{{ s.duracao_min or '' }}" placeholder="30" min="5" max="480">
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      <button type="button" class="add-btn" style="margin-top:8px"
+              onclick="addServico()">+ Adicionar serviço</button>
+    </div>
+
+    <div class="card">
+      <div class="f">
+        <label>Intervalo entre atendimentos (minutos)</label>
+        <input class="fi" type="number" name="intervalo_atendimentos"
+               value="{{ dados.intervalo_atendimentos_min or '0' }}"
+               placeholder="Ex: 10" min="0" max="60" style="max-width:140px">
+        <div class="fhint">Tempo de descanso ou limpeza entre um cliente e outro. Coloque 0 se não precisar.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ETAPA 3: Profissionais e agenda -->
+  <div class="step" id="step3">
+    <div class="step-hd">
+      <div class="step-num">3</div>
+      <div class="step-info">
+        <p class="st">Profissionais e agenda</p>
+        <p class="ss">Informe os profissionais que atendem e seus horários</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <p style="font-size:13px;color:var(--muted);margin:0 0 14px">
+        Se você trabalha sozinho, adicione apenas você mesmo.
+      </p>
+
+      <div class="dyn-list" id="profList">
+        {% set profs = dados.profissionais or [{"nome":"","horario":"","folga":""}] %}
+        {% for p in profs %}
+        <div class="dyn-item">
+          <button type="button" class="dyn-rm" onclick="rmItem(this)">×</button>
+          <div class="f">
+            <label>Nome do profissional <span class="req">*</span></label>
+            <input class="fi" type="text" name="prof_nome_{{ loop.index0 }}"
+                   value="{{ p.nome or '' }}" placeholder="Ex: Carlos">
+          </div>
+          <div class="f">
+            <label>Horário de trabalho</label>
+            <input class="fi" type="text" name="prof_horario_{{ loop.index0 }}"
+                   value="{{ p.horario or '' }}"
+                   placeholder="Ex: Seg a Sex das 8h às 18h, Sáb das 8h às 14h">
+          </div>
+          <div class="f" style="margin-bottom:0">
+            <label>Dias de folga / ausências previstas</label>
+            <input class="fi" type="text" name="prof_folga_{{ loop.index0 }}"
+                   value="{{ p.folga or '' }}"
+                   placeholder="Ex: Toda segunda-feira, férias em julho">
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      <button type="button" class="add-btn" style="margin-top:8px"
+              onclick="addProfissional()">+ Adicionar profissional</button>
+    </div>
+  </div>
+
+</form>
+{% endif %}
+{% endblock %}
+
+{% block form_scripts %}
+<script>
+initForm(3, 'form_agd_{{ conta_id }}');
+
+let scCount = document.querySelectorAll('#servList .dyn-item').length;
+function addServico() {
+  const c = document.getElementById('servList');
+  const d = document.createElement('div');
+  d.className = 'dyn-item';
+  d.innerHTML = `
+    <button type="button" class="dyn-rm" onclick="rmItem(this)">×</button>
+    <div class="row c2">
+      <div class="f" style="margin-bottom:0">
+        <label>Nome do serviço</label>
+        <input class="fi" type="text" name="servico_nome_${scCount}" placeholder="Ex: Barba">
+      </div>
+      <div class="f" style="margin-bottom:0">
+        <label>Duração (minutos)</label>
+        <input class="fi" type="number" name="servico_duracao_${scCount}" placeholder="20" min="5" max="480">
+      </div>
+    </div>`;
+  c.appendChild(d); scCount++;
+}
+
+let prCount = document.querySelectorAll('#profList .dyn-item').length;
+function addProfissional() {
+  const c = document.getElementById('profList');
+  const d = document.createElement('div');
+  d.className = 'dyn-item';
+  d.innerHTML = `
+    <button type="button" class="dyn-rm" onclick="rmItem(this)">×</button>
+    <div class="f">
+      <label>Nome do profissional</label>
+      <input class="fi" type="text" name="prof_nome_${prCount}" placeholder="Nome">
+    </div>
+    <div class="f">
+      <label>Horário de trabalho</label>
+      <input class="fi" type="text" name="prof_horario_${prCount}" placeholder="Ex: Seg a Sex das 8h às 18h">
+    </div>
+    <div class="f" style="margin-bottom:0">
+      <label>Dias de folga</label>
+      <input class="fi" type="text" name="prof_folga_${prCount}" placeholder="Ex: Toda segunda-feira">
+    </div>`;
+  c.appendChild(d); prCount++;
+}
+</script>
+{% endblock %}

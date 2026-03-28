@@ -1,0 +1,198 @@
+{% extends "formulario_base.html" %}
+{% block title %}Operação Contínua — Vetor{% endblock %}
+
+{% block form_content %}
+{% if ja_preenchido %}
+<div class="success-box">
+  <div class="ico">✅</div>
+  <h2>Formulário já enviado!</h2>
+  <p>Recebemos seus dados em {{ preenchido_em[:16].replace('T',' ') }}.<br>
+     Vamos montar a estratégia de conteúdo do seu negócio em breve.</p>
+</div>
+{% else %}
+
+{% if erro %}<div class="alert alert-danger">{{ erro }}</div>{% endif %}
+
+<h1 class="ft">Operação Contínua — Conteúdo Digital</h1>
+<p class="fs">Vamos entender o perfil do seu negócio para criar conteúdo que atrai clientes. Leva cerca de 15 minutos.</p>
+
+<form id="mainForm" action="{{ form_action }}" method="post" enctype="multipart/form-data">
+  {% if token %}<input type="hidden" name="token" value="{{ token }}">{% endif %}
+  <input type="hidden" name="_tipo" value="operacao_continua">
+
+  <!-- ETAPA 1: Dados do negócio -->
+  <div class="step" id="step1">
+    <div class="step-hd">
+      <div class="step-num">1</div>
+      <div class="step-info">
+        <p class="st">Dados do negócio</p>
+        <p class="ss">Nome, categoria e público-alvo</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="f">
+        <label>Nome do negócio <span class="req">*</span></label>
+        <input class="fi" type="text" name="nome_negocio" required
+               value="{{ dados.nome_negocio or '' }}" placeholder="Ex: Barbearia do Carlos">
+        <div class="ferr"></div>
+      </div>
+      <div class="row c2">
+        <div class="f">
+          <label>Telefone / WhatsApp <span class="req">*</span></label>
+          <input class="fi" type="tel" name="telefone_principal" required data-phone
+                 value="{{ dados.telefone_principal or '' }}" placeholder="(11) 9 0000-0000">
+          <div class="ferr"></div>
+        </div>
+        <div class="f">
+          <label>Email do responsável <span class="req">*</span></label>
+          <input class="fi" type="email" name="email_responsavel" required
+                 value="{{ dados.email_responsavel or '' }}" placeholder="contato@email.com">
+          <div class="ferr"></div>
+        </div>
+      </div>
+      <div class="f">
+        <label>Nome do responsável <span class="req">*</span></label>
+        <input class="fi" type="text" name="nome_responsavel" required
+               value="{{ dados.nome_responsavel or '' }}" placeholder="Carlos Silva">
+        <div class="ferr"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="f">
+        <label>Descrição curta do negócio</label>
+        <textarea class="ta" name="descricao_curta" data-max="300"
+                  placeholder="Ex: Barbearia no centro com atendimento de qualidade para homens que valorizam um bom corte.">{{ dados.descricao_curta or '' }}</textarea>
+        <div class="fhint">Como você descreveria seu negócio para um cliente novo</div>
+      </div>
+      <div class="f">
+        <label>Serviços principais oferecidos</label>
+        <textarea class="ta" name="servicos" rows="3"
+                  placeholder="Liste os serviços, um por linha:&#10;Corte masculino&#10;Barba&#10;Sobrancelha">{{ dados.servicos or '' }}</textarea>
+      </div>
+    </div>
+  </div>
+
+  <!-- ETAPA 2: Instagram e redes sociais -->
+  <div class="step" id="step2">
+    <div class="step-hd">
+      <div class="step-num">2</div>
+      <div class="step-info">
+        <p class="st">Instagram e redes sociais</p>
+        <p class="ss">Perfil existente ou novo, frequência e tom de voz</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="f">
+        <label>Perfil no Instagram</label>
+        <input class="fi" type="text" name="instagram" id="igInput"
+               value="{{ dados.instagram or '' }}" placeholder="@seunegocio">
+        <div class="fhint">Se já tiver um perfil, informe o @. Se não tiver, a Vetor cria.</div>
+      </div>
+      <div class="f">
+        <label class="cbi {% if dados.instagram_criar_novo %}on{% endif %}" style="display:inline-flex">
+          <input type="checkbox" name="instagram_criar_novo" value="on"
+                 {% if dados.instagram_criar_novo %}checked{% endif %}
+                 onchange="document.getElementById('igInput').disabled = this.checked">
+          Não tenho Instagram — a Vetor vai criar o perfil para mim
+        </label>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="f">
+        <label>Frequência de posts desejada</label>
+        <select class="fs2" name="frequencia_posts">
+          <option value="">— Selecione —</option>
+          {% set freqs = [
+            ('2x_semana','2x por semana'),
+            ('3x_semana','3x por semana'),
+            ('5x_semana','5x por semana — dias úteis'),
+            ('diario','Todo dia'),
+          ] %}
+          {% for v, l in freqs %}
+          <option value="{{ v }}" {% if dados.frequencia_posts == v %}selected{% endif %}>{{ l }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- ETAPA 3: Tom e tipo de conteúdo -->
+  <div class="step" id="step3">
+    <div class="step-hd">
+      <div class="step-num">3</div>
+      <div class="step-info">
+        <p class="st">Tom e conteúdo</p>
+        <p class="ss">Como sua marca fala e o que quer mostrar</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="f">
+        <label>Tom de comunicação preferido</label>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
+          {% set toms = [
+            ('formal','Formal — sério, profissional, transmite confiança'),
+            ('casual','Casual — próximo, amigável, como um amigo recomendando'),
+            ('divertido','Divertido — descontraído, usa humor, memes quando cabível'),
+          ] %}
+          {% for v, desc in toms %}
+          <label style="display:flex;align-items:flex-start;gap:10px;padding:12px;
+                        border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;
+                        {% if dados.tom_comunicacao == v %}border-color:var(--primary);background:rgba(37,99,235,.04){% endif %}">
+            <input type="radio" name="tom_comunicacao" value="{{ v }}"
+                   {% if dados.tom_comunicacao == v %}checked{% endif %}
+                   style="margin-top:2px;accent-color:var(--primary)">
+            <span>
+              <strong>{{ desc.split('—')[0].strip() }}</strong>
+              <span style="font-size:13px;color:var(--muted);display:block">{{ desc.split('—')[1].strip() }}</span>
+            </span>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="f">
+        <label>Que tipo de conteúdo combina mais com seu negócio?</label>
+        <p style="font-size:13px;color:var(--muted);margin:0 0 10px">Selecione todos que quiser</p>
+        <div class="cbg">
+          {% set conteudos = [
+            ('conteudo_fotos_trabalho','Fotos do trabalho realizado'),
+            ('conteudo_dicas','Dicas e conteúdo educativo'),
+            ('conteudo_promocoes','Promoções e ofertas especiais'),
+            ('conteudo_bastidores','Bastidores do dia a dia'),
+            ('conteudo_depoimentos','Depoimentos de clientes'),
+            ('conteudo_novidades','Novidades e lançamentos'),
+          ] %}
+          {% for v, l in conteudos %}
+          <label class="cbi {% if v in (dados.tipo_conteudo or []) %}on{% endif %}">
+            <input type="checkbox" name="{{ v }}" value="{{ v }}"
+                   {% if v in (dados.tipo_conteudo or []) %}checked{% endif %}>
+            {{ l }}
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="f">
+        <label>Alguma observação ou instrução especial?</label>
+        <textarea class="ta" name="observacoes" rows="3"
+                  placeholder="Ex: Não usar emojis em excesso. Sempre mencionar que aceitamos PIX. Evitar posts aos domingos.">{{ dados.observacoes or '' }}</textarea>
+      </div>
+    </div>
+  </div>
+
+</form>
+{% endif %}
+{% endblock %}
+
+{% block form_scripts %}
+<script>initForm(3, 'form_op_{{ conta_id }}');</script>
+{% endblock %}

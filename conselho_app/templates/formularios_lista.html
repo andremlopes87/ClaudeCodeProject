@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+{% block title %}Formulários de Coleta — Painel do Conselho{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1>◈ Formulários de Coleta</h1>
+  <div class="subtitle">Coleta estruturada de dados dos clientes — zero email/WhatsApp</div>
+</div>
+
+<!-- KPIs -->
+<div class="kpi-grid" style="margin-bottom:24px">
+  <div class="kpi">
+    <div class="label">Preenchidos</div>
+    <div class="value">{{ resumo.n_preenchidos }}</div>
+    <div class="sub">completos</div>
+  </div>
+  <div class="kpi">
+    <div class="label">Rascunhos</div>
+    <div class="value">{{ resumo.n_pendentes }}</div>
+    <div class="sub">em andamento</div>
+  </div>
+  <div class="kpi">
+    <div class="label">Links ativos</div>
+    <div class="value">{{ resumo.n_tokens }}</div>
+    <div class="sub">aguardando cliente</div>
+  </div>
+</div>
+
+<!-- Gerar novo link -->
+<section class="section" style="margin-bottom:24px">
+  <h2>Gerar link para cliente</h2>
+  <div class="card">
+    <p style="font-size:13px;color:var(--muted);margin:0 0 16px">
+      Selecione a conta e o tipo de formulário. Um link com validade de 7 dias será gerado para o cliente preencher no celular.
+    </p>
+    <form method="post" action="/formularios/gerar-link" style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end">
+      <div style="flex:1;min-width:200px">
+        <div class="label" style="margin-bottom:4px">Conta</div>
+        <select name="conta_id" required
+                style="width:100%;padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:13px">
+          <option value="">— Selecione a conta —</option>
+          {% for c in contas %}
+          <option value="{{ c.id }}">{{ c.nome_empresa or c.id }} ({{ c.status }})</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div style="flex:1;min-width:200px">
+        <div class="label" style="margin-bottom:4px">Tipo de formulário</div>
+        <select name="tipo" required
+                style="width:100%;padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:13px">
+          {% for tipo, label in resumo.labels_tipo.items() %}
+          <option value="{{ tipo }}">{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit" class="btn-ok" style="padding:8px 20px;background:var(--success);color:var(--bg);border:none;border-radius:4px;cursor:pointer;font-size:13px;font-weight:600">
+        Gerar link →
+      </button>
+    </form>
+  </div>
+</section>
+
+<!-- Links ativos aguardando preenchimento -->
+{% if resumo.tokens_ativos %}
+<section class="section" style="margin-bottom:24px">
+  <h2>Links ativos — aguardando cliente</h2>
+  <div class="card" style="padding:0">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Conta</th>
+          <th>Tipo</th>
+          <th>Criado em</th>
+          <th>Expira em</th>
+          <th>Link</th>
+          <th>Usado?</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in resumo.tokens_ativos %}
+        <tr>
+          <td>{{ t.conta_id }}</td>
+          <td><span class="badge badge-info" style="font-size:10px">{{ resumo.labels_tipo.get(t.tipo, t.tipo) }}</span></td>
+          <td style="font-size:12px;color:var(--muted)">{{ t.criado_em[:16].replace('T',' ') }}</td>
+          <td style="font-size:12px;color:var(--muted)">{{ t.expira_em[:16].replace('T',' ') }}</td>
+          <td>
+            <div style="display:flex;align-items:center;gap:6px">
+              <code style="font-size:10px;background:var(--surface);padding:2px 6px;border-radius:3px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">/f/{{ t.token }}</code>
+              <button onclick="copiarLink('/f/{{ t.token }}')"
+                      style="background:var(--surface);border:1px solid var(--border);border-radius:3px;padding:3px 8px;cursor:pointer;font-size:11px;color:var(--text)">
+                Copiar
+              </button>
+            </div>
+          </td>
+          <td>
+            {% if t.usado_em %}
+            <span class="badge badge-ok" style="font-size:10px">Sim</span>
+            {% else %}
+            <span class="badge badge-muted" style="font-size:10px">Não</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+
+<!-- Formulários preenchidos -->
+{% if resumo.formularios %}
+<section class="section">
+  <h2>Formulários</h2>
+  <div class="card" style="padding:0">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Conta</th>
+          <th>Tipo</th>
+          <th>Status</th>
+          <th>Data</th>
+          <th>Fotos</th>
+          <th>Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for f in resumo.formularios %}
+        <tr>
+          <td>
+            <a href="/contas/{{ f.conta_id }}" style="color:var(--accent)">{{ f.nome_conta }}</a>
+          </td>
+          <td><span class="badge badge-info" style="font-size:10px">{{ f.tipo_label }}</span></td>
+          <td>
+            {% if f.status == 'preenchido' %}
+            <span class="badge badge-ok" style="font-size:10px">Preenchido</span>
+            {% elif f.status == 'rascunho' %}
+            <span class="badge badge-warn" style="font-size:10px">Rascunho</span>
+            {% else %}
+            <span class="badge badge-muted" style="font-size:10px">{{ f.status }}</span>
+            {% endif %}
+          </td>
+          <td style="font-size:12px;color:var(--muted)">
+            {{ f.data[:16].replace('T',' ') if f.data else '—' }}
+          </td>
+          <td style="text-align:center">
+            {% if f.n_fotos > 0 %}
+            <span class="badge badge-muted" style="font-size:10px">{{ f.n_fotos }} foto{{ 's' if f.n_fotos > 1 }}</span>
+            {% else %}—{% endif %}
+          </td>
+          <td>
+            <a href="/formulario/{{ f.tipo }}/{{ f.conta_id }}"
+               style="font-size:12px;color:var(--accent)">Ver dados</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% else %}
+<div class="notice-box notice-info">Nenhum formulário preenchido ainda. Gere um link acima para enviar ao cliente.</div>
+{% endif %}
+
+{% if link_gerado %}
+<div id="linkModal" style="
+  position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;
+  justify-content:center;z-index:1000">
+  <div style="background:var(--bg);border-radius:8px;padding:28px;max-width:480px;width:90%;
+              border:1px solid var(--border)">
+    <h3 style="margin:0 0 12px">Link gerado!</h3>
+    <p style="font-size:13px;color:var(--muted);margin:0 0 16px">
+      Copie este link e envie para o cliente preencher. Válido por 7 dias.
+    </p>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:4px;
+                padding:12px;font-family:monospace;font-size:13px;word-break:break-all;
+                margin-bottom:16px">
+      {{ link_gerado }}
+    </div>
+    <div style="display:flex;gap:8px">
+      <button onclick="copiarLink('{{ link_gerado }}')"
+              style="flex:1;padding:10px;background:var(--accent);color:var(--bg);border:none;
+                     border-radius:4px;cursor:pointer;font-weight:600;font-size:14px">
+        Copiar link
+      </button>
+      <button onclick="document.getElementById('linkModal').remove()"
+              style="padding:10px 16px;background:var(--surface);border:1px solid var(--border);
+                     border-radius:4px;cursor:pointer;font-size:14px">
+        Fechar
+      </button>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function copiarLink(link) {
+  const full = window.location.origin + link;
+  navigator.clipboard.writeText(full).then(() => {
+    // Quick feedback
+    const btn = event.target;
+    const orig = btn.textContent;
+    btn.textContent = 'Copiado!';
+    setTimeout(() => btn.textContent = orig, 1500);
+  }).catch(() => {
+    prompt('Copie o link abaixo:', window.location.origin + link);
+  });
+}
+</script>
+{% endblock %}

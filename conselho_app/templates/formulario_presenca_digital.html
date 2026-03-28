@@ -1,0 +1,254 @@
+{% extends "formulario_base.html" %}
+{% block title %}Presença Digital — Vetor{% endblock %}
+
+{% block form_content %}
+{% if ja_preenchido %}
+<div class="success-box">
+  <div class="ico">✅</div>
+  <h2>Formulário já enviado!</h2>
+  <p>Recebemos seus dados em {{ preenchido_em[:16].replace('T',' ') }}.<br>
+     A Vetor vai entrar em contato em breve para dar início ao trabalho.</p>
+</div>
+{% else %}
+
+{% if erro %}<div class="alert alert-danger">{{ erro }}</div>{% endif %}
+
+<h1 class="ft">Dados da sua empresa</h1>
+<p class="fs">Preencha as informações para configurarmos sua presença digital. Leva cerca de 10 minutos.</p>
+
+<form id="mainForm" action="{{ form_action }}" method="post" enctype="multipart/form-data">
+  {% if token %}<input type="hidden" name="token" value="{{ token }}">{% endif %}
+  <input type="hidden" name="_tipo" value="presenca_digital">
+
+  <!-- ETAPA 1: Dados básicos -->
+  <div class="step" id="step1">
+    <div class="step-hd">
+      <div class="step-num">1</div>
+      <div class="step-info">
+        <p class="st">Dados básicos</p>
+        <p class="ss">Nome, categoria e descrição do negócio</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="f">
+        <label>Como o negócio vai aparecer no Google <span class="req">*</span></label>
+        <input class="fi" type="text" name="nome_negocio" required
+               value="{{ dados.nome_negocio or '' }}"
+               placeholder="Ex: Barbearia do Carlos">
+        <div class="fhint">Use o nome como os clientes te conhecem</div>
+        <div class="ferr"></div>
+      </div>
+
+      <div class="f">
+        <label>Categoria do negócio <span class="req">*</span></label>
+        <select class="fs2" name="categoria" required>
+          <option value="">— Selecione —</option>
+          {% set cats = [
+            ('barbearia','Barbearia'), ('salao_beleza','Salão de Beleza'),
+            ('oficina_mecanica','Oficina Mecânica'), ('restaurante','Restaurante'),
+            ('lanchonete','Lanchonete / Padaria'), ('academia','Academia / Personal'),
+            ('clinica_estetica','Clínica Estética'), ('clinica_saude','Clínica de Saúde'),
+            ('pet_shop','Pet Shop / Veterinário'), ('farmacia','Farmácia'),
+            ('supermercado','Supermercado / Mercearia'), ('loja_roupas','Loja de Roupas'),
+            ('eletrica_hidraulica','Elétrica / Hidráulica'), ('contabilidade','Contabilidade'),
+            ('advocacia','Advocacia'), ('educacao','Educação / Curso'),
+            ('outro','Outro')
+          ] %}
+          {% for v, l in cats %}
+          <option value="{{ v }}" {% if dados.categoria == v %}selected{% endif %}>{{ l }}</option>
+          {% endfor %}
+        </select>
+        <div class="ferr"></div>
+      </div>
+
+      <div class="f">
+        <label>Descrição curta — aparece no Google <span class="req">*</span></label>
+        <textarea class="ta" name="descricao_curta" required data-max="300"
+                  placeholder="Ex: Barbearia no centro com atendimento de qualidade. Corte, barba, sobrancelha e muito mais.">{{ dados.descricao_curta or '' }}</textarea>
+        <div class="ferr"></div>
+      </div>
+
+      <div class="f">
+        <label>Serviços oferecidos</label>
+        <textarea class="ta" name="servicos" rows="4"
+                  placeholder="Liste os principais serviços, um por linha:&#10;Corte masculino&#10;Barba&#10;Sobrancelha">{{ dados.servicos or '' }}</textarea>
+        <div class="fhint">Um serviço por linha</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ETAPA 2: Localização e contato -->
+  <div class="step" id="step2">
+    <div class="step-hd">
+      <div class="step-num">2</div>
+      <div class="step-info">
+        <p class="st">Localização e contato</p>
+        <p class="ss">Endereço completo, telefone e responsável</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row c2">
+        <div class="f">
+          <label>Rua / Avenida <span class="req">*</span></label>
+          <input class="fi" type="text" name="endereco_rua" required
+                 value="{{ dados.endereco_rua or '' }}" placeholder="Rua das Flores">
+          <div class="ferr"></div>
+        </div>
+        <div class="f">
+          <label>Número <span class="req">*</span></label>
+          <input class="fi" type="text" name="endereco_numero" required
+                 value="{{ dados.endereco_numero or '' }}" placeholder="123">
+          <div class="ferr"></div>
+        </div>
+      </div>
+      <div class="row c2">
+        <div class="f">
+          <label>Bairro <span class="req">*</span></label>
+          <input class="fi" type="text" name="endereco_bairro" required
+                 value="{{ dados.endereco_bairro or '' }}" placeholder="Centro">
+          <div class="ferr"></div>
+        </div>
+        <div class="f">
+          <label>Cidade <span class="req">*</span></label>
+          <input class="fi" type="text" name="endereco_cidade" required
+                 value="{{ dados.endereco_cidade or '' }}" placeholder="São Paulo">
+          <div class="ferr"></div>
+        </div>
+      </div>
+      <div class="f">
+        <label>CEP <span class="req">*</span></label>
+        <input class="fi" type="text" name="endereco_cep" required
+               value="{{ dados.endereco_cep or '' }}" placeholder="00000-000"
+               maxlength="9" style="max-width:180px">
+        <div class="ferr"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row c2">
+        <div class="f">
+          <label>Telefone principal <span class="req">*</span></label>
+          <input class="fi" type="tel" name="telefone_principal" required data-phone
+                 value="{{ dados.telefone_principal or '' }}" placeholder="(11) 9 0000-0000">
+          <div class="ferr"></div>
+        </div>
+        <div class="f">
+          <label>WhatsApp (se diferente)</label>
+          <input class="fi" type="tel" name="whatsapp"
+                 value="{{ dados.whatsapp or '' }}" placeholder="(11) 9 0000-0000">
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row c2">
+        <div class="f">
+          <label>Nome do responsável <span class="req">*</span></label>
+          <input class="fi" type="text" name="nome_responsavel" required
+                 value="{{ dados.nome_responsavel or '' }}" placeholder="Carlos Silva">
+          <div class="ferr"></div>
+        </div>
+        <div class="f">
+          <label>Email do responsável <span class="req">*</span></label>
+          <input class="fi" type="email" name="email_responsavel" required
+                 value="{{ dados.email_responsavel or '' }}" placeholder="carlos@email.com">
+          <div class="ferr"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="f">
+        <label>Formas de pagamento aceitas</label>
+        <div class="cbg">
+          {% set pgtos = [
+            ('pgto_dinheiro','Dinheiro'), ('pgto_pix','PIX'),
+            ('pgto_debito','Cartão Débito'), ('pgto_credito','Cartão Crédito'),
+            ('pgto_voucher','Voucher / Alimentação'), ('pgto_fiado','Fiado'),
+          ] %}
+          {% for v, l in pgtos %}
+          <label class="cbi {% if v in (dados.formas_pagamento or []) %}on{% endif %}">
+            <input type="checkbox" name="{{ v }}" value="{{ v }}"
+                   {% if v in (dados.formas_pagamento or []) %}checked{% endif %}>
+            {{ l }}
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ETAPA 3: Horários -->
+  <div class="step" id="step3">
+    <div class="step-hd">
+      <div class="step-num">3</div>
+      <div class="step-info">
+        <p class="st">Horário de funcionamento</p>
+        <p class="ss">Informe os horários de cada dia da semana</p>
+      </div>
+    </div>
+
+    <div class="card">
+      {% set dias = [
+        ('seg','Segunda-feira'), ('ter','Terça-feira'), ('qua','Quarta-feira'),
+        ('qui','Quinta-feira'), ('sex','Sexta-feira'), ('sab','Sábado'), ('dom','Domingo')
+      ] %}
+      {% for d, label in dias %}
+      {% set h = dados.horario_funcionamento[d] if dados.horario_funcionamento else {} %}
+      <div class="sch">
+        <span class="dia">{{ label[:3] }}.</span>
+        <input class="fi time-fi" type="time" name="horario_{{ d }}_abertura" id="h_{{ d }}_ab"
+               value="{{ h.abertura or '08:00' }}"
+               {% if h.fechado %}disabled{% endif %}>
+        <input class="fi time-fi" type="time" name="horario_{{ d }}_fechamento" id="h_{{ d }}_fc"
+               value="{{ h.fechamento or '18:00' }}"
+               {% if h.fechado %}disabled{% endif %}>
+        <label class="sch-closed">
+          <input type="checkbox" name="horario_{{ d }}_fechado" id="h_{{ d }}_ch"
+                 onchange="toggleDia(this,'{{ d }}')"
+                 {% if h.fechado %}checked{% endif %}>
+          Fechado
+        </label>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- ETAPA 4: Fotos -->
+  <div class="step" id="step4">
+    <div class="step-hd">
+      <div class="step-num">4</div>
+      <div class="step-info">
+        <p class="st">Fotos do negócio</p>
+        <p class="ss">Fotos da fachada, interior e serviços (até 5 fotos)</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="upl" id="uplArea">
+        <input type="file" id="uplInput" name="fotos" multiple accept="image/jpeg,image/png,image/webp">
+        <div class="upl-icon">📷</div>
+        <div class="upl-txt">Toque aqui para adicionar fotos</div>
+        <div class="upl-hint">JPG ou PNG, até 5MB por foto — máximo 5 fotos</div>
+        <div class="upl-prev" id="uplPrev"></div>
+      </div>
+      {% if fotos_existentes %}
+      <div style="margin-top:12px;font-size:13px;color:var(--muted);">
+        Fotos já enviadas: {{ fotos_existentes | join(', ') }}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+</form>
+{% endif %}
+{% endblock %}
+
+{% block form_scripts %}
+<script>
+  initForm(4, 'form_pd_{{ conta_id }}');
+  setupUpload('uplArea', 'uplInput', 'uplPrev', 5);
+</script>
+{% endblock %}

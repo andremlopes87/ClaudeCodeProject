@@ -1,0 +1,207 @@
+{% extends "formulario_base.html" %}
+{% block title %}Atendimento WhatsApp — Vetor{% endblock %}
+
+{% block form_content %}
+{% if ja_preenchido %}
+<div class="success-box">
+  <div class="ico">✅</div>
+  <h2>Formulário já enviado!</h2>
+  <p>Recebemos seus dados em {{ preenchido_em[:16].replace('T',' ') }}.<br>
+     Vamos configurar seu atendimento automático no WhatsApp em breve.</p>
+</div>
+{% else %}
+
+{% if erro %}<div class="alert alert-danger">{{ erro }}</div>{% endif %}
+
+<h1 class="ft">Configuração do WhatsApp</h1>
+<p class="fs">Precisamos de algumas informações para configurar o atendimento automático. Leva cerca de 15 minutos.</p>
+
+<form id="mainForm" action="{{ form_action }}" method="post" enctype="multipart/form-data">
+  {% if token %}<input type="hidden" name="token" value="{{ token }}">{% endif %}
+  <input type="hidden" name="_tipo" value="atendimento_whatsapp">
+
+  <!-- ETAPA 1: Dados do negócio -->
+  <div class="step" id="step1">
+    <div class="step-hd">
+      <div class="step-num">1</div>
+      <div class="step-info">
+        <p class="st">Dados do negócio</p>
+        <p class="ss">Nome, endereço e contato</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="f">
+        <label>Nome do negócio <span class="req">*</span></label>
+        <input class="fi" type="text" name="nome_negocio" required
+               value="{{ dados.nome_negocio or '' }}" placeholder="Ex: Barbearia do Carlos">
+        <div class="ferr"></div>
+      </div>
+      <div class="row c2">
+        <div class="f">
+          <label>Telefone principal <span class="req">*</span></label>
+          <input class="fi" type="tel" name="telefone_principal" required data-phone
+                 value="{{ dados.telefone_principal or '' }}" placeholder="(11) 9 0000-0000">
+          <div class="ferr"></div>
+        </div>
+        <div class="f">
+          <label>Email do responsável <span class="req">*</span></label>
+          <input class="fi" type="email" name="email_responsavel" required
+                 value="{{ dados.email_responsavel or '' }}" placeholder="contato@email.com">
+          <div class="ferr"></div>
+        </div>
+      </div>
+      <div class="f">
+        <label>Nome do responsável <span class="req">*</span></label>
+        <input class="fi" type="text" name="nome_responsavel" required
+               value="{{ dados.nome_responsavel or '' }}" placeholder="Carlos Silva">
+        <div class="ferr"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="f">
+        <label>Número do WhatsApp Business</label>
+        <input class="fi" type="tel" name="whatsapp_business"
+               value="{{ dados.whatsapp_business or '' }}" placeholder="(11) 9 0000-0000"
+               id="wbInput">
+        <div class="fhint">Deixe em branco se não tiver ainda</div>
+      </div>
+      <div class="f">
+        <label class="cbi {% if dados.whatsapp_business_novo %}on{% endif %}" style="display:inline-flex">
+          <input type="checkbox" name="whatsapp_business_novo" value="on"
+                 {% if dados.whatsapp_business_novo %}checked{% endif %}
+                 onchange="document.getElementById('wbInput').disabled = this.checked">
+          Ainda não tenho — a Vetor vai criar o WhatsApp Business para mim
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <!-- ETAPA 2: Perguntas frequentes -->
+  <div class="step" id="step2">
+    <div class="step-hd">
+      <div class="step-num">2</div>
+      <div class="step-info">
+        <p class="st">Perguntas frequentes</p>
+        <p class="ss">O bot vai responder automaticamente a estas dúvidas (até 15 pares)</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <p style="font-size:13px;color:var(--muted);margin:0 0 14px">
+        Pense nas perguntas que os clientes mais fazem no WhatsApp.<br>
+        Ex: "Qual o horário?", "Tem estacionamento?", "Aceita cartão?"
+      </p>
+
+      <div class="dyn-list" id="faqList">
+        {% set faqs = dados.perguntas_frequentes or [] %}
+        {% if not faqs %}
+        {%   set faqs = [{"pergunta":"","resposta":""}] %}
+        {% endif %}
+        {% for faq in faqs %}
+        <div class="dyn-item">
+          <button type="button" class="dyn-rm" onclick="rmItem(this)">×</button>
+          <div class="f">
+            <label>Pergunta {{ loop.index }}</label>
+            <input class="fi" type="text" name="faq_pergunta_{{ loop.index0 }}"
+                   value="{{ faq.pergunta or '' }}"
+                   placeholder="Ex: Qual o horário de funcionamento?">
+          </div>
+          <div class="f" style="margin-bottom:0">
+            <label>Resposta</label>
+            <textarea class="ta" name="faq_resposta_{{ loop.index0 }}" rows="2"
+                      placeholder="Ex: Atendemos de segunda a sábado, das 8h às 19h.">{{ faq.resposta or '' }}</textarea>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      <button type="button" class="add-btn" style="margin-top:8px"
+              onclick="addFaq()">+ Adicionar pergunta</button>
+    </div>
+  </div>
+
+  <!-- ETAPA 3: Mensagens e configuração -->
+  <div class="step" id="step3">
+    <div class="step-hd">
+      <div class="step-num">3</div>
+      <div class="step-info">
+        <p class="st">Mensagens e configuração</p>
+        <p class="ss">Mensagens automáticas e encaminhamento</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="f">
+        <label>Mensagem de boas-vindas</label>
+        <textarea class="ta" name="mensagem_boas_vindas" id="msgBv" rows="3"
+                  placeholder="Ex: Olá! Bem-vindo à Barbearia do Carlos 😊 Como posso te ajudar?">{{ dados.mensagem_boas_vindas or '' }}</textarea>
+        <div class="fhint">Esta mensagem é enviada quando alguém entra em contato pela primeira vez</div>
+      </div>
+      <div class="f">
+        <label class="cbi {% if dados.boas_vindas_vetor_criar %}on{% endif %}" style="display:inline-flex">
+          <input type="checkbox" name="boas_vindas_vetor_criar" value="on"
+                 {% if dados.boas_vindas_vetor_criar %}checked{% endif %}
+                 onchange="document.getElementById('msgBv').disabled = this.checked">
+          Deixar a Vetor criar a mensagem de boas-vindas para mim
+        </label>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="f">
+        <label>Mensagem fora do horário</label>
+        <textarea class="ta" name="mensagem_fora_horario" id="msgFh" rows="3"
+                  placeholder="Ex: Olá! Estamos fora do horário de atendimento agora. Retornaremos em breve!">{{ dados.mensagem_fora_horario or '' }}</textarea>
+        <div class="fhint">Enviada quando alguém manda mensagem fora do horário de funcionamento</div>
+      </div>
+      <div class="f">
+        <label class="cbi {% if dados.fora_horario_vetor_criar %}on{% endif %}" style="display:inline-flex">
+          <input type="checkbox" name="fora_horario_vetor_criar" value="on"
+                 {% if dados.fora_horario_vetor_criar %}checked{% endif %}
+                 onchange="document.getElementById('msgFh').disabled = this.checked">
+          Deixar a Vetor criar a mensagem fora do horário
+        </label>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="f">
+        <label>Quando o bot não souber responder, encaminhar para:</label>
+        <input class="fi" type="tel" name="encaminhar_para" data-phone
+               value="{{ dados.encaminhar_para or '' }}"
+               placeholder="(11) 9 0000-0000 — seu número ou de um atendente">
+        <div class="fhint">O cliente será encaminhado para este número quando a dúvida não estiver nas FAQs</div>
+      </div>
+    </div>
+  </div>
+
+</form>
+{% endif %}
+{% endblock %}
+
+{% block form_scripts %}
+<script>
+initForm(3, 'form_wapp_{{ conta_id }}');
+
+let faqCount = document.querySelectorAll('#faqList .dyn-item').length;
+function addFaq() {
+  if (faqCount >= 15) { showToast('Máximo de 15 perguntas atingido'); return; }
+  const c = document.getElementById('faqList');
+  const d = document.createElement('div');
+  d.className = 'dyn-item';
+  d.innerHTML = `
+    <button type="button" class="dyn-rm" onclick="rmItem(this)">×</button>
+    <div class="f">
+      <label>Pergunta</label>
+      <input class="fi" type="text" name="faq_pergunta_${faqCount}" placeholder="Ex: Tem estacionamento?">
+    </div>
+    <div class="f" style="margin-bottom:0">
+      <label>Resposta</label>
+      <textarea class="ta" name="faq_resposta_${faqCount}" rows="2" placeholder="Ex: Sim, temos estacionamento gratuito na rua."></textarea>
+    </div>`;
+  c.appendChild(d);
+  faqCount++;
+}
+</script>
+{% endblock %}
