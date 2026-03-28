@@ -67,7 +67,7 @@ templates.env.globals["ti_tem_alerta"] = _ti_tem_alerta
 _AUTH_FILE = config.PASTA_DADOS / "auth_painel.json"
 
 # Rotas que nunca exigem autenticação
-_ROTAS_PUBLICAS = {"/login", "/logout"}
+_ROTAS_PUBLICAS = {"/login", "/logout", "/servicos", "/servicos/interesse"}
 
 
 def _carregar_auth() -> dict | None:
@@ -2301,6 +2301,178 @@ async def servir_upload(conta_id: str, filename: str):
 
     mime, _ = mimetypes.guess_type(str(caminho))
     return FileResponse(str(caminho), media_type=mime or "application/octet-stream")
+
+
+# ─── Página pública de serviços ───────────────────────────────────────────────
+
+@app.get("/servicos", response_class=HTMLResponse)
+async def pagina_servicos(request: Request):
+    catalogo = _ler("catalogo_ofertas.json", {})
+    ofertas  = catalogo.get("ofertas", [])
+    return templates.TemplateResponse("servicos.html", {
+        "request": request,
+        "ofertas": ofertas,
+    })
+
+
+@app.post("/servicos/interesse")
+async def capturar_interesse(
+    nome:              str = Form(""),
+    nome_negocio:      str = Form(""),
+    telefone:          str = Form(""),
+    cidade:            str = Form(""),
+    servico_id:        str = Form(""),
+    servico_nome:      str = Form(""),
+    servico_interesse: str = Form(""),
+):
+    from datetime import datetime as _dt
+    import uuid as _uuid
+
+    arq = config.PASTA_DADOS / "leads_inbound.json"
+    try:
+        leads = json.loads(arq.read_text(encoding="utf-8")) if arq.exists() else []
+    except Exception:
+        leads = []
+
+    lead = {
+        "id":                 _uuid.uuid4().hex[:16],
+        "nome":               nome.strip(),
+        "nome_negocio":       nome_negocio.strip(),
+        "telefone":           telefone.strip(),
+        "cidade":             cidade.strip(),
+        "servico_interesse":  servico_interesse or servico_id or "",
+        "servico_interesse_nome": servico_nome.strip(),
+        "origem":             "inbound_site",
+        "prioridade":         "max",
+        "status":             "novo",
+        "registrado_em":      _dt.now().isoformat(timespec="seconds"),
+    }
+    leads.append(lead)
+    try:
+        arq.write_text(json.dumps(leads, ensure_ascii=False, indent=2), encoding="utf-8")
+    except Exception:
+        pass
+
+    return JSONResponse({"ok": True, "id": lead["id"]})
+
+
+# ─── Painel interno de entregas ───────────────────────────────────────────────
+
+@app.get("/entregas", response_class=HTMLResponse)
+async def pagina_entregas(request: Request):
+    from datetime import datetime as _dt
+    pipeline = _ler("pipeline_entrega.json", [])
+
+    # Enriquecer com dados de oportunidade
+    comercial = _ler("pipeline_comercial.json", [])
+    opp_map = {o.get("id", ""): o for o in comercial}
+
+    def _dias(inicio: str) -> int:
+        if not inicio:
+            return 0
+        try:
+            return (_dt.now() - _dt.fromisoformat(inicio[:19])).days
+        except Exception:
+            return 0
+
+    entregas_ativas:    list = []
+    entregas_concluidas: list = []
+
+    for e in pipeline:
+        opp     = opp_map.get(e.get("oportunidade_id", ""), {})
+        etapas  = e.get("etapas_execucao", [])
+        inicio  = e.get("iniciada_em") or e.get("criado_em", "")
+        prazo   = (
+            e.get("prazo_dias")
+            or opp.get("prazo_dias")
+            or 7
+        )
+        entry = {
+            **e,
+            "nome_empresa":    e.get("nome_empresa") or opp.get("nome") or e.get("empresa", ""),
+            "nicho":           e.get("nicho")         or opp.get("categoria", ""),
+            "cidade":          e.get("cidade")         or opp.get("cidade", ""),
+            "oferta_id":       e.get("oferta_id")      or opp.get("oferta_id", ""),
+            "prazo_dias":      prazo,
+            "dias_em_execucao": _dias(inicio),
+            "etapas":          etapas,
+        }
+        if e.get("status_entrega") in ("concluida",):
+            # Calcular dias totais de execução
+            concl = e.get("concluida_em", "")
+            if inicio and concl:
+                try:
+                    dias_exec = (_dt.fromisoformat(concl[:19]) - _dt.fromisoformat(inicio[:19])).days
+                except Exception:
+                    dias_exec = None
+            else:
+                dias_exec = None
+            entry["dias_execucao"] = dias_exec
+            entregas_concluidas.append(entry)
+        else:
+            entregas_ativas.append(entry)
+
+    entregas_ativas    = sorted(entregas_ativas,    key=lambda e: e.get("criado_em", ""), reverse=True)
+    entregas_concluidas = sorted(entregas_concluidas, key=lambda e: e.get("concluida_em", ""), reverse=True)
+
+    # Resumo
+    total     = len(pipeline)
+    concl_n   = len(entregas_concluidas)
+    ativas_n  = len(entregas_ativas)
+    ag_form   = sum(
+        1 for e in entregas_ativas
+        if any(et.get("status") == "aguardando_formulario" for et in e.get("etapas", []))
+    )
+    atrasadas = sum(
+        1 for e in entregas_ativas
+        if e["dias_em_execucao"] > e["prazo_dias"]
+    )
+
+    # Tempo médio de conclusão
+    tempos = [
+        e["dias_execucao"] for e in entregas_concluidas
+        if e.get("dias_execucao") is not None and e["dias_execucao"] >= 0
+    ]
+    tempo_medio = round(sum(tempos) / len(tempos), 1) if tempos else 0
+
+    # Métricas por tipo de etapa (somente concluídas)
+    from collections import defaultdict as _dd
+    etapa_stats: dict = _dd(lambda: {"total": 0, "dias": 0})
+    for e in entregas_concluidas:
+        for et in e.get("etapas", []):
+            if et.get("status") == "concluida":
+                tipo = et.get("tipo", "?")
+                etapa_stats[tipo]["total"] += 1
+
+    metricas_etapas = sorted(
+        [{"tipo": t, "total": v["total"], "media_dias": "—"} for t, v in etapa_stats.items()],
+        key=lambda x: x["total"], reverse=True,
+    )[:6]
+
+    # Leads inbound
+    leads_raw   = _ler("leads_inbound.json", [])
+    leads_total = len(leads_raw)
+    leads_novos = sum(1 for l in leads_raw if l.get("status") == "novo")
+    leads_recentes = sorted(leads_raw, key=lambda l: l.get("registrado_em", ""), reverse=True)[:5]
+
+    return templates.TemplateResponse("entregas.html", {
+        "request": request,
+        "page":    "entregas",
+        "resumo":  {
+            "total":                total,
+            "em_andamento":         ativas_n,
+            "concluidas":           concl_n,
+            "aguardando_formulario": ag_form,
+            "atrasadas":            atrasadas,
+            "tempo_medio_dias":     tempo_medio,
+        },
+        "entregas_ativas":     entregas_ativas,
+        "entregas_concluidas": entregas_concluidas[:20],
+        "metricas_etapas":     metricas_etapas,
+        "leads_total":         leads_total,
+        "leads_novos":         leads_novos,
+        "leads_recentes":      leads_recentes,
+    })
 
 
 # ─── Auxiliares internos app ──────────────────────────────────────────────────

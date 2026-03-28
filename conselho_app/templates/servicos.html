@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Serviços — Vetor</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --surface2: #1c2230;
+      --border: #21262d;
+      --text: #c9d1d9;
+      --muted: #6e7681;
+      --accent: #58a6ff;
+      --success: #3fb950;
+      --warning: #d29922;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 15px;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+    a { color: var(--accent); text-decoration: none; }
+
+    /* ── Header ── */
+    .header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 20px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .header-brand { font-size: 22px; font-weight: 700; color: var(--accent); letter-spacing: -0.5px; }
+    .header-tagline { font-size: 13px; color: var(--muted); margin-top: 2px; }
+
+    /* ── Hero ── */
+    .hero {
+      text-align: center;
+      padding: 56px 24px 40px;
+      max-width: 700px;
+      margin: 0 auto;
+    }
+    .hero h1 {
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 14px;
+      line-height: 1.3;
+    }
+    .hero p {
+      font-size: 16px;
+      color: var(--muted);
+      max-width: 540px;
+      margin: 0 auto;
+    }
+
+    /* ── Grid ── */
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 20px;
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 20px 60px;
+    }
+
+    /* ── Card ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      transition: border-color 0.15s;
+    }
+    .card:hover { border-color: var(--accent); }
+    .card-badge {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      padding: 3px 9px;
+      border-radius: 20px;
+      margin-bottom: 14px;
+    }
+    .badge-projeto { background: rgba(88,166,255,0.15); color: var(--accent); }
+    .badge-assinatura { background: rgba(63,185,80,0.15); color: var(--success); }
+    .card h2 { font-size: 19px; font-weight: 700; margin-bottom: 8px; line-height: 1.3; }
+    .card .desc { font-size: 14px; color: var(--muted); margin-bottom: 18px; }
+    .price-box {
+      background: var(--surface2);
+      border-radius: 8px;
+      padding: 14px 16px;
+      margin-bottom: 20px;
+    }
+    .price-main { font-size: 26px; font-weight: 700; color: var(--text); }
+    .price-main span { font-size: 15px; color: var(--muted); font-weight: 400; }
+    .price-sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+    /* Como funciona */
+    .como-funciona { margin-bottom: 20px; }
+    .como-funciona h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); margin-bottom: 10px; }
+    .step { display: flex; gap: 10px; margin-bottom: 8px; }
+    .step-num {
+      flex-shrink: 0;
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: #000;
+      font-size: 11px;
+      font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .step-text { font-size: 13px; color: var(--text); padding-top: 2px; }
+
+    /* Entregáveis */
+    .entregaveis { margin-bottom: 20px; }
+    .entregaveis h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); margin-bottom: 8px; }
+    .entregaveis ul { list-style: none; }
+    .entregaveis li { font-size: 13px; color: var(--muted); padding: 3px 0; display: flex; gap: 8px; }
+    .entregaveis li::before { content: "✓"; color: var(--success); flex-shrink: 0; }
+
+    /* Resultado */
+    .resultado {
+      background: rgba(63,185,80,0.08);
+      border: 1px solid rgba(63,185,80,0.2);
+      border-radius: 6px;
+      padding: 10px 14px;
+      font-size: 13px;
+      color: var(--success);
+      margin-bottom: 20px;
+      flex: 1;
+    }
+
+    /* CTA */
+    .btn-cta {
+      display: block;
+      width: 100%;
+      padding: 13px;
+      background: var(--accent);
+      color: #000;
+      font-size: 14px;
+      font-weight: 700;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      text-align: center;
+      transition: opacity 0.15s;
+      margin-top: auto;
+    }
+    .btn-cta:hover { opacity: 0.88; }
+
+    /* ── Modal ── */
+    .modal-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.75);
+      z-index: 1000;
+      align-items: center; justify-content: center;
+      padding: 20px;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 32px;
+      width: 100%;
+      max-width: 480px;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+    .modal h2 { font-size: 18px; margin-bottom: 6px; }
+    .modal .modal-sub { font-size: 13px; color: var(--muted); margin-bottom: 24px; }
+    .modal-close {
+      float: right;
+      background: none; border: none; cursor: pointer;
+      color: var(--muted); font-size: 20px; line-height: 1;
+      margin-top: -4px; margin-left: 8px;
+    }
+    .modal-close:hover { color: var(--text); }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; }
+    .form-group input,
+    .form-group select {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 12px;
+      color: var(--text);
+      font-size: 14px;
+      outline: none;
+    }
+    .form-group input:focus,
+    .form-group select:focus { border-color: var(--accent); }
+    .form-group select option { background: var(--surface2); }
+    .btn-submit {
+      width: 100%;
+      padding: 13px;
+      background: var(--accent);
+      color: #000;
+      font-size: 15px;
+      font-weight: 700;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-top: 8px;
+    }
+    .btn-submit:hover { opacity: 0.88; }
+    .success-msg {
+      text-align: center;
+      padding: 20px 0;
+    }
+    .success-msg .checkmark { font-size: 48px; margin-bottom: 12px; }
+    .success-msg h3 { font-size: 18px; margin-bottom: 8px; }
+    .success-msg p { font-size: 14px; color: var(--muted); }
+
+    /* ── Footer ── */
+    footer {
+      text-align: center;
+      padding: 32px 24px;
+      border-top: 1px solid var(--border);
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    /* ── Upsell trail ── */
+    .upsell-section {
+      max-width: 900px;
+      margin: 0 auto 50px;
+      padding: 0 20px;
+    }
+    .upsell-section h2 { font-size: 16px; color: var(--muted); margin-bottom: 20px; text-align: center; }
+    .upsell-trail {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      overflow-x: auto;
+      padding-bottom: 8px;
+    }
+    .upsell-step {
+      flex: 1;
+      min-width: 140px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 14px;
+      font-size: 12px;
+      text-align: center;
+    }
+    .upsell-step strong { display: block; margin-bottom: 3px; color: var(--accent); font-size: 13px; }
+    .upsell-arrow {
+      color: var(--muted);
+      font-size: 18px;
+      padding: 0 8px;
+      flex-shrink: 0;
+    }
+
+    @media (max-width: 600px) {
+      .hero h1 { font-size: 22px; }
+      .cards-grid { grid-template-columns: 1fr; padding: 0 16px 40px; }
+      .modal { padding: 24px 20px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <div class="header-brand">VETOR</div>
+    <div class="header-tagline">Digitalização para pequenos negócios</div>
+  </div>
+</div>
+
+<div class="hero">
+  <h1>O seu negócio funcionando melhor,<br>sem precisar entender de tecnologia</h1>
+  <p>Configuramos, entregamos e ensinamos. Você continua fazendo o que sabe fazer.</p>
+</div>
+
+<div class="cards-grid">
+
+  {% for oferta in ofertas %}
+  <div class="card">
+    {% if oferta.modelo_receita == "assinatura" %}
+    <div class="card-badge badge-assinatura">Mensalidade</div>
+    {% else %}
+    <div class="card-badge badge-projeto">Projeto único</div>
+    {% endif %}
+
+    <h2>{{ oferta.nome }}</h2>
+    <p class="desc">{{ oferta.descricao_curta }}</p>
+
+    <div class="price-box">
+      {% if oferta.modelo_receita == "assinatura" %}
+      <div class="price-main">R$&nbsp;{{ oferta.preco_mensal }}<span>/mês</span></div>
+      <div class="price-sub">Serviço contínuo — a Vetor opera para você</div>
+      {% else %}
+      <div class="price-main">R$&nbsp;{{ oferta.preco_implementacao }}</div>
+      <div class="price-sub">Prazo: {{ oferta.prazo_entrega_dias }} dias úteis · sem mensalidade</div>
+      {% endif %}
+    </div>
+
+    <div class="como-funciona">
+      <h3>Como funciona</h3>
+      {% for passo in oferta.o_que_o_cliente_faz_no_dia_a_dia[:3] %}
+      <div class="step">
+        <div class="step-num">{{ loop.index }}</div>
+        <div class="step-text">{{ passo }}</div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="entregaveis">
+      <h3>O que você recebe</h3>
+      <ul>
+        {% for item in oferta.o_que_e_entregue %}
+        <li>{{ item }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+
+    <div class="resultado">{{ oferta.resultado_esperado }}</div>
+
+    <button class="btn-cta" onclick="abrirModal('{{ oferta.id }}', '{{ oferta.nome }}')">
+      Quero saber mais
+    </button>
+  </div>
+  {% endfor %}
+
+</div>
+
+<div class="upsell-section">
+  <h2>Caminho natural de crescimento</h2>
+  <div class="upsell-trail">
+    <div class="upsell-step">
+      <strong>Presença digital</strong>
+      Google + WhatsApp
+    </div>
+    <div class="upsell-arrow">→</div>
+    <div class="upsell-step">
+      <strong>Atendimento</strong>
+      Bot de respostas
+    </div>
+    <div class="upsell-arrow">→</div>
+    <div class="upsell-step">
+      <strong>Agendamento</strong>
+      Cliente marca sozinho
+    </div>
+    <div class="upsell-arrow">→</div>
+    <div class="upsell-step">
+      <strong>Operação contínua</strong>
+      A Vetor cuida de tudo
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal de interesse ── -->
+<div class="modal-overlay" id="modal-interesse">
+  <div class="modal">
+    <button class="modal-close" onclick="fecharModal()">✕</button>
+    <h2>Quero saber mais</h2>
+    <p class="modal-sub" id="modal-servico-sub">Deixe seu contato e entraremos em breve.</p>
+
+    <div id="modal-form">
+      <form method="POST" action="/servicos/interesse" onsubmit="submeterForm(event)">
+        <input type="hidden" name="servico_id" id="input-servico-id">
+        <input type="hidden" name="servico_nome" id="input-servico-nome">
+
+        <div class="form-group">
+          <label>Seu nome</label>
+          <input type="text" name="nome" placeholder="Como prefere ser chamado?" required>
+        </div>
+        <div class="form-group">
+          <label>Nome do negócio</label>
+          <input type="text" name="nome_negocio" placeholder="Barbearia do João, Oficina Silva..." required>
+        </div>
+        <div class="form-group">
+          <label>WhatsApp / Telefone</label>
+          <input type="tel" name="telefone" placeholder="(11) 99999-9999" required>
+        </div>
+        <div class="form-group">
+          <label>Cidade</label>
+          <input type="text" name="cidade" placeholder="São Paulo, Campinas..." required>
+        </div>
+        <div class="form-group">
+          <label>Qual serviço te interessou?</label>
+          <select name="servico_interesse" id="select-servico">
+            {% for oferta in ofertas %}
+            <option value="{{ oferta.id }}">{{ oferta.nome }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <button type="submit" class="btn-submit">Entrar em contato</button>
+      </form>
+    </div>
+
+    <div id="modal-sucesso" class="success-msg" style="display:none;">
+      <div class="checkmark">✅</div>
+      <h3>Recebemos seu contato!</h3>
+      <p>Entraremos em contato em até 24 horas.</p>
+    </div>
+  </div>
+</div>
+
+<footer>
+  Vetor Operações · Todos os direitos reservados
+</footer>
+
+<script>
+function abrirModal(servicoId, servicoNome) {
+  document.getElementById('input-servico-id').value = servicoId;
+  document.getElementById('input-servico-nome').value = servicoNome;
+  document.getElementById('modal-servico-sub').textContent = 'Serviço: ' + servicoNome;
+  document.getElementById('select-servico').value = servicoId;
+  document.getElementById('modal-interesse').classList.add('open');
+}
+
+function fecharModal() {
+  document.getElementById('modal-interesse').classList.remove('open');
+  document.getElementById('modal-form').style.display = 'block';
+  document.getElementById('modal-sucesso').style.display = 'none';
+}
+
+async function submeterForm(e) {
+  e.preventDefault();
+  const form = e.target;
+  const data = new FormData(form);
+  try {
+    const resp = await fetch('/servicos/interesse', { method: 'POST', body: data });
+    if (resp.ok || resp.redirected) {
+      document.getElementById('modal-form').style.display = 'none';
+      document.getElementById('modal-sucesso').style.display = 'block';
+    }
+  } catch (err) {
+    form.submit(); // fallback
+  }
+}
+
+document.getElementById('modal-interesse').addEventListener('click', function(e) {
+  if (e.target === this) fecharModal();
+});
+</script>
+
+</body>
+</html>
