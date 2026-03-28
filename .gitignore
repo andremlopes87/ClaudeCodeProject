@@ -4,14 +4,11 @@ __pycache__/
 .env
 dados/
 !dados/politicas_ti.json
-!dados/estado_multi_cidade.json
 !dados/guia_tom_comunicacao.json
 !dados/exemplos_tom_por_categoria.json
 !dados/catalogo_ofertas.json
 !dados/regras_comerciais_ofertas.json
 !dados/planos_execucao.json
-!dados/estado_canais.json
 !dados/config_canal_whatsapp.json
-!dados/fila_envio_whatsapp.json
 logs/
 .claude/
