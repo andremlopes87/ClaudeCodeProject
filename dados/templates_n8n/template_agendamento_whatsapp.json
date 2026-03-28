@@ -1,0 +1,92 @@
+{
+  "_meta": {
+    "descricao": "Bot de agendamento WhatsApp — conversa guiada, consulta Google Calendar, confirma horário",
+    "variaveis": ["NOME_NEGOCIO", "EVOLUTION_API_URL", "EVOLUTION_INSTANCE", "SERVICOS_JSON", "CALENDARIO_VETOR_URL", "CALENDAR_ID"],
+    "n8n_versao_minima": "1.0.0",
+    "integracao_whatsapp": "Evolution API (self-hosted)",
+    "integracao_calendario": "Vetor Calendar API (FastAPI interno)",
+    "nota": "Requer n8n Code node com suporte a top-level await (n8n >= 1.0)"
+  },
+  "name": "Agendamento WhatsApp — {{NOME_NEGOCIO}}",
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": false,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "nodes": [
+    {
+      "id": "webhook-ag",
+      "name": "Receber Mensagem",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 300],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "wapp-ag-{{EVOLUTION_INSTANCE}}",
+        "responseMode": "onReceived",
+        "responseData": "allEntries",
+        "options": {}
+      },
+      "webhookId": "ag-{{EVOLUTION_INSTANCE}}"
+    },
+    {
+      "id": "set-ag-config",
+      "name": "Configuração",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [480, 300],
+      "parameters": {
+        "mode": "manual",
+        "fields": {
+          "values": [
+            { "name": "servicos",            "type": "stringValue", "stringValue": "{{SERVICOS_JSON}}" },
+            { "name": "calendario_url",      "type": "stringValue", "stringValue": "{{CALENDARIO_VETOR_URL}}" },
+            { "name": "calendar_id",         "type": "stringValue", "stringValue": "{{CALENDAR_ID}}" },
+            { "name": "evolution_url",       "type": "stringValue", "stringValue": "{{EVOLUTION_API_URL}}" },
+            { "name": "evolution_instance",  "type": "stringValue", "stringValue": "{{EVOLUTION_INSTANCE}}" },
+            { "name": "nome_negocio",        "type": "stringValue", "stringValue": "{{NOME_NEGOCIO}}" }
+          ]
+        },
+        "include": "none"
+      }
+    },
+    {
+      "id": "code-state",
+      "name": "Máquina de Estados",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [720, 300],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const sd=this.getWorkflowStaticData('global');if(!sd.sessions)sd.sessions={};const body=$input.first().json;const cfg=$('Configuração').first().json;const m=(body.data&&body.data.message)||{};const mensagem=((m.conversation)||((m.extendedTextMessage||{}).text)||'').trim();const numero=((body.data&&body.data.key&&body.data.key.remoteJid)||'').replace('@s.whatsapp.net','');if(!mensagem||!numero)return[];const servicos=JSON.parse(cfg.servicos||'[]');const cal_url=cfg.calendario_url||'http://localhost:8000';const cal_id=cfg.calendar_id||'';const eu=cfg.evolution_url||'http://localhost:8080';const ei=cfg.evolution_instance||'';let s=sd.sessions[numero]||{step:0};let resposta='';if(s.step===0){const lista=servicos.map((sv,i)=>`${i+1}. ${sv.nome} (${sv.duracao} min)`).join(' | ');resposta=`Olá! Para agendar em {{NOME_NEGOCIO}}, escolha o serviço:\\n${lista}\\n\\nDigite o número.`;s.step=1;}else if(s.step===1){const idx=parseInt(mensagem)-1;if(idx>=0&&idx<servicos.length){s.servico=servicos[idx];resposta=`${s.servico.nome} selecionado.\\nQual data? (ex: 25/04)`;s.step=2;}else{resposta='Digite o número do serviço desejado.';}}else if(s.step===2){const pts=mensagem.replace(/[^0-9\\/]/g,'').split('/');if(pts.length>=2){const ano=new Date().getFullYear();const data=`${ano}-${String(pts[1]).padStart(2,'0')}-${String(pts[0]).padStart(2,'0')}`;let slots=[];try{const r=await fetch(`${cal_url}/api/calendar/${cal_id}/disponibilidade?data=${data}`);const d=await r.json();slots=d.slots||d||[];}catch(e){slots=[];}if(!slots.length){resposta='Sem horários nessa data. Tente outra data.';}else{const lista=slots.slice(0,8).map((sl,i)=>`${i+1}. ${sl.horario_inicio}`).join(' | ');s.data=data;s.slots=slots.slice(0,8);resposta=`Horários em ${mensagem}:\\n${lista}\\n\\nDigite o número do horário.`;s.step=3;}}else{resposta='Informe a data no formato DD/MM (ex: 25/04).';}}else if(s.step===3){const idx=parseInt(mensagem)-1;if(idx>=0&&s.slots&&idx<s.slots.length){s.slot=s.slots[idx];resposta=`Confirmar?\\nServiço: ${s.servico.nome}\\nData: ${s.data}\\nHorário: ${s.slot.horario_inicio}\\n\\nDigite SIM para confirmar.`;s.step=4;}else{resposta='Digite o número do horário.';}}else if(s.step===4){if(mensagem.toLowerCase()==='sim'){try{await fetch(`${cal_url}/api/calendar/${cal_id}/agendar`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({telefone_cliente:numero,servico:s.servico.nome,horario:`${s.data}T${s.slot.horario_inicio}:00`,duracao_minutos:s.servico.duracao})});}catch(e){}resposta=`Agendamento confirmado! ✅\\n${s.servico.nome} às ${s.slot.horario_inicio} em ${s.data}.\\nVocê receberá um lembrete 2h antes.`;delete sd.sessions[numero];}else{resposta='Cancelado. Escreva qualquer coisa para recomeçar.';delete sd.sessions[numero];}}else{delete sd.sessions[numero];s={step:0};}if(s.step>0)sd.sessions[numero]=s;const send_url=`${eu}/message/sendText/${ei}`;return[{json:{numero,resposta,send_url}}];"
+      }
+    },
+    {
+      "id": "http-ag-send",
+      "name": "Enviar WhatsApp",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [960, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.send_url }}",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({number: String($json.numero), text: String($json.resposta)}) }}"
+      }
+    }
+  ],
+  "connections": {
+    "Receber Mensagem": {
+      "main": [[{ "node": "Configuração", "type": "main", "index": 0 }]]
+    },
+    "Configuração": {
+      "main": [[{ "node": "Máquina de Estados", "type": "main", "index": 0 }]]
+    },
+    "Máquina de Estados": {
+      "main": [[{ "node": "Enviar WhatsApp", "type": "main", "index": 0 }]]
+    }
+  }
+}

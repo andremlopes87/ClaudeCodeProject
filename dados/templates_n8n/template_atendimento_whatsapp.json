@@ -1,0 +1,90 @@
+{
+  "_meta": {
+    "descricao": "Bot de atendimento WhatsApp via Evolution API — FAQ + menu + encaminhamento para humano",
+    "variaveis": ["NOME_NEGOCIO", "EVOLUTION_API_URL", "EVOLUTION_INSTANCE", "FAQS_JSON", "HORARIOS_TEXTO", "NUMERO_ENCAMINHAMENTO"],
+    "n8n_versao_minima": "1.0.0",
+    "integracao_whatsapp": "Evolution API (self-hosted, porta 8080 por padrão)"
+  },
+  "name": "Atendimento WhatsApp — {{NOME_NEGOCIO}}",
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": false,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "nodes": [
+    {
+      "id": "webhook-recv",
+      "name": "Receber Mensagem",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 300],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "wapp-in-{{EVOLUTION_INSTANCE}}",
+        "responseMode": "onReceived",
+        "responseData": "allEntries",
+        "options": {}
+      },
+      "webhookId": "recv-{{EVOLUTION_INSTANCE}}"
+    },
+    {
+      "id": "set-config",
+      "name": "Configuração",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [480, 300],
+      "parameters": {
+        "mode": "manual",
+        "fields": {
+          "values": [
+            { "name": "faqs",                "type": "stringValue", "stringValue": "{{FAQS_JSON}}" },
+            { "name": "horarios",            "type": "stringValue", "stringValue": "{{HORARIOS_TEXTO}}" },
+            { "name": "encaminhamento",      "type": "stringValue", "stringValue": "{{NUMERO_ENCAMINHAMENTO}}" },
+            { "name": "evolution_url",       "type": "stringValue", "stringValue": "{{EVOLUTION_API_URL}}" },
+            { "name": "evolution_instance",  "type": "stringValue", "stringValue": "{{EVOLUTION_INSTANCE}}" },
+            { "name": "nome_negocio",        "type": "stringValue", "stringValue": "{{NOME_NEGOCIO}}" }
+          ]
+        },
+        "include": "none"
+      }
+    },
+    {
+      "id": "code-faq",
+      "name": "Processar FAQ",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [720, 300],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "var body=$input.first().json;var cfg=$('Configuração').first().json;var m=(body.data&&body.data.message)||{};var mensagem=((m.conversation)||((m.extendedTextMessage||{}).text)||'').toLowerCase().trim();var numero=((body.data&&body.data.key&&body.data.key.remoteJid)||'').replace('@s.whatsapp.net','');if(!mensagem||!numero){return[];}var faqs=JSON.parse(cfg.faqs||'[]');var horarios=cfg.horarios||'Consulte nosso WhatsApp.';var encaminhamento=cfg.encaminhamento||'';var eu=cfg.evolution_url||'http://localhost:8080';var ei=cfg.evolution_instance||'';var resposta=null;for(var i=0;i<faqs.length;i++){var faq=faqs[i];var ps=(faq.pergunta||'').toLowerCase().split(',');for(var j=0;j<ps.length;j++){var p=ps[j].trim();if(p&&mensagem.includes(p)){resposta=faq.resposta;break;}}if(resposta)break;}if(!resposta){if(['atendente','humano','falar com'].some(function(k){return mensagem.includes(k);})){resposta=encaminhamento?'Para falar com um atendente entre em contato: '+encaminhamento:'Um atendente entrar\u00e1 em contato em breve.';}else if(['horario','hor\u00e1rio','funciona','aberto'].some(function(k){return mensagem.includes(k);})){resposta='Hor\u00e1rio de funcionamento: '+horarios;}else{resposta='Ol\u00e1! Como posso ajudar? Envie sua d\u00favida ou escreva: hor\u00e1rio | atendente';}}var send_url=eu+'/message/sendText/'+ei;return[{json:{numero:numero,resposta:resposta,send_url:send_url}}];"
+      }
+    },
+    {
+      "id": "http-send",
+      "name": "Enviar WhatsApp",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [960, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.send_url }}",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({number: String($json.numero), text: String($json.resposta)}) }}"
+      }
+    }
+  ],
+  "connections": {
+    "Receber Mensagem": {
+      "main": [[{ "node": "Configuração", "type": "main", "index": 0 }]]
+    },
+    "Configuração": {
+      "main": [[{ "node": "Processar FAQ", "type": "main", "index": 0 }]]
+    },
+    "Processar FAQ": {
+      "main": [[{ "node": "Enviar WhatsApp", "type": "main", "index": 0 }]]
+    }
+  }
+}

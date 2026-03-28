@@ -1,0 +1,77 @@
+{
+  "_meta": {
+    "descricao": "Lembrete automático 2h antes do agendamento — consulta Calendar API e envia WhatsApp",
+    "variaveis": ["EVOLUTION_API_URL", "EVOLUTION_INSTANCE", "CALENDARIO_VETOR_URL", "CALENDAR_ID"],
+    "n8n_versao_minima": "1.0.0",
+    "frequencia": "A cada 15 minutos — detecta agendamentos na janela de 2h a 2h15"
+  },
+  "name": "Lembretes de Agendamento — {{CALENDAR_ID}}",
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": false
+  },
+  "nodes": [
+    {
+      "id": "cron-lembrete",
+      "name": "A Cada 15 Min",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [250, 300],
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "minutes", "minutesInterval": 15 }]
+        }
+      }
+    },
+    {
+      "id": "http-get-eventos",
+      "name": "Buscar Agendamentos",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 300],
+      "parameters": {
+        "method": "GET",
+        "url": "{{CALENDARIO_VETOR_URL}}/api/calendar/{{CALENDAR_ID}}/eventos-proximos?horas=3",
+        "options": {}
+      }
+    },
+    {
+      "id": "code-filtro",
+      "name": "Filtrar Janela 2h",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [720, 300],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const eu='{{EVOLUTION_API_URL}}';const ei='{{EVOLUTION_INSTANCE}}';const agora=new Date();const limite_min=new Date(agora.getTime()+115*60*1000);const limite_max=new Date(agora.getTime()+135*60*1000);const todos=$input.all().map(i=>i.json);const eventos=Array.isArray(todos[0])?todos[0]:todos;const lembretes=[];for(const ev of eventos){if(!ev.horario_inicio||!ev.telefone_cliente)continue;try{const h=new Date(ev.horario_inicio);if(h>=limite_min&&h<=limite_max){const hh=h.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});lembretes.push({numero:ev.telefone_cliente,resposta:`Lembrete ⏰\\nSeu ${ev.servico||'agendamento'} está marcado para às ${hh}, daqui a aproximadamente 2 horas.\\n\\nQualquer dúvida, estamos à disposição!`,send_url:`${eu}/message/sendText/${ei}`});}}catch(e){continue;}}return lembretes.map(l=>({json:l}));"
+      }
+    },
+    {
+      "id": "http-lembrete-send",
+      "name": "Enviar Lembretes",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [960, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.send_url }}",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({number: String($json.numero), text: String($json.resposta)}) }}"
+      }
+    }
+  ],
+  "connections": {
+    "A Cada 15 Min": {
+      "main": [[{ "node": "Buscar Agendamentos", "type": "main", "index": 0 }]]
+    },
+    "Buscar Agendamentos": {
+      "main": [[{ "node": "Filtrar Janela 2h", "type": "main", "index": 0 }]]
+    },
+    "Filtrar Janela 2h": {
+      "main": [[{ "node": "Enviar Lembretes", "type": "main", "index": 0 }]]
+    }
+  }
+}

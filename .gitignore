@@ -10,5 +10,8 @@ dados/
 !dados/regras_comerciais_ofertas.json
 !dados/planos_execucao.json
 !dados/config_canal_whatsapp.json
+!dados/templates_n8n/template_atendimento_whatsapp.json
+!dados/templates_n8n/template_agendamento_whatsapp.json
+!dados/templates_n8n/template_lembrete_agendamento.json
 logs/
 .claude/
