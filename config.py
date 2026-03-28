@@ -24,28 +24,258 @@ PASTA_LOGS = BASE_DIR / "logs"
 # Usado por ambas as linhas: operacional e marketing.
 # ============================================================
 
-# Mapeamento de categorias para tags OSM.
-# Formato: identificador → lista de dicts {chave_osm: valor_osm}
-# Para adicionar uma categoria nova: basta adicionar um item aqui.
-CATEGORIAS = {
-    "barbearia": [{"shop": "barber"}],
-    "salao_de_beleza": [{"shop": "beauty"}, {"shop": "hairdresser"}],
-    "oficina_mecanica": [{"shop": "car_repair"}],
-    "borracharia": [{"shop": "tyres"}],
-    "acougue": [{"shop": "butcher"}],
-    "padaria": [{"shop": "bakery"}],
-    "autopecas": [{"shop": "car_parts"}],
+# Grupos de categorias para busca abrangente de negócios locais.
+# Formato: grupo_id → {nome_grupo, tags_osm: [{chave: valor}, ...]}
+# Cada grupo cobre um segmento de mercado com múltiplas tags OSM equivalentes.
+GRUPOS_CATEGORIAS = {
+    "beleza_pessoal": {
+        "nome_grupo": "Beleza & Cuidados Pessoais",
+        "tags_osm": [
+            {"shop": "barber"},
+            {"shop": "beauty"},
+            {"shop": "hairdresser"},
+            {"shop": "nails"},
+            {"shop": "cosmetics"},
+            {"leisure": "spa"},
+            {"shop": "tattoo"},
+            {"shop": "piercing"},
+            {"shop": "tanning"},
+            {"shop": "massage"},
+            {"shop": "optician"},
+            {"shop": "perfumery"},
+        ],
+    },
+    "automoveis": {
+        "nome_grupo": "Automóveis & Serviços",
+        "tags_osm": [
+            {"shop": "car_repair"},
+            {"shop": "tyres"},
+            {"shop": "car_parts"},
+            {"amenity": "car_wash"},
+            {"shop": "car"},
+            {"amenity": "fuel"},
+            {"shop": "motorcycle_repair"},
+            {"shop": "car_accessories"},
+            {"craft": "car_repair"},
+        ],
+    },
+    "alimentacao": {
+        "nome_grupo": "Alimentação & Bebidas",
+        "tags_osm": [
+            {"shop": "bakery"},
+            {"shop": "butcher"},
+            {"amenity": "restaurant"},
+            {"amenity": "fast_food"},
+            {"amenity": "cafe"},
+            {"shop": "supermarket"},
+            {"shop": "greengrocer"},
+            {"shop": "deli"},
+            {"shop": "confectionery"},
+            {"shop": "convenience"},
+            {"amenity": "ice_cream"},
+            {"shop": "pastry"},
+            {"shop": "beverages"},
+            {"amenity": "bar"},
+        ],
+    },
+    "saude": {
+        "nome_grupo": "Saúde",
+        "tags_osm": [
+            {"amenity": "dentist"},
+            {"amenity": "doctors"},
+            {"amenity": "pharmacy"},
+            {"healthcare": "physiotherapist"},
+            {"healthcare": "optometrist"},
+            {"healthcare": "psychologist"},
+            {"amenity": "hospital"},
+            {"healthcare": "nurse"},
+            {"amenity": "clinic"},
+        ],
+    },
+    "pets": {
+        "nome_grupo": "Pets & Veterinária",
+        "tags_osm": [
+            {"shop": "pet"},
+            {"amenity": "veterinary"},
+            {"shop": "agrarian"},
+        ],
+    },
+    "vestuario_moda": {
+        "nome_grupo": "Vestuário & Moda",
+        "tags_osm": [
+            {"shop": "clothes"},
+            {"shop": "shoes"},
+            {"shop": "jewelry"},
+            {"shop": "fabric"},
+            {"shop": "fashion_accessories"},
+            {"shop": "watches"},
+            {"shop": "bag"},
+            {"shop": "sports"},
+            {"shop": "outdoor"},
+            {"shop": "second_hand"},
+        ],
+    },
+    "fitness_bem_estar": {
+        "nome_grupo": "Fitness & Bem-Estar",
+        "tags_osm": [
+            {"leisure": "fitness_centre"},
+            {"leisure": "sports_centre"},
+            {"amenity": "spa"},
+            {"leisure": "swimming_pool"},
+            {"leisure": "dance"},
+            {"sport": "yoga"},
+            {"leisure": "sauna"},
+        ],
+    },
+    "servicos_residenciais": {
+        "nome_grupo": "Serviços Residenciais",
+        "tags_osm": [
+            {"craft": "electrician"},
+            {"craft": "plumber"},
+            {"shop": "doityourself"},
+            {"craft": "locksmith"},
+            {"craft": "painter"},
+            {"craft": "hvac"},
+            {"shop": "hardware"},
+            {"craft": "cleaning"},
+            {"craft": "carpenter"},
+            {"craft": "glazier"},
+        ],
+    },
+    "hospedagem_turismo": {
+        "nome_grupo": "Hospedagem & Turismo",
+        "tags_osm": [
+            {"tourism": "hotel"},
+            {"tourism": "motel"},
+            {"tourism": "hostel"},
+            {"tourism": "guest_house"},
+            {"tourism": "apartment"},
+        ],
+    },
 }
 
-# Nomes amigáveis para exibição nos resultados
-NOMES_CATEGORIAS = {
-    "barbearia": "Barbearia",
-    "salao_de_beleza": "Salão de Beleza",
+# Auto-gerado a partir de GRUPOS_CATEGORIAS.
+# Chave: valor da tag OSM (ex: "barber", "car_repair").
+# Valor: lista com o dict de tag correspondente.
+CATEGORIAS: dict = {}
+for _gid, _gd in GRUPOS_CATEGORIAS.items():
+    for _tag in _gd["tags_osm"]:
+        for _k, _v in _tag.items():
+            _cat_id = _v.replace(" ", "_")
+            if _cat_id not in CATEGORIAS:
+                CATEGORIAS[_cat_id] = [_tag]
+
+# Aliases legados — mantidos para compatibilidade com módulos existentes.
+CATEGORIAS.update({
+    "barbearia":       [{"shop": "barber"}],
+    "salao_de_beleza": [{"shop": "beauty"}, {"shop": "hairdresser"}],
+    "oficina_mecanica": [{"shop": "car_repair"}],
+    "borracharia":     [{"shop": "tyres"}],
+    "acougue":         [{"shop": "butcher"}],
+    "padaria":         [{"shop": "bakery"}],
+    "autopecas":       [{"shop": "car_parts"}],
+})
+
+# Nomes amigáveis para exibição nos resultados (auto-gerados + sobreposição de nomes conhecidos)
+NOMES_CATEGORIAS = {cid: cid.replace("_", " ").title() for cid in CATEGORIAS}
+NOMES_CATEGORIAS.update({
+    "barbearia":        "Barbearia",
+    "salao_de_beleza":  "Salão de Beleza",
     "oficina_mecanica": "Oficina Mecânica",
-    "borracharia": "Borracharia / Loja de Pneus",
-    "acougue": "Açougue",
-    "padaria": "Padaria",
-    "autopecas": "Autopeças",
+    "borracharia":      "Borracharia / Loja de Pneus",
+    "acougue":          "Açougue",
+    "padaria":          "Padaria",
+    "autopecas":        "Autopeças",
+    "barber":           "Barbearia",
+    "beauty":           "Salão de Beleza",
+    "hairdresser":      "Cabeleireiro",
+    "nails":            "Manicure / Esmalteria",
+    "cosmetics":        "Cosméticos",
+    "spa":              "Spa",
+    "tattoo":           "Estúdio de Tatuagem",
+    "piercing":         "Estúdio de Piercing",
+    "tanning":          "Bronzeamento",
+    "massage":          "Massagem",
+    "optician":         "Ótica",
+    "perfumery":        "Perfumaria",
+    "car_repair":       "Oficina Mecânica",
+    "tyres":            "Borracharia",
+    "car_parts":        "Autopeças",
+    "car_wash":         "Lava-Rápido",
+    "car":              "Concessionária",
+    "fuel":             "Posto de Combustível",
+    "motorcycle_repair": "Oficina de Motos",
+    "car_accessories":  "Acessórios Automotivos",
+    "bakery":           "Padaria",
+    "butcher":          "Açougue",
+    "restaurant":       "Restaurante",
+    "fast_food":        "Lanchonete / Fast Food",
+    "cafe":             "Cafeteria",
+    "supermarket":      "Supermercado",
+    "greengrocer":      "Hortifruti / Quitanda",
+    "deli":             "Delicatessen",
+    "confectionery":    "Confeitaria",
+    "convenience":      "Loja de Conveniência",
+    "ice_cream":        "Sorveteria",
+    "pastry":           "Pastelaria",
+    "beverages":        "Bebidas",
+    "bar":              "Bar",
+    "dentist":          "Clínica Odontológica",
+    "doctors":          "Clínica Médica",
+    "pharmacy":         "Farmácia",
+    "physiotherapist":  "Fisioterapia",
+    "optometrist":      "Optometria",
+    "psychologist":     "Psicologia",
+    "hospital":         "Hospital / Pronto-Socorro",
+    "nurse":            "Enfermagem",
+    "clinic":           "Clínica",
+    "pet":              "Pet Shop",
+    "veterinary":       "Veterinária",
+    "agrarian":         "Agropecuária",
+    "clothes":          "Loja de Roupas",
+    "shoes":            "Sapataria / Calçados",
+    "jewelry":          "Joalheria / Bijuteria",
+    "fabric":           "Tecidos",
+    "fashion_accessories": "Acessórios de Moda",
+    "watches":          "Relojoaria",
+    "bag":              "Bolsas e Acessórios",
+    "sports":           "Artigos Esportivos",
+    "outdoor":          "Artigos Outdoor",
+    "second_hand":      "Brechó",
+    "fitness_centre":   "Academia",
+    "sports_centre":    "Centro Esportivo",
+    "swimming_pool":    "Natação / Piscina",
+    "dance":            "Escola de Dança",
+    "yoga":             "Estúdio de Yoga",
+    "sauna":            "Sauna",
+    "electrician":      "Eletricista",
+    "plumber":          "Encanador",
+    "doityourself":     "Material de Construção",
+    "locksmith":        "Chaveiro",
+    "painter":          "Pintor",
+    "hvac":             "Ar-Condicionado / Climatização",
+    "hardware":         "Ferragens",
+    "cleaning":         "Limpeza",
+    "carpenter":        "Marceneiro / Carpinteiro",
+    "glazier":          "Vidraçaria",
+    "hotel":            "Hotel",
+    "motel":            "Motel",
+    "hostel":           "Hostel",
+    "guest_house":      "Pousada",
+    "apartment":        "Apartamento / Aluguel de Temporada",
+})
+
+# Categorias que se beneficiam de agendamento digital como produto principal.
+# Contém tanto valores OSM (ex: "barber") quanto aliases legados (ex: "barbearia").
+CATEGORIAS_COM_AGENDAMENTO = {
+    # Beleza & estética
+    "barber", "beauty", "hairdresser", "nails", "spa", "massage", "tattoo", "piercing",
+    # Saúde
+    "dentist", "doctors", "physiotherapist", "psychologist", "veterinary", "nurse", "clinic",
+    # Fitness & bem-estar
+    "fitness_centre", "sports_centre", "dance", "yoga", "swimming_pool",
+    # Aliases legados
+    "barbearia", "salao_de_beleza",
 }
 
 # Instâncias públicas da Overpass API — gratuitas, sem chave de API.
@@ -126,17 +356,19 @@ ESTADO_POR_CIDADE = {
     "Manaus": "AM",
 }
 
-# Nichos a processar na linha de marketing.
-# Cada nicho é um subconjunto de CATEGORIAS — deve usar os mesmos identificadores.
-# Deixe vazio para processar todas as categorias disponíveis em CATEGORIAS.
-NICHOS_MARKETING = [
-    "barbearia",
-    "oficina_mecanica",
-    # "salao_de_beleza",
-    # "borracharia",
-    # "acougue",
-    # "padaria",
-    # "autopecas",
+# Grupos a processar na linha de marketing.
+# Cada entrada deve ser uma chave de GRUPOS_CATEGORIAS.
+# Deixe vazio para processar todos os grupos disponíveis.
+GRUPOS_MARKETING = [
+    "beleza_pessoal",
+    "automoveis",
+    # "alimentacao",
+    # "saude",
+    # "pets",
+    # "vestuario_moda",
+    # "fitness_bem_estar",
+    # "servicos_residenciais",
+    # "hospedagem_turismo",
 ]
 
 # Limite de empresas aceitas por combinação cidade + nicho.

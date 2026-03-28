@@ -62,7 +62,7 @@ def executar_marketing() -> None:
     inicio = datetime.now()
 
     cidades = config.CIDADES_MARKETING
-    nichos = config.NICHOS_MARKETING or list(config.CATEGORIAS.keys())
+    nichos = config.GRUPOS_MARKETING or list(config.GRUPOS_CATEGORIAS.keys())
     limite = config.LIMITE_EMPRESAS_POR_CIDADE_NICHO
 
     logger.info("=" * 60)

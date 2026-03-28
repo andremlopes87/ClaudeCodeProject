@@ -638,6 +638,11 @@ def _oferta_por_linha(catalogo: dict, linha: str):
 
 # ─── Sugestão de oferta ───────────────────────────────────────────────────────
 
+def _eh_agendavel(categoria: str) -> bool:
+    """Retorna True se a categoria se beneficia de agendamento digital como produto core."""
+    return categoria in config.CATEGORIAS_COM_AGENDAMENTO
+
+
 def sugerir_oferta(empresa: dict) -> dict:
     """
     Sugere oferta baseada nos sinais digitais e categoria da empresa.
@@ -676,11 +681,11 @@ def sugerir_oferta(empresa: dict) -> dict:
             "motivo":           motivo,
         }
 
-    # 1. Barbearia / Salão → agendamento é o produto core, sempre (independente de presença)
-    if categoria in ("barbearia", "salao_de_beleza"):
+    # 1. Categoria com agendamento como produto core → sempre agendamento_digital
+    if _eh_agendavel(categoria):
         return _resultado(
             "agendamento_digital",
-            f"categoria={categoria} | produto_core=agendamento_digital",
+            f"categoria_agendavel={categoria} | produto_core=agendamento_digital",
             "alta",
         )
 
@@ -692,15 +697,13 @@ def sugerir_oferta(empresa: dict) -> dict:
             "alta",
         )
 
-    # 3. Sem WhatsApp → atendimento automatizado
+    # 3. Sem WhatsApp → atendimento automatizado (qualquer categoria)
     if not tem_whatsapp:
-        aplicavel = indice.get("atendimento_whatsapp", {}).get("aplicavel_a", [])
-        if categoria in aplicavel:
-            return _resultado(
-                "atendimento_whatsapp",
-                f"sem_whatsapp | categoria={categoria}",
-                "alta",
-            )
+        return _resultado(
+            "atendimento_whatsapp",
+            f"sem_whatsapp | categoria={categoria}",
+            "alta",
+        )
 
     # 4. Sem Google → presença básica como upsell
     if not tem_google:
@@ -710,14 +713,7 @@ def sugerir_oferta(empresa: dict) -> dict:
             "media",
         )
 
-    # 5. Fallback: atendimento WhatsApp se aplicável, senão presença
-    aplicavel_atend = indice.get("atendimento_whatsapp", {}).get("aplicavel_a", [])
-    if categoria in aplicavel_atend:
-        return _resultado(
-            "atendimento_whatsapp",
-            f"fallback_por_categoria={categoria}",
-            "baixa",
-        )
+    # 5. Fallback genérico
     return _resultado(
         "presenca_digital_basica",
         f"fallback_generico | categoria={categoria} | score={score}",

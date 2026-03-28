@@ -45,7 +45,7 @@ _DEFAULTS_CFG = {
     "max_nichos_por_cidade_por_ciclo": 3,
 }
 
-_NICHOS_TODOS = list(config.CATEGORIAS.keys())
+_NICHOS_TODOS = list(config.GRUPOS_CATEGORIAS.keys())
 
 
 # ─── Ponto de entrada ─────────────────────────────────────────────────────────
@@ -234,18 +234,26 @@ def _executar_cidade(cidade: str, nichos: list, chaves_globais: set) -> dict:
     empresas_cidade: list = []
     chaves_novas: set = set()
 
-    # ETAPA 1: Coleta OSM por nicho
+    # ETAPA 1: Coleta OSM por nicho (suporta grupos e categorias legadas)
     for nicho in nichos:
-        lista_tags = config.CATEGORIAS.get(nicho)
+        grupo_dados = config.GRUPOS_CATEGORIAS.get(nicho)
+        if grupo_dados:
+            lista_tags  = grupo_dados["tags_osm"]
+            nome_grupo  = grupo_dados["nome_grupo"]
+        else:
+            lista_tags = config.CATEGORIAS.get(nicho)
+            nome_grupo = config.NOMES_CATEGORIAS.get(nicho, nicho)
+
         if not lista_tags:
-            log.warning(f"    Nicho '{nicho}' nao encontrado em CATEGORIAS — pulando.")
+            log.warning(f"    Nicho '{nicho}' nao encontrado em GRUPOS_CATEGORIAS nem CATEGORIAS — pulando.")
             continue
 
-        nome_nicho = config.NOMES_CATEGORIAS.get(nicho, nicho)
-        log.info(f"    Nicho: {nome_nicho}")
+        log.info(f"    Nicho: {nome_grupo}")
 
         for tags_dict in lista_tags:
             for tag_chave, tag_valor in tags_dict.items():
+                categoria_id = tag_valor.replace(" ", "_")
+                nome_categoria = config.NOMES_CATEGORIAS.get(categoria_id, nome_grupo)
                 try:
                     resultados = buscar_por_tag(cidade, tag_chave, tag_valor)
                 except Exception as exc:
@@ -257,7 +265,7 @@ def _executar_cidade(cidade: str, nichos: list, chaves_globais: set) -> dict:
                     continue
 
                 for empresa_raw in resultados:
-                    empresa = _padronizar(empresa_raw, nicho, nome_nicho, cidade, estado_uf)
+                    empresa = _padronizar(empresa_raw, categoria_id, nome_categoria, cidade, estado_uf)
                     chave = _chave_dedup(empresa)
 
                     # Dedup intra-ciclo (esta cidade) e cross-cidade

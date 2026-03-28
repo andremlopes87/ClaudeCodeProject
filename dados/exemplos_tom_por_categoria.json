@@ -92,6 +92,97 @@
       "abertura_contexto": "Procurei a [NOME] no Google simulando um cliente com pneu furado que precisava de atendimento imediato. Percebi que as informações de funcionamento não estão completas e que não há um caminho direto para contato pelo WhatsApp.",
       "cena_perda_elaborada": "o cliente em emergência não liga duas vezes. Se não encontra o horário de funcionamento ou um contato imediato, vai para a próxima opção no Google. Quem aparece com as informações certas recebe esse cliente. Quem não aparece, simplesmente não é considerado.",
       "porta_aberta": "Considerei importante escrever porque clientes em emergência são os mais fáceis de perder e os mais difíceis de recuperar — eles não voltam para reclamar. Se fizer sentido, posso mostrar como ficaria na [NOME]."
+    },
+    {
+      "nicho": "restaurante",
+      "categoria_ids": ["restaurant", "fast_food", "cafe"],
+      "cena_problema": "Sexta à noite, cliente pesquisa restaurante no Google para jantar com a família. Encontra o [NOME], mas o cardápio no perfil está desatualizado, o horário diz 'fecha às 22h' mas é sábado e o restaurante fecha às 23h, e o WhatsApp não está vinculado. Escolheu outro restaurante que tinha as informações completas e fotos do ambiente.",
+      "perda_concreta": "Mesa vazia numa sexta à noite é dinheiro que não volta. O cliente que não conseguiu confirmar informações básicas nem tentou reservar — foi para o concorrente com perfil completo.",
+      "comportamento_consumidor": "O cliente pesquisa antes de sair de casa. Quer ver fotos do ambiente, confirmar o horário e ter um canal direto para reserva. Se o perfil estiver incompleto ou desatualizado, a dúvida vira escolha pelo concorrente.",
+      "gancho_solucao": "Perfil completo no Google com fotos do ambiente, cardápio e WhatsApp para reservas — para que o cliente que pesquisou escolha o [NOME] na hora de decidir onde jantar",
+      "objecao_comum": "Meus clientes já me conhecem / não preciso de Google / redes sociais já bastam",
+      "assunto_email": "O cliente que pesquisou o [NOME] no Google mas foi jantar em outro lugar",
+      "abertura_contexto": "Pesquisei o [NOME] no Google simulando um cliente planejando jantar fora. Percebi que algumas informações importantes estão incompletas — o que pode fazer com que o cliente escolha outro restaurante antes mesmo de ligar.",
+      "cena_perda_elaborada": "o cliente que pesquisa restaurante no Google já está com intenção de consumir. Se o perfil não transmite confiança — seja pela foto desatualizada, pelo horário incerto ou pela ausência de um contato direto — ele passa para o próximo resultado sem hesitar. E essa decisão acontece em segundos, antes de qualquer ligação.",
+      "porta_aberta": "Considerei importante escrever porque esse tipo de cliente já estava pronto para ir — só precisava de uma razão para escolher o [NOME]. Se fizer sentido, posso mostrar como ficaria."
+    },
+    {
+      "nicho": "pet_shop",
+      "categoria_ids": ["pet", "veterinary"],
+      "cena_problema": "Cliente com cachorro doente num sábado à tarde. Procurou veterinária no WhatsApp para saber se estava aberta e se tinha atendimento de emergência. Não recebeu resposta. Ligou — número chamou mas ninguém atendeu. Foi para outra clínica que tinha WhatsApp ativo com resposta automática confirmando o horário.",
+      "perda_concreta": "Atendimento veterinário de emergência tem urgência real. O cliente não esperou retorno — levou o animal para quem respondeu primeiro. Além da consulta perdida, o cliente não voltou para compras rotineiras.",
+      "comportamento_consumidor": "O tutor de pet é um dos clientes mais fiéis do comércio local — quando encontra um serviço confiável, não troca. Mas quando precisa de atendimento e não consegue contato, vai embora e leva a fidelidade junto.",
+      "gancho_solucao": "Resposta automática no WhatsApp com horários de atendimento e opção de agendamento, para que o tutor em apuros encontre um caminho imediato",
+      "objecao_comum": "Meus clientes têm meu número / atendo pelo Instagram / não tenho tempo de ficar respondendo mensagem",
+      "assunto_email": "O tutor que precisava de atendimento e não conseguiu resposta a tempo",
+      "abertura_contexto": "Testei o contato com o [NOME] simulando um tutor precisando de atendimento urgente num final de semana. Percebi que o caminho de contato atual exige que o cliente aguarde — e nem sempre o cliente de pet pode esperar.",
+      "cena_perda_elaborada": "quando o tutor não consegue confirmação rápida, ele não espera. Leva o animal para quem respondeu primeiro e, na maioria das vezes, fica com esse serviço. A fidelidade do dono de pet é alta — mas ela vai para quem esteve disponível na hora que importava.",
+      "porta_aberta": "Considerei importante escrever porque esse tipo de cliente, uma vez fidelizado, retorna para vacinas, banho, tosa e ração toda semana. Se fizer sentido, posso mostrar como funcionaria no [NOME]."
+    },
+    {
+      "nicho": "clinica_dentista",
+      "categoria_ids": ["dentist", "doctors", "physiotherapist", "psychologist", "clinic"],
+      "cena_problema": "Paciente com dor de dente numa segunda-feira cedo. Pesquisou dentistas no Google, encontrou o [NOME], tentou agendar pelo site — não tinha formulário, só um telefone. Ligou às 8h10, linha ocupada. Tentou de novo às 8h25, ninguém atendeu. Agendou em outra clínica pelo WhatsApp em dois minutos.",
+      "perda_concreta": "Paciente com dor não espera retorno — resolve o problema e não volta para cá. Além da consulta imediata perdida, perdeu-se um paciente que poderia retornar para tratamento completo.",
+      "comportamento_consumidor": "O paciente que busca clínica no Google já está com intenção de agendar. Se o primeiro contato é travado — linha ocupada, sem formulário online, sem WhatsApp — ele resolve na próxima opção disponível.",
+      "gancho_solucao": "Agendamento direto pelo WhatsApp com confirmação automática, para que o paciente que decidiu agendar não encontre obstáculos no caminho",
+      "objecao_comum": "Minha secretária agenda por telefone / tenho agenda cheia / sistema de agendamento é complicado",
+      "assunto_email": "O paciente que tentou agendar na [NOME] mas não conseguiu chegar até a secretária",
+      "abertura_contexto": "Testei o processo de agendamento na [NOME] simulando um paciente novo com urgência. Percebi que o caminho atual passa obrigatoriamente pelo telefone — o que pode ser um obstáculo para pacientes que tentam agendar fora do horário de pico ou quando as linhas estão ocupadas.",
+      "cena_perda_elaborada": "quando o paciente não consegue confirmar o agendamento de forma rápida, ele não insiste. A dor — ou a preocupação — não espera: ele liga para o próximo da lista. E, uma vez atendido em outro lugar, raramente volta. Cada tentativa frustrada é um paciente que não entrou na base.",
+      "porta_aberta": "Considerei importante escrever porque pacientes novos que conseguem agendar facilmente tendem a retornar e indicar. Se fizer sentido, posso mostrar como funcionaria na [NOME]."
+    },
+    {
+      "nicho": "loja_roupas",
+      "categoria_ids": ["clothes", "shoes", "jewelry", "fashion_accessories"],
+      "cena_problema": "Cliente procura uma peça específica antes de sair de casa para não perder viagem. Manda mensagem no Instagram perguntando se tem determinado produto no tamanho dela. A resposta chegou seis horas depois, quando ela já tinha comprado em outro lugar.",
+      "perda_concreta": "Venda perdida para o concorrente que respondeu primeiro. O pior: o cliente já estava com intenção de compra — só precisava de uma confirmação rápida para ir até a loja.",
+      "comportamento_consumidor": "O cliente de moda pesquisa antes de sair. Quer saber disponibilidade, tamanho e preço sem precisar ir até a loja. Se a resposta demora, ele compra online ou vai direto para quem respondeu.",
+      "gancho_solucao": "Resposta rápida no WhatsApp com catálogo de disponibilidade, para que o cliente que já decidiu comprar receba confirmação antes de escolher para onde ir",
+      "objecao_comum": "Meus clientes gostam de ver pessoalmente / tenho muitas mensagens para responder / já uso Instagram",
+      "assunto_email": "A cliente que perguntou sobre o produto e comprou em outro lugar enquanto aguardava resposta",
+      "abertura_contexto": "Testei o contato com o [NOME] simulando uma cliente verificando disponibilidade de produto antes de decidir para onde ir. Percebi que o tempo de resposta atual pode fazer a cliente optar por quem confirmou primeiro.",
+      "cena_perda_elaborada": "o cliente que manda mensagem perguntando sobre estoque já tomou a decisão de comprar — ainda não decidiu onde. Se a resposta demora, ele preenche essa lacuna com quem responde primeiro. A venda não foi perdida por preço ou por produto — foi perdida pela velocidade do atendimento.",
+      "porta_aberta": "Considerei importante escrever porque clientes que recebem atendimento ágil antes de entrar na loja chegam mais propensos a comprar. Se fizer sentido, posso mostrar como funcionaria no [NOME]."
+    },
+    {
+      "nicho": "academia",
+      "categoria_ids": ["fitness_centre", "sports_centre", "dance", "yoga", "swimming_pool"],
+      "cena_problema": "Pessoa decide começar a academia em janeiro. Pesquisa no Google, encontra o [NOME], clica no site — encontra apenas um número de telefone. Liga numa quarta às 19h (horário de pico), não consegue falar com ninguém. No dia seguinte esqueceu. Matriculou-se na academia do lado que tinha formulário de interesse e retornou por WhatsApp em duas horas.",
+      "perda_concreta": "Janeiro é o mês de maior intenção de matrícula. Cada lead não respondido nesse período é uma mensalidade recorrente perdida — não uma venda avulsa. Doze mensalidades e potencial de permanência de anos.",
+      "comportamento_consumidor": "A decisão de se matricular numa academia é emocional e tem prazo curto. A pessoa decide, tenta o contato e, se encontra obstáculo, usa a motivação para a próxima opção da lista. A intenção não dura dias — dura horas.",
+      "gancho_solucao": "Captação de interesse por WhatsApp com retorno rápido sobre planos e modalidades, para que a pessoa que decidiu começar não perca a motivação no processo de contato",
+      "objecao_comum": "Meus alunos chegam por indicação / quem quer treinar vem pessoalmente / não tenho equipe para responder mensagem",
+      "assunto_email": "A pessoa que decidiu se matricular no [NOME] mas não conseguiu contato na hora que estava motivada",
+      "abertura_contexto": "Testei o processo de contato com o [NOME] simulando uma pessoa interessada em começar a treinar. Percebi que o caminho atual exige que o interessado insista — o que pode fazer com que ele leve a motivação para a academia que respondeu primeiro.",
+      "cena_perda_elaborada": "a decisão de começar a treinar tem um momento. Quando a pessoa busca informação e encontra obstáculo — telefone que não atende, site sem formulário, Instagram sem resposta — a motivação começa a ceder. Na maioria das vezes, ela não tenta de novo: tenta em outro lugar. E, se encontrar facilidade lá, a matrícula vai junto.",
+      "porta_aberta": "Considerei importante escrever porque cada matrícula tem potencial de ser uma receita recorrente por anos. Se fizer sentido, posso mostrar como funcionaria no [NOME]."
+    },
+    {
+      "nicho": "hospedagem",
+      "categoria_ids": ["hotel", "guest_house", "hostel"],
+      "cena_problema": "Casal planeja viagem para o fim de semana. Pesquisa pousadas no Google, clica no [NOME], as fotos estão desatualizadas, o link de reserva vai para uma página com erro. Tentam pelo WhatsApp — sem resposta. Reservaram em outra pousada com fotos recentes, reviews positivos e botão de reserva funcional.",
+      "perda_concreta": "Diária de fim de semana para casal perdida. Multiplicado pelos fins de semana do ano, a receita deixada na mesa por um perfil desatualizado é relevante — e o cliente que reservou em outro lugar vai recomendar esse outro lugar.",
+      "comportamento_consumidor": "O hóspede pesquisa muito antes de reservar. Quer ver fotos reais do quarto e do café da manhã, confirmar disponibilidade e ter segurança no processo de reserva. Qualquer obstáculo no caminho — link quebrado, foto antiga, sem resposta — faz ele seguir para a próxima opção.",
+      "gancho_solucao": "Perfil atualizado no Google com fotos reais, avaliações ativas e WhatsApp para confirmação de disponibilidade — para que o hóspede que encontrou o [NOME] feche a reserva sem obstáculos",
+      "objecao_comum": "Minhas reservas vêm por indicação / já estou no Booking / não tenho tempo para atualizar Google",
+      "assunto_email": "O casal que encontrou o [NOME] no Google mas reservou em outro lugar porque não conseguiu confirmar disponibilidade",
+      "abertura_contexto": "Pesquisei o [NOME] no Google simulando um hóspede planejando uma estadia de fim de semana. Percebi que algumas informações importantes estão incompletas ou desatualizadas — o que pode fazer com que o viajante escolha outra pousada antes mesmo de entrar em contato.",
+      "cena_perda_elaborada": "o hóspede que pesquisa no Google já tem a intenção de reservar. Se o perfil não transmite confiança — fotos antigas, sem avaliações recentes, link que não funciona — ele não liga para confirmar: vai para o próximo resultado. E, uma vez hospedado em outro lugar, a próxima viagem também vai para lá.",
+      "porta_aberta": "Considerei importante escrever porque hóspede satisfeito retorna e indica — e isso começa no primeiro contato, antes da reserva. Se fizer sentido, posso mostrar como ficaria para o [NOME]."
+    },
+    {
+      "nicho": "eletricista_encanador",
+      "categoria_ids": ["electrician", "plumber", "locksmith", "painter", "carpenter"],
+      "cena_problema": "Torneira vazando num domingo à tarde. Cliente procura encanador no Google, encontra três resultados. O primeiro não tem avaliações. O segundo tem um telefone que cai na caixa postal. O terceiro tem WhatsApp, dois reviews recentes e horário atualizado. Contratou o terceiro sem hesitar.",
+      "perda_concreta": "Serviço urgente contratado pelo concorrente que apareceu mais confiável no Google. Além do serviço imediato, o cliente satisfeito tende a chamar sempre o mesmo profissional — e a indicar.",
+      "comportamento_consumidor": "Para serviço urgente em casa, o cliente não pesquisa muito — escolhe quem parece mais confiável e acessível no primeiro contato. Avaliações recentes, WhatsApp ativo e horário de atendimento visível fazem toda a diferença na escolha.",
+      "gancho_solucao": "Perfil confiável no Google com avaliações recentes, WhatsApp ativo e horário de atendimento — para que o cliente em apuros escolha o [NOME] entre os três primeiros resultados",
+      "objecao_comum": "Trabalho por indicação / não tenho tempo para isso / Google é para empresa grande",
+      "assunto_email": "O cliente com emergência em casa que escolheu outro profissional porque pareceu mais acessível no Google",
+      "abertura_contexto": "Pesquisei o [NOME] no Google simulando um cliente com urgência em casa precisando de atendimento rápido. Percebi que algumas informações que transmitem confiança a um cliente novo estão incompletas.",
+      "cena_perda_elaborada": "quando o cliente tem uma emergência em casa, ele contrata quem parece disponível e confiável — não necessariamente quem é o melhor profissional da cidade. Um perfil incompleto, sem avaliações ou sem WhatsApp visível, passa a mensagem errada na hora mais importante. O concorrente com perfil cuidado recebe o cliente que poderia ser seu.",
+      "porta_aberta": "Considerei importante escrever porque profissional de serviço que faz um bom trabalho merece aparecer bem para novos clientes. Se fizer sentido, posso mostrar como ficaria para o [NOME]."
     }
   ]
 }

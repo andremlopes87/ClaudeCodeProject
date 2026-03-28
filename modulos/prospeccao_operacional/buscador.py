@@ -53,6 +53,49 @@ def buscar_empresas() -> list:
     return todas
 
 
+def buscar_por_grupo(grupo_id: str, cidade: str = None) -> list:
+    """
+    Busca empresas de um grupo específico de GRUPOS_CATEGORIAS.
+
+    Útil para prospecção segmentada por segmento de mercado.
+    Se cidade não for fornecida, usa config.CIDADE.
+
+    Retorna:
+        lista de dicionários com campos padronizados
+    """
+    cidade_alvo = cidade or config.CIDADE
+    grupo_dados = config.GRUPOS_CATEGORIAS.get(grupo_id)
+    if not grupo_dados:
+        logger.warning(f"Grupo '{grupo_id}' não encontrado em GRUPOS_CATEGORIAS.")
+        return []
+
+    nome_grupo = grupo_dados["nome_grupo"]
+    lista_tags = grupo_dados["tags_osm"]
+
+    todas = []
+    ids_vistos = set()
+
+    logger.info(f"Buscando grupo: {nome_grupo} em {cidade_alvo}")
+
+    for tags_dict in lista_tags:
+        for tag_chave, tag_valor in tags_dict.items():
+            categoria_id = tag_valor.replace(" ", "_")
+            nome_categoria = config.NOMES_CATEGORIAS.get(categoria_id, nome_grupo)
+            resultados = buscar_por_tag(cidade_alvo, tag_chave, tag_valor)
+
+            for empresa in resultados:
+                osm_id = empresa.get("osm_id")
+                if osm_id is not None:
+                    if osm_id in ids_vistos:
+                        continue
+                    ids_vistos.add(osm_id)
+
+                todas.append(_padronizar(empresa, categoria_id, nome_categoria))
+
+    logger.info(f"  {nome_grupo}: {len(todas)} empresas únicas encontradas.")
+    return todas
+
+
 def _padronizar(empresa: dict, categoria_id: str, nome_categoria: str) -> dict:
     """
     Garante que todos os campos necessários existam no dicionário,
