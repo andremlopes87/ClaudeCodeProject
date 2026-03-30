@@ -114,6 +114,7 @@ def executar() -> dict:
     log.info(f"  Oportunidades aptas para entrega: {len(aptas)}")
 
     # ── ETAPA 3: Processar entregas ────────────────────────────────────────
+    pipeline         = entradas["pipeline"]
     pipeline_entrega = entradas["pipeline_entrega"]
     checklists       = entradas["checklists"]
     historico        = entradas["historico"]
