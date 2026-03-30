@@ -429,8 +429,8 @@ def _detectar_redes(cidades: dict) -> list:
                 nomes_por_cidade[nome_cidade] = {
                     _normalizar_nome(e.get("nome", "")) for e in fila if e.get("nome")
                 }
-            except Exception:
-                pass
+            except Exception as _err:
+                log.warning("erro ignorado: %s", _err)
 
     # Encontrar nomes presentes em 2+ cidades
     contagem_nome: dict = {}
@@ -486,8 +486,8 @@ def _carregar_estado() -> dict:
         try:
             with open(_ARQ_ESTADO, encoding="utf-8") as f:
                 return json.load(f)
-        except Exception:
-            pass
+        except Exception as _err:
+            log.warning("erro ignorado: %s", _err)
     return _estado_inicial()
 
 
@@ -508,8 +508,8 @@ def _carregar_consolidado() -> dict:
         try:
             with open(_ARQ_CONSOLIDADO, encoding="utf-8") as f:
                 return json.load(f)
-        except Exception:
-            pass
+        except Exception as _err:
+            log.warning("erro ignorado: %s", _err)
     return {}
 
 

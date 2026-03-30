@@ -1,3 +1,4 @@
+import logging
 """
 conselho_app/app.py — Painel do Conselho (web interno).
 
@@ -44,8 +45,8 @@ def _ti_tem_alerta() -> bool:
         rel = json.loads((config.PASTA_DADOS / "relatorio_seguranca.json").read_text(encoding="utf-8"))
         if rel.get("resumo", {}).get("criticas", 0) > 0:
             return True
-    except Exception:
-        pass
+    except Exception as _err:
+        logging.warning("erro ignorado: %s", _err)
     try:
         inc = json.loads((config.PASTA_DADOS / "incidentes_executor.json").read_text(encoding="utf-8"))
         from datetime import datetime, timedelta
@@ -55,8 +56,8 @@ def _ti_tem_alerta() -> bool:
                 ts = datetime.fromisoformat(i.get("timestamp", "2000-01-01"))
                 if ts >= limite:
                     return True
-    except Exception:
-        pass
+    except Exception as _err:
+        logging.warning("erro ignorado: %s", _err)
     return False
 
 templates.env.globals["ti_tem_alerta"] = _ti_tem_alerta
@@ -1042,8 +1043,8 @@ async def registrar_satisfacao_action(
     nps_int = None
     try:
         nps_int = int(nps) if nps.strip() else None
-    except ValueError:
-        pass
+    except ValueError as _err:
+        logging.warning("erro ignorado: %s", _err)
     registrar_satisfacao(acomp_id, satisfacao, nps_int, resumo, "conselho")
     return RedirectResponse("/acompanhamento", status_code=303)
 
@@ -1116,8 +1117,8 @@ async def pagina_email(request: Request):
     try:
         docs_list = _ler("documentos_oficiais.json", [])
         docs_map = {d["id"]: d for d in docs_list}
-    except Exception:
-        pass
+    except Exception as _err:
+        logging.warning("erro ignorado: %s", _err)
 
     return templates.TemplateResponse("email.html", {
         "request":            request,
@@ -2350,8 +2351,8 @@ async def capturar_interesse(
     leads.append(lead)
     try:
         arq.write_text(json.dumps(leads, ensure_ascii=False, indent=2), encoding="utf-8")
-    except Exception:
-        pass
+    except Exception as _err:
+        logging.warning("erro ignorado: %s", _err)
 
     return JSONResponse({"ok": True, "id": lead["id"]})
 
@@ -2495,13 +2496,13 @@ def _atualizar_observabilidade():
     try:
         from core.observabilidade_empresa import executar_observabilidade
         executar_observabilidade()
-    except Exception:
-        pass
+    except Exception as _err:
+        logging.warning("erro ignorado: %s", _err)
 
 
 def _atualizar_politicas():
     try:
         from core.politicas_empresa import derivar_e_salvar_politicas
         derivar_e_salvar_politicas()
-    except Exception:
-        pass
+    except Exception as _err:
+        logging.warning("erro ignorado: %s", _err)

@@ -64,8 +64,8 @@ def _ler(arq: Path, padrao):
     try:
         if arq.exists():
             return json.loads(arq.read_text(encoding="utf-8")) or padrao
-    except Exception:
-        pass
+    except Exception as _err:
+        logging.warning("erro ignorado: %s", _err)
     return padrao
 
 
@@ -395,16 +395,16 @@ def _montar_contexto_cs(conta: dict, saude: dict, pipeline_entrega: list) -> dic
     if ultima:
         try:
             dias_sem_interacao = (hoje - datetime.fromisoformat(ultima)).days
-        except Exception:
-            pass
+        except Exception as _err:
+            logging.warning("erro ignorado: %s", _err)
     else:
         # Sem registro de interação → considerar inativo desde criação
         criado = conta.get("criado_em", "")
         if criado:
             try:
                 dias_sem_interacao = (hoje - datetime.fromisoformat(criado)).days
-            except Exception:
-                pass
+            except Exception as _err:
+                logging.warning("erro ignorado: %s", _err)
 
     # dias_sem_progresso_entrega: entregas em execução sem atualização
     conta_id = conta["id"]
@@ -420,8 +420,8 @@ def _montar_contexto_cs(conta: dict, saude: dict, pipeline_entrega: list) -> dic
             try:
                 dias = (hoje - datetime.fromisoformat(atualizado)).days
                 dias_sem_progresso = max(dias_sem_progresso, dias)
-            except Exception:
-                pass
+            except Exception as _err:
+                logging.warning("erro ignorado: %s", _err)
 
     # parcela_atrasada_dias: lê recebiveis.json se disponível
     parcela_atrasada_dias = 0
@@ -441,10 +441,10 @@ def _montar_contexto_cs(conta: dict, saude: dict, pipeline_entrega: list) -> dic
                 atraso = (hoje - datetime.fromisoformat(venc)).days
                 if atraso > 0:
                     parcela_atrasada_dias = max(parcela_atrasada_dias, atraso)
-            except Exception:
-                pass
-    except Exception:
-        pass
+            except Exception as _err:
+                logging.warning("erro ignorado: %s", _err)
+    except Exception as _err:
+        logging.warning("erro ignorado: %s", _err)
 
     # nps_score e feedback_sentimento: do acompanhamento mais recente
     nps_score          = None
@@ -468,8 +468,8 @@ def _montar_contexto_cs(conta: dict, saude: dict, pipeline_entrega: list) -> dic
                 feedback_sentimento = "positivo"
             elif sat:
                 feedback_sentimento = "neutro"
-    except Exception:
-        pass
+    except Exception as _err:
+        logging.warning("erro ignorado: %s", _err)
 
     return {
         "dias_sem_interacao":         dias_sem_interacao,
@@ -565,8 +565,8 @@ def _detectar_expansoes(contas: list, saudes: dict, pipeline_entrega: list,
                         if dias > 30:
                             decisao_llm = "expandir_agora"
                             log.info(f"  [fallback] expansao por regra ({dias} dias sem acompanhamento)")
-                    except Exception:
-                        pass
+                    except Exception as _err:
+                        logging.warning("erro ignorado: %s", _err)
 
             if decisao_llm == "expandir_agora":
                 # Pegar referência da primeira entrega concluída

@@ -15,3 +15,6 @@ dados/
 !dados/templates_n8n/template_lembrete_agendamento.json
 logs/
 .claude/
+credenciais/
+*.key
+*.pem

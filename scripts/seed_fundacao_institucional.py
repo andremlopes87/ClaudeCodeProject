@@ -6,7 +6,7 @@ assinaturas_empresa.json e canais_empresa.json com os valores
 da fundação institucional mínima da Vetor Operações.
 
 Nome recomendado: Vetor (Vetor Operações Ltda)
-Domínio planejado: vetorai.com.br
+Domínio planejado: vetorops.com.br
 
 Uso:
   python scripts/seed_fundacao_institucional.py
@@ -84,7 +84,7 @@ def seed_identidade():
         # Naming — manter finalistas para referência futura
         "_naming_finalistas": ["Vetor", "Cerne", "Escala"],
         "_naming_recomendado": "Vetor",
-        "_naming_dominio_sugerido": "vetorai.com.br",
+        "_naming_dominio_sugerido": "vetorops.com.br",
         "_naming_fundacao_em": datetime.now().isoformat(timespec="seconds"),
     })
     salvar_identidade(dados, origem="seed_fundacao_institucional")
@@ -179,11 +179,11 @@ def seed_assinaturas():
 def seed_canais():
     dados = carregar_canais()
     dados.update({
-        "dominio_oficial_planejado":  "vetorai.com.br",
-        "email_principal_planejado":  "contato@vetorai.com.br",
-        "email_comercial_planejado":  "comercial@vetorai.com.br",
-        "email_financeiro_planejado": "financeiro@vetorai.com.br",
-        "email_operacoes_planejado":  "operacoes@vetorai.com.br",
+        "dominio_oficial_planejado":  "vetorops.com.br",
+        "email_principal_planejado":  "contato@vetorops.com.br",
+        "email_comercial_planejado":  "comercial@vetorops.com.br",
+        "email_financeiro_planejado": "financeiro@vetorops.com.br",
+        "email_operacoes_planejado":  "operacoes@vetorops.com.br",
         "site_oficial":               "",
         "instagram_oficial":          "",
         "whatsapp_oficial":           "",
@@ -193,7 +193,7 @@ def seed_canais():
         "status_dominio":             "planejado_nao_registrado",
 
         "observacoes": (
-            "Domínio vetorai.com.br planejado — ainda não registrado. "
+            "Domínio vetorops.com.br planejado — ainda não registrado. "
             "Emails planejados coerentes com o domínio — ainda não configurados. "
             "Próximo passo: registrar domínio e configurar hospedagem de email "
             "(Zoho Mail, Google Workspace ou similar) antes de ativar modo real no canal email."
@@ -213,7 +213,7 @@ def seed_prontidao():
         "nome_oficial":                   "Vetor Operações Ltda",
         "nome_exibicao":                  "Vetor",
         "dominio_planejado":              True,
-        "dominio_planejado_valor":        "vetorai.com.br",
+        "dominio_planejado_valor":        "vetorops.com.br",
         "dominio_registrado":             False,
         "emails_planejados":              True,
         "emails_configurados":            False,
@@ -224,7 +224,7 @@ def seed_prontidao():
         "pronto_para_configurar_email_real": True,
 
         "pendencias": [
-            "Registrar domínio vetorai.com.br (registro.br ou registrador de confiança)",
+            "Registrar domínio vetorops.com.br (registro.br ou registrador de confiança)",
             "Configurar hospedagem de email — sugestões: Zoho Mail (gratuito), "
             "Google Workspace (pago), Brevo/SendGrid (marketing)",
             "Atualizar config_canal_email.json: email_remetente_planejado com email real",
@@ -259,7 +259,7 @@ def seed_prontidao():
 def main():
     print("=" * 60)
     print("SEED — Fundação Institucional Mínima")
-    print("Nome: Vetor Operações Ltda | Domínio: vetorai.com.br")
+    print("Nome: Vetor Operações Ltda | Domínio: vetorops.com.br")
     print("=" * 60)
 
     print("\n[1/4] Identidade institucional...")

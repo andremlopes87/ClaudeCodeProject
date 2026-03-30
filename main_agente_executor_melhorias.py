@@ -109,8 +109,8 @@ def _imprimir_mudancas() -> None:
             if motivo and status not in ("aplicada", "simulada"):
                 print(f"             -> {motivo[:70]}")
         print()
-    except Exception:
-        pass
+    except Exception as _err:
+        logging.warning("erro ignorado: %s", _err)
 
 
 if __name__ == "__main__":

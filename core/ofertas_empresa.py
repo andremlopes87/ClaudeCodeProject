@@ -890,8 +890,8 @@ def verificar_gatilho_deliberacao_oferta(opp: dict) -> tuple[bool, str]:
         try:
             if float(valor) > teto:
                 return True, f"valor_estimado=R${valor} acima do teto=R${teto}"
-        except (TypeError, ValueError):
-            pass
+        except (TypeError, ValueError) as _err:
+            log.warning("erro ignorado: %s", _err)
 
     if not opp.get("oferta_id"):
         return True, "opp sem oferta_id mapeada — escopo indefinido"
@@ -1009,8 +1009,8 @@ def resumir_para_painel() -> dict:
         try:
             with open(_ARQ_HISTORICO, encoding="utf-8") as f:
                 historico = json.load(f)
-        except Exception:
-            pass
+        except Exception as _err:
+            log.warning("erro ignorado: %s", _err)
 
     return {
         "total_ofertas":  len(ofertas),

@@ -58,8 +58,8 @@ def _escrever_atomico(caminho: Path, dados) -> None:
     if caminho.exists():
         try:
             os.replace(caminho, bak)
-        except OSError:
-            pass  # Se falhar, .bak simplesmente não é atualizado; segue
+        except OSError as _err:
+            logger.warning("erro ignorado: %s", _err)  # Se falhar, .bak simplesmente não é atualizado; segue
 
     # Passo 3 — promover .tmp → principal (operação atômica)
     os.replace(tmp, caminho)
@@ -105,11 +105,11 @@ def _carregar_com_recuperacao(caminho: Path, padrao):
             # Promover .tmp a principal para próximas leituras
             try:
                 os.replace(tmp, caminho)
-            except OSError:
-                pass
+            except OSError as _err:
+                logger.warning("erro ignorado: %s", _err)
             return dados
-        except Exception:
-            pass
+        except Exception as _err:
+            logger.warning("erro ignorado: %s", _err)
 
     # 3. Tentar .bak
     if bak.exists():
@@ -119,8 +119,8 @@ def _carregar_com_recuperacao(caminho: Path, padrao):
             _registrar_incidente(caminho, "principal_e_tmp_invalidos",
                                  "recuperado_de_bak")
             return dados
-        except Exception:
-            pass
+        except Exception as _err:
+            logger.warning("erro ignorado: %s", _err)
 
     # 4. Tudo falhou
     if caminho.exists() or tmp.exists() or bak.exists():
@@ -160,8 +160,8 @@ def _registrar_incidente(caminho: Path, erro: str, acao: str) -> None:
             f.flush()
             os.fsync(f.fileno())
         os.replace(tmp, arq)
-    except Exception:
-        pass  # Nunca crashar ao registrar um incidente
+    except Exception as _err:
+        logger.warning("erro ignorado: %s", _err)  # Nunca crashar ao registrar um incidente
 
 
 # ─── Helpers internos ─────────────────────────────────────────────────────────

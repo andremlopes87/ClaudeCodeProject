@@ -109,8 +109,8 @@ def _imprimir_top_vulns(severidade: str, n: int) -> None:
             print(f"      {descricao}")
             print(f"      → {rec}")
             print()
-    except Exception:
-        pass
+    except Exception as _err:
+        logging.warning("erro ignorado: %s", _err)
 
 
 if __name__ == "__main__":

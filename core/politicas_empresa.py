@@ -174,8 +174,8 @@ def carregar_politicas() -> dict:
         try:
             with open(caminho, "r", encoding="utf-8") as f:
                 return json.load(f)
-        except Exception:
-            pass
+        except Exception as _err:
+            log.warning("erro ignorado: %s", _err)
     # Fallback: derivar agora
     return derivar_e_salvar_politicas()
 

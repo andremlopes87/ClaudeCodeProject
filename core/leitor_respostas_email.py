@@ -494,8 +494,8 @@ def _tentar_gerar_contrato(resposta: dict, opp_id: str, agora: str) -> str:
         from core.contratos_empresa import gerar_contrato_para_opp
         resultado = gerar_contrato_para_opp(opp_id)
         return resultado.get("contrato_id", "")
-    except Exception:
-        pass
+    except Exception as _err:
+        log.warning("erro ignorado: %s", _err)
     # Fallback: só registrar na deliberação para o conselho aprovar
     return _criar_deliberacao(
         "gerar_contrato",
@@ -582,8 +582,8 @@ def _atualizar_memoria(resposta: dict, acoes_executadas: list) -> None:
                 f"{resposta.get('data_resposta','')[:10]} | ações: {resumo_acoes or 'nenhuma'}"
             ),
         })
-    except Exception:
-        pass
+    except Exception as _err:
+        log.warning("erro ignorado: %s", _err)
 
 
 # ─── Simulador de respostas ───────────────────────────────────────────────────
@@ -639,8 +639,8 @@ def _simular_resposta_para_email(email: dict) -> Optional[dict]:
                 resultado = resultado.get("texto", "")
             if isinstance(resultado, str) and len(resultado) > 5:
                 texto = resultado
-    except Exception:
-        pass
+    except Exception as _err:
+        log.warning("erro ignorado: %s", _err)
 
     resposta_id  = f"resp_{uuid.uuid4().hex[:8]}"
     data_resposta = (

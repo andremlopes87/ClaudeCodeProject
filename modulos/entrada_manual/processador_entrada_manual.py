@@ -605,8 +605,8 @@ def encaminhar_para_entrega_se_manual_sale(entrada: dict, avaliacao: dict) -> di
             _sug = sugerir_oferta_por_oportunidade({"linha_servico_sugerida": linha, "prioridade": "alta"})
             oferta_id = _sug.get("oferta_id", "") or ""
             pacote_id = _sug.get("pacote_id", "") or ""
-        except Exception:
-            pass
+        except Exception as _err:
+            logger.warning("erro ignorado: %s", _err)
 
     # Oportunidade "ganho" no pipeline comercial
     opp = {

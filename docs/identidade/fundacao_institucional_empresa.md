@@ -29,7 +29,7 @@ Foram avaliados 20 candidatos com os critérios:
 
 **Nome oficial:** Vetor Operações Ltda
 **Nome de exibição:** Vetor
-**Domínio planejado:** vetorai.com.br
+**Domínio planejado:** vetorops.com.br
 
 **Justificativa:** "Vetor" comunica direção e operação. Não amarra a empresa a marketing, financeiro ou atendimento isoladamente — cobre tudo. O sufixo "ai" no domínio é discreto (sem gritar "somos uma empresa de IA") e diferencia de "vetor" genérico.
 
@@ -96,12 +96,12 @@ Todas as assinaturas são neutras — sem dependência de nome pessoal do consel
 Comercial:
   Equipe Vetor
   Comercial | Vetor Operações
-  comercial@vetorai.com.br
+  comercial@vetorops.com.br
 
 Financeiro:
   Equipe Vetor
   Financeiro | Vetor Operações
-  financeiro@vetorai.com.br
+  financeiro@vetorops.com.br
 
 Institucional:
   Vetor Operações
@@ -115,11 +115,11 @@ Institucional:
 
 | Campo | Valor | Status |
 |-------|-------|--------|
-| Domínio | vetorai.com.br | Planejado — não registrado |
-| Email principal | contato@vetorai.com.br | Planejado — não configurado |
-| Email comercial | comercial@vetorai.com.br | Planejado — não configurado |
-| Email financeiro | financeiro@vetorai.com.br | Planejado — não configurado |
-| Email operações | operacoes@vetorai.com.br | Planejado — não configurado |
+| Domínio | vetorops.com.br | Planejado — não registrado |
+| Email principal | contato@vetorops.com.br | Planejado — não configurado |
+| Email comercial | comercial@vetorops.com.br | Planejado — não configurado |
+| Email financeiro | financeiro@vetorops.com.br | Planejado — não configurado |
+| Email operações | operacoes@vetorops.com.br | Planejado — não configurado |
 | Site | — | Não definido |
 | Instagram | — | Não definido |
 | WhatsApp | — | Não definido |
@@ -138,7 +138,7 @@ Critérios atendidos:
 - [x] Guia de comunicação definido
 
 Pendências para ativar canal email real:
-1. Registrar domínio `vetorai.com.br` (registro.br)
+1. Registrar domínio `vetorops.com.br` (registro.br)
 2. Configurar hospedagem de email (Zoho Mail, Google Workspace ou Brevo)
 3. Atualizar `dados/config_canal_email.json`: `email_remetente_planejado` com email real
 4. Alterar `modo=real` em `config_canal_email.json` após SMTP configurado

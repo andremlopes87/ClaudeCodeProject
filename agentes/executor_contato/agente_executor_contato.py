@@ -209,8 +209,8 @@ def executar() -> dict:
                         "contexto_comercial": f"execucao preparada | canal={payload.get('canal','?')} | abordagem={abordagem}",
                         "canais_tentados":    [payload.get("canal")] if payload.get("canal") else [],
                     })
-                except Exception:
-                    pass
+                except Exception as _err:
+                    logging.warning("erro ignorado: %s", _err)
 
             n_preparados += 1
             log.info(
@@ -282,8 +282,8 @@ def executar() -> dict:
         atualizar_memoria_agente(NOME_AGENTE, {
             "resumo_ciclo_anterior": f"{n_preparados} preparados, {n_bloqueados} bloqueados, {n_skip} skip"
         })
-    except Exception:
-        pass
+    except Exception as _err:
+        logging.warning("erro ignorado: %s", _err)
 
     return {
         "agente":          NOME_AGENTE,

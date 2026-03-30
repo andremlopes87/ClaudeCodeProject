@@ -47,8 +47,8 @@ def _ler(arq: Path, padrao):
     try:
         if arq.exists():
             return json.loads(arq.read_text(encoding="utf-8")) or padrao
-    except Exception:
-        pass
+    except Exception as _err:
+        log.warning("erro ignorado: %s", _err)
     return padrao
 
 

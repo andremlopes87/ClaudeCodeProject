@@ -1,3 +1,4 @@
+import logging
 """
 main_empresa.py — Ponto de entrada único da empresa.
 
@@ -32,8 +33,8 @@ def main() -> None:
         from core.identidade_empresa import carregar_identidade
         _id = carregar_identidade()
         print(f"[{_id.get('nome_exibicao') or _id.get('nome_oficial', 'Empresa IA')}] iniciando ciclo operacional...")
-    except Exception:
-        pass
+    except Exception as _err:
+        logging.warning("erro ignorado: %s", _err)
 
     ciclo = executar_ciclo_empresa()
 

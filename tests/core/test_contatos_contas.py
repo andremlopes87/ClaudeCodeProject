@@ -198,7 +198,7 @@ def test_importar_de_enriquecimento():
                 "conta_id": "conta_008",
                 "nome": "Oficina Velha",
                 "email": "oficina@email.com",
-                "telefone": "11987654321",
+                "telefone": "(11) 98765-4321",
             }
             criados = importar_de_enriquecimento(empresa)
             check(isinstance(criados, list), "deve retornar lista")
@@ -215,7 +215,7 @@ def test_criar_sem_email():
         try:
             c = criar_contato("conta_009", {
                 "nome": "Sem Email",
-                "telefone": "11999990000",
+                "telefone": "(11) 99999-0000",
             })
             check(isinstance(c, dict), "deve criar contato mesmo sem email")
             check("contato_id" in c, "deve ter contato_id")

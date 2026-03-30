@@ -65,8 +65,8 @@ def _ler(arq: Path, padrao):
     try:
         if arq.exists():
             return json.loads(arq.read_text(encoding="utf-8")) or padrao
-    except Exception:
-        pass
+    except Exception as _err:
+        log.warning("erro ignorado: %s", _err)
     return padrao
 
 
@@ -467,10 +467,10 @@ def _montar_contexto_expansao(conta: dict, saude: dict,
                 if (hoje - datetime.fromisoformat(venc)).days > 0:
                     pagamentos_em_dia = False
                     break
-            except Exception:
-                pass
-    except Exception:
-        pass
+            except Exception as _err:
+                log.warning("erro ignorado: %s", _err)
+    except Exception as _err:
+        log.warning("erro ignorado: %s", _err)
 
     # NPS promotor (score >= 9 nos últimos 90 dias)
     nps_promotor = False
@@ -481,8 +481,8 @@ def _montar_contexto_expansao(conta: dict, saude: dict,
                 if _dias_desde(r.get("respondido_em", "")) <= 90:
                     nps_promotor = True
                     break
-    except Exception:
-        pass
+    except Exception as _err:
+        log.warning("erro ignorado: %s", _err)
 
     return {
         "score_saude":            saude.get("score_saude", 0),

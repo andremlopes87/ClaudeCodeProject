@@ -367,8 +367,8 @@ class LLMRouter:
                     "modelo_simulado": "",
                     "ciclo_id":        contexto.get("ciclo_id"),
                 })
-            except Exception:
-                pass
+            except Exception as _err:
+                log.warning("erro ignorado: %s", _err)
             return resp_err
 
     # ─── Auxiliares ──────────────────────────────────────────────────────────
@@ -511,8 +511,8 @@ class LLMRouter:
                 if caminho.exists():
                     with open(caminho, encoding="utf-8") as f:
                         ctx[chave] = json.load(f)
-            except Exception:
-                pass
+            except Exception as _err:
+                log.warning("erro ignorado: %s", _err)
         return ctx
 
     def _montar_system_prompt(self, instrucao_tarefa: str) -> str:

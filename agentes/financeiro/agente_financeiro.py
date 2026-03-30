@@ -230,8 +230,8 @@ def executar() -> dict:
         _n_linked = associar_contas_a_receber_a_contas()
         if _n_linked:
             log.info(f"[contas] {_n_linked} item(ns) em contas_a_receber vinculados a conta_id")
-    except Exception:
-        pass
+    except Exception as _err:
+        logging.warning("erro ignorado: %s", _err)
 
     # ── ETAPA 8c: Gerar recebíveis de contratos/planos pendentes ─────────
     n_recebiveis_contratos = 0
@@ -296,8 +296,8 @@ def executar() -> dict:
                 f"risco_caixa={'sim' if posicao.get('risco_caixa') else 'nao'}"
             )
         })
-    except Exception:
-        pass
+    except Exception as _err:
+        logging.warning("erro ignorado: %s", _err)
 
     log.info("=" * 60)
     log.info(f"AGENTE FINANCEIRO — concluido")

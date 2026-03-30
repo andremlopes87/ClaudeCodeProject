@@ -113,8 +113,8 @@ def consolidar_painel_conselho(
         if saude_arq.exists():
             with open(saude_arq, "r", encoding="utf-8") as _f:
                 saude = json.load(_f)
-    except Exception:
-        pass
+    except Exception as _err:
+        logger.warning("erro ignorado: %s", _err)
 
     # Identidade da empresa (resumo para painel)
     identidade_resumo = {}
@@ -126,8 +126,8 @@ def consolidar_painel_conselho(
             "nome_exibicao":  _id.get("nome_exibicao", ""),
             "descricao_curta": _id.get("descricao_curta", ""),
         }
-    except Exception:
-        pass
+    except Exception as _err:
+        logger.warning("erro ignorado: %s", _err)
 
     return {
         "atualizado_em":    datetime.now().isoformat(timespec="seconds"),
@@ -284,8 +284,8 @@ def gerar_feed_eventos_empresa() -> dict:
                     severidade=_sev_map_exp.get(hev.get("evento", ""), "info"),
                     timestamp=hev.get("registrado_em", ""),
                 ))
-    except Exception:
-        pass
+    except Exception as _err:
+        logger.warning("erro ignorado: %s", _err)
 
     # Incidentes operacionais recentes
     try:
@@ -305,8 +305,8 @@ def gerar_feed_eventos_empresa() -> dict:
                     severidade=sev_map.get(inc.get("severidade","baixa"), "info"),
                     timestamp=inc.get("detectado_em", ""),
                 ))
-    except Exception:
-        pass
+    except Exception as _err:
+        logger.warning("erro ignorado: %s", _err)
 
     # Ordenar por timestamp desc, limitar 100
     eventos_ordenados = sorted(

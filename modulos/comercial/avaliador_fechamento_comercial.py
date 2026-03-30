@@ -207,8 +207,8 @@ def avaliar_sinais_de_fechamento(opp: dict, resultados_opp: list, insumos_opp: l
         elif "proposta_gerada" in sinais_prop:
             score += 2
             sinais.append("proposta_gerada")
-    except Exception:
-        pass
+    except Exception as _err:
+        logger.warning("erro ignorado: %s", _err)
 
     # Sinal de proposta enviada (sem resposta ainda — menos forte que aprovada)
     proposta_enviada = opp.get("proposta_status") in {"enviada", "em_fila_assistida"}
@@ -290,8 +290,8 @@ def decidir_promocao(opp: dict, score: int, sinais: list, insumos_opp: list,
                 "acao":   "escalar",
                 "motivo": f"gatilho_oferta: {_motivo_of}",
             }
-    except Exception:
-        pass
+    except Exception as _err:
+        logger.warning("erro ignorado: %s", _err)
 
     # GANHO: score alto + linha + sem bloqueios (ja filtrados antes)
     # Com exigir_escopo ativado: bloquear ganho se sem escopo

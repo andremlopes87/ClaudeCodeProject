@@ -227,5 +227,5 @@ def _registrar_incidente(msg: str) -> None:
             f.flush()
             os.fsync(f.fileno())
         os.replace(tmp, _ARQ_INCIDENTES)
-    except Exception:
-        pass
+    except Exception as _err:
+        log.warning("erro ignorado: %s", _err)

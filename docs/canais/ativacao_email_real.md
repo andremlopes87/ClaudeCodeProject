@@ -3,7 +3,7 @@
 **Versão:** v0.42
 **Data:** 2026-03-23
 **Empresa:** Vetor Operações Ltda
-**Domínio planejado:** vetorai.com.br
+**Domínio planejado:** vetorops.com.br
 
 ---
 
@@ -27,7 +27,7 @@ Após cada etapa externa, atualizar os campos correspondentes:
   "provedor_email_planejado": "Zoho Mail",
   "smtp_host_planejado":      "smtp.zoho.com",
   "smtp_porta_planejada":     587,
-  "smtp_usuario_planejado":   "comercial@vetorai.com.br",
+  "smtp_usuario_planejado":   "comercial@vetorops.com.br",
   "dominio_registrado":       true,    // após registrar no registro.br
   "dns_configurado":          true,    // após nameservers apontarem
   "mx_configurado":           true,    // após MX records configurados
@@ -59,9 +59,9 @@ Após configurar o email real:
 
 ```json
 {
-  "email_remetente_planejado": "comercial@vetorai.com.br",
+  "email_remetente_planejado": "comercial@vetorops.com.br",
   "nome_remetente":            "Equipe Vetor",
-  "responder_para_planejado":  "comercial@vetorai.com.br",
+  "responder_para_planejado":  "comercial@vetorops.com.br",
   "whitelist_emails_teste":    ["seu@email.pessoal.com"],
   "modo":                      "assistido"   // MANTER assistido até validar
 }
@@ -74,7 +74,7 @@ Após configurar o email real:
 ### Registro de domínio (registro.br)
 
 1. Criar conta em registro.br
-2. Registrar `vetorai.com.br`
+2. Registrar `vetorops.com.br`
 3. Apontar nameservers para o provedor de email ou zona DNS separada
 4. Aguardar propagação (2-48h)
 
@@ -99,9 +99,9 @@ Definir no ambiente de execução:
 ```bash
 export SMTP_HOST=smtp.zoho.com
 export SMTP_PORTA=587
-export SMTP_USUARIO=comercial@vetorai.com.br
+export SMTP_USUARIO=comercial@vetorops.com.br
 export SMTP_SENHA=senha_de_aplicativo_aqui
-export SMTP_REMETENTE="Equipe Vetor <comercial@vetorai.com.br>"
+export SMTP_REMETENTE="Equipe Vetor <comercial@vetorops.com.br>"
 ```
 
 ---

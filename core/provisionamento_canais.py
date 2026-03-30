@@ -1,3 +1,4 @@
+import logging
 """
 core/provisionamento_canais.py — Camada de provisionamento de canais reais (v0.42).
 
@@ -37,7 +38,7 @@ _CHECKLIST_PADRAO = [
     {
         "id":          "dominio_registrado",
         "titulo":      "Domínio registrado",
-        "descricao":   "Registrar vetorai.com.br no registro.br ou registrador confiável",
+        "descricao":   "Registrar vetorops.com.br no registro.br ou registrador confiável",
         "obrigatorio": True,
         "status":      "pendente",
         "observacoes": "",
@@ -55,7 +56,7 @@ _CHECKLIST_PADRAO = [
     {
         "id":          "caixa_principal_criada",
         "titulo":      "Caixa principal criada (contato@)",
-        "descricao":   "Caixa contato@vetorai.com.br criada no provedor de email",
+        "descricao":   "Caixa contato@vetorops.com.br criada no provedor de email",
         "obrigatorio": False,
         "status":      "pendente",
         "observacoes": "",
@@ -64,7 +65,7 @@ _CHECKLIST_PADRAO = [
     {
         "id":          "caixa_comercial_criada",
         "titulo":      "Caixa comercial criada (comercial@)",
-        "descricao":   "Caixa comercial@vetorai.com.br criada — usada como remetente padrão",
+        "descricao":   "Caixa comercial@vetorops.com.br criada — usada como remetente padrão",
         "obrigatorio": True,
         "status":      "pendente",
         "observacoes": "",
@@ -73,7 +74,7 @@ _CHECKLIST_PADRAO = [
     {
         "id":          "caixa_financeiro_criada",
         "titulo":      "Caixa financeiro criada (financeiro@)",
-        "descricao":   "Caixa financeiro@vetorai.com.br criada",
+        "descricao":   "Caixa financeiro@vetorops.com.br criada",
         "obrigatorio": False,
         "status":      "pendente",
         "observacoes": "",
@@ -168,7 +169,7 @@ def _prov_padrao() -> dict:
     agora = datetime.now().isoformat(timespec="seconds")
     # Ler identidade/canais para pré-preencher planejados
     nome_empresa = "Vetor Operações Ltda"
-    dominio      = "vetorai.com.br"
+    dominio      = "vetorops.com.br"
     try:
         from core.identidade_empresa import carregar_identidade, carregar_canais
         ident  = carregar_identidade()
@@ -337,8 +338,8 @@ def _avaliar_prontidao(prov: dict, checklist: list) -> tuple[bool, list]:
         cfg = carregar_config_canal_email()
         if not cfg.get("email_remetente_planejado"):
             bloqueios.append("config_canal_email: email_remetente_planejado vazio")
-    except Exception:
-        pass
+    except Exception as _err:
+        logging.warning("erro ignorado: %s", _err)
 
     return len(bloqueios) == 0, bloqueios
 

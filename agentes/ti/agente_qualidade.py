@@ -306,8 +306,8 @@ def _extrair_publicas(py: Path) -> list:
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
                 if not node.name.startswith("_"):
                     publicas.append(node.name)
-    except Exception:
-        pass
+    except Exception as _err:
+        log.warning("erro ignorado: %s", _err)
     return publicas
 
 
@@ -481,8 +481,8 @@ def _etapa4_dependencias() -> dict:
                 for m in _RE_IMPORT.finditer(src):
                     raiz = m.group(1).split(".")[0].lower()
                     importados.add(raiz)
-            except Exception:
-                pass
+            except Exception as _err:
+                log.warning("erro ignorado: %s", _err)
 
     # Stdlib e modulos internos (excluir do comparativo)
     _STDLIB = {

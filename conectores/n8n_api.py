@@ -47,8 +47,8 @@ def _carregar_config() -> dict:
     if _ARQ_CONFIG.exists():
         try:
             cfg.update(json.loads(_ARQ_CONFIG.read_text(encoding="utf-8")))
-        except Exception:
-            pass
+        except Exception as _err:
+            logger.warning("erro ignorado: %s", _err)
     if os.environ.get("N8N_URL"):
         cfg["url_base"] = os.environ["N8N_URL"].rstrip("/")
     if os.environ.get("N8N_API_KEY"):

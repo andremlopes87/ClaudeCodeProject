@@ -48,8 +48,8 @@ def _ler(arq: Path, padrao):
     try:
         if arq.exists():
             return json.loads(arq.read_text(encoding="utf-8")) or padrao
-    except Exception:
-        pass
+    except Exception as _err:
+        log.warning("erro ignorado: %s", _err)
     return padrao
 
 
@@ -166,8 +166,8 @@ def calcular_saude_conta(conta_id: str,
                 elif nps_int <= 5:
                     score -= 15
                     motivos.append(f"nps={nps_int} -15")
-            except (ValueError, TypeError):
-                pass
+            except (ValueError, TypeError) as _err:
+                log.warning("erro ignorado: %s", _err)
 
     # Ausência longa de acompanhamento com entrega concluída
     if concluidas and acomps_conta:
@@ -184,8 +184,8 @@ def calcular_saude_conta(conta_id: str,
                 elif dias <= 14:
                     score += 5
                     motivos.append("acompanhamento recente +5")
-            except ValueError:
-                pass
+            except ValueError as _err:
+                log.warning("erro ignorado: %s", _err)
 
     score = max(0, min(100, score))
 
@@ -426,8 +426,8 @@ def sugerir_expansao_para_conta(conta_id: str,
                         "prioridade":        "baixa",
                     })
                     break  # só uma renovação por vez
-            except ValueError:
-                pass
+            except ValueError as _err:
+                log.warning("erro ignorado: %s", _err)
 
     # Reativação: cliente inativo com saúde razoável
     if (conta.get("status_relacionamento") == "cliente_inativo"

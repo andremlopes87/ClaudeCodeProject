@@ -1,3 +1,4 @@
+import logging
 """
 core/identidade_empresa.py — Camada de identidade operacional da empresa (v0.39).
 
@@ -322,8 +323,8 @@ def resumir_identidade_para_painel() -> dict:
     if _ARQ_HISTORICO.exists():
         try:
             historico = json.loads(_ARQ_HISTORICO.read_text(encoding="utf-8"))
-        except Exception:
-            pass
+        except Exception as _err:
+            logging.warning("erro ignorado: %s", _err)
 
     return {
         "identidade":      identidade,

@@ -692,8 +692,8 @@ def _ler_config_canal() -> dict:
         try:
             with open(arq, encoding="utf-8") as f:
                 return json.load(f)
-        except Exception:
-            pass
+        except Exception as _err:
+            log.warning("erro ignorado: %s", _err)
     return {"modo": "assistido", "habilitado": True}
 
 

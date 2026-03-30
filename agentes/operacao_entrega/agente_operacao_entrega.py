@@ -163,8 +163,8 @@ def executar() -> dict:
                 from core.contas_empresa import vincular_entrega_a_conta
                 vincular_entrega_a_conta(entrega["id"], _conta_id,
                                          origem="agente_operacao_entrega")
-            except Exception:
-                pass
+            except Exception as _err:
+                logging.warning("erro ignorado: %s", _err)
 
         if criada:
             n_abertas += 1
@@ -197,8 +197,8 @@ def executar() -> dict:
                      and p.get("status") in {"enviada", "aprovada_para_envio", "preparada_para_envio"}),
                     None,
                 )
-            except Exception:
-                pass
+            except Exception as _err:
+                logging.warning("erro ignorado: %s", _err)
 
             if _prop_aprovada:
                 entrega["proposta_id"]     = _prop_aprovada["id"]
@@ -1254,8 +1254,8 @@ def _executar_enviar_entrega(entrega: dict, opp: dict, log=None) -> dict:
                 "contexto_oportunidade":  {"contraparte": nome},
             })
             enviou_email = res.get("status") not in ("", None, "erro")
-        except Exception:
-            pass
+        except Exception as _err:
+            logging.warning("erro ignorado: %s", _err)
 
     if whatsapp:
         try:
@@ -1267,8 +1267,8 @@ def _executar_enviar_entrega(entrega: dict, opp: dict, log=None) -> dict:
                 "contexto_oportunidade":  {"contraparte": nome},
             })
             enviou_wpp = res.get("status") not in ("", None, "erro")
-        except Exception:
-            pass
+        except Exception as _err:
+            logging.warning("erro ignorado: %s", _err)
 
     _log.info(f"  [entrega_cliente] {entrega['id']} | email={enviou_email} wpp={enviou_wpp}")
     return {
@@ -1308,8 +1308,8 @@ def _enviar_lembrete_formulario(entrega: dict, opp: dict, tipo_form: str, log) -
                 "abordagem_inicial_tipo": "lembrete_formulario",
                 "contexto_oportunidade":  {"contraparte": nome},
             })
-        except Exception:
-            pass
+        except Exception as _err:
+            logging.warning("erro ignorado: %s", _err)
 
     log.info(f"  [lembrete_form] {entrega['id']} tipo={tipo_form}")
 

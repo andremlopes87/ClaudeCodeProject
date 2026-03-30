@@ -76,8 +76,8 @@ def _registrar_feed(evento: str, detalhes: dict) -> None:
             **detalhes,
         })
         salvar_json_fixo(feed[-500:], _ARQ_FEED.name, _ARQ_FEED.parent)
-    except Exception:
-        pass
+    except Exception as _err:
+        logger.warning("erro ignorado: %s", _err)
 
 
 def _agora() -> str:

@@ -57,8 +57,8 @@ def _carregar_config() -> dict:
     if _ARQ_CONFIG.exists():
         try:
             cfg.update(json.loads(_ARQ_CONFIG.read_text(encoding="utf-8")))
-        except Exception:
-            pass
+        except Exception as _err:
+            logger.warning("erro ignorado: %s", _err)
     if os.environ.get("GOOGLE_CALENDAR_CREDENTIALS_PATH"):
         cfg["credentials_path"] = os.environ["GOOGLE_CALENDAR_CREDENTIALS_PATH"]
     return cfg
@@ -414,8 +414,8 @@ class GoogleCalendarConnector:
                         "profissional":   props.get("profissional", "—"),
                         "evento_id":      ev["id"],
                     })
-                except Exception:
-                    pass
+                except Exception as _err:
+                    logger.warning("erro ignorado: %s", _err)
 
         return disponiveis
 
@@ -777,7 +777,7 @@ if __name__ == "__main__":
     horario_ag = f"{amanha}T10:00:00"
     evt = gc.criar_agendamento(cal["calendar_id"], {
         "nome_cliente":     "Maria Silva",
-        "telefone_cliente": "17999887766",
+        "telefone_cliente": "(17) 99988-7766",
         "servico":          "Corte + Barba",
         "horario":          horario_ag,
         "duracao_minutos":  60,

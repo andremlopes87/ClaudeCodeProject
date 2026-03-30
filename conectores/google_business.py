@@ -98,8 +98,8 @@ def _carregar_config() -> dict:
     if _ARQ_CONFIG.exists():
         try:
             cfg.update(json.loads(_ARQ_CONFIG.read_text(encoding="utf-8")))
-        except Exception:
-            pass
+        except Exception as _err:
+            logger.warning("erro ignorado: %s", _err)
     # Variáveis de ambiente sobrescrevem o arquivo
     if os.environ.get("GOOGLE_BUSINESS_CREDENTIALS_PATH"):
         cfg["credentials_path"] = os.environ["GOOGLE_BUSINESS_CREDENTIALS_PATH"]
@@ -809,7 +809,7 @@ if __name__ == "__main__":
         "endereco_bairro":    "Centro",
         "endereco_cidade":    "Sao Paulo",
         "endereco_cep":       "01000-000",
-        "telefone_principal": "11912345678",
+        "telefone_principal": "(11) 91234-5678",
         "descricao_curta":    "Barbearia no centro com atendimento de qualidade.",
         "horario_funcionamento": {
             "seg": {"fechado": False, "abertura": "08:00", "fechamento": "18:00"},
@@ -833,7 +833,7 @@ if __name__ == "__main__":
 
     # adicionar_link_whatsapp
     print("\n[4] adicionar_link_whatsapp...")
-    ok = gb.adicionar_link_whatsapp(perfil_id, "11912345678")
+    ok = gb.adicionar_link_whatsapp(perfil_id, "(11) 91234-5678")
     print(f"    ok={ok}")
 
     # verificar_perfil

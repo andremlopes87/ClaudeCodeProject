@@ -249,8 +249,8 @@ def executar() -> dict:
                 f"{n_delib_pendentes} delib_pendentes, {n_handoffs_criados} handoffs"
             )
         })
-    except Exception:
-        pass
+    except Exception as _err:
+        logging.warning("erro ignorado: %s", _err)
 
     return {
         "agente":                   NOME_AGENTE,

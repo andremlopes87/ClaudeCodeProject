@@ -1,3 +1,4 @@
+import logging
 """
 core/formularios_entrega.py — Coleta estruturada de dados dos clientes via formulário web.
 
@@ -234,8 +235,8 @@ def listar_formularios() -> list:
         mapa   = {c["id"]: c.get("nome_empresa", c["id"]) for c in contas}
         for f in formularios:
             f["nome_conta"] = mapa.get(f["conta_id"], f["conta_id"])
-    except Exception:
-        pass
+    except Exception as _err:
+        logging.warning("erro ignorado: %s", _err)
 
     return formularios
 
@@ -448,8 +449,8 @@ def _notificar_feed(conta_id: str, tipo: str) -> None:
             "timestamp":        _agora(),
         })
         salvar_json_fixo(feed[-500:], "feed_eventos_empresa.json")
-    except Exception:
-        pass
+    except Exception as _err:
+        logging.warning("erro ignorado: %s", _err)
 
 
 def _avancar_checklist(conta_id: str, tipo: str) -> None:
@@ -485,8 +486,8 @@ def _avancar_checklist(conta_id: str, tipo: str) -> None:
 
         if alterado:
             salvar_json_fixo(pipeline, "pipeline_entrega.json")
-    except Exception:
-        pass
+    except Exception as _err:
+        logging.warning("erro ignorado: %s", _err)
 
 
 # ─── Snapshot para o painel ───────────────────────────────────────────────────
